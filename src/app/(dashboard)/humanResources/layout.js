@@ -113,7 +113,7 @@ export default function HRManagerLayout({ children }) {
                 />
                 <div className={`flex-grow transition-all duration-300 ease-in-out ${isDesktopSidebarExpanded ? 'md:ml-64' : 'md:ml-20'}`}>
                     <TopNav onMobileMenuToggle={handleMobileMenuToggle} profile={profile} />
-                    <div className="p-4">
+                    <div className="py-4 px-7">
                         {children}
                     </div>
                 </div>
