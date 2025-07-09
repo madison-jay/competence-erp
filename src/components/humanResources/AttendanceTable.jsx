@@ -118,7 +118,7 @@ const Attendance = () => {
     };
 
     return (
-        <div className="bg-white p-6 rounded-lg border-[0.5px] border-solid border-[#DDD9D9] shadow-sm max-w-4xl mx-auto my-8 font-inter">
+        <div className="bg-white p-6 rounded-lg border-[0.5px] border-solid border-[#DDD9D9] shadow-sm mx-auto my-8 font-inter">
             {/* Header section with title and 'See all' button */}
             <div className="flex justify-between items-center mb-6">
                 <h2 className="text-xl font-semibold text-gray-800">Attendance</h2>
@@ -166,8 +166,8 @@ const Attendance = () => {
             </div>
 
             {/* Attendance Table */}
-            <div className="overflow-x-auto rounded-lg border border-gray-200">
-                <table className="min-w-full divide-y divide-gray-200">
+            <div className="overflow-x-auto rounded-lg border border-gray-200 w-[100%] md:w-full">
+                <table className="w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
                         <tr>
                             <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
