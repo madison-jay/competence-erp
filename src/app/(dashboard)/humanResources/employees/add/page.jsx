@@ -2,12 +2,12 @@
 
 import React, { useState, useEffect } from 'react';
 import { createClient } from "@/app/lib/supabase/client";
-import { useRouter } from 'next/navigation'; // Import useRouter
+import { useRouter } from 'next/navigation';
 
 const supabase = createClient();
 
-const AddEmployeePage = () => { // Removed onSave and onCancel props
-    const router = useRouter(); // Initialize router
+const AddEmployeePage = () => {
+    const router = useRouter();
 
     const [newEmployee, setNewEmployee] = useState({
         first_name: '',
@@ -37,14 +37,79 @@ const AddEmployeePage = () => { // Removed onSave and onCancel props
         }));
     };
 
+    const generateDefaultPassword = () => {
+        // Generate a strong, random default password
+        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()_+';
+        let password = '';
+        for (let i = 0; i < 12; i++) { // 12-character password
+            password += chars.charAt(Math.floor(Math.random() * chars.length));
+        }
+        return password;
+    };
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         setLoading(true);
         setSuccessMessage('');
         setErrorMessage('');
 
+        const defaultPassword = generateDefaultPassword();
+        const employeeEmail = newEmployee.email;
+        const employeeFullName = `${newEmployee.first_name} ${newEmployee.last_name}`;
+
         try {
+            // 1. Create user in Supabase Auth
+            // Store 'full_name' and 'role' in user_metadata
+            const { data: authData, error: authError } = await supabase.auth.signUp({
+                email: employeeEmail,
+                password: defaultPassword,
+                options: {
+                    data: {
+                        full_name: employeeFullName, // Pass full name as user metadata
+                        role: 'employee' // Explicitly set role in user_metadata
+                    },
+                    emailRedirectTo: `${window.location.origin}/dashboard`,
+                },
+            });
+
+            if (authError) {
+                if (authError.message.includes('already registered')) {
+                    // If user already exists, we assume they are an employee and proceed to link.
+                    // In a real app, you might want more robust handling here (e.g., admin reset password, or linking to an existing confirmed user).
+                    // For now, we'll try to sign in with the default password to get their user ID.
+                    const { data: existingUser, error: existingUserError } = await supabase.auth.signInWithPassword({
+                        email: employeeEmail,
+                        password: defaultPassword,
+                    });
+                    if (existingUserError && existingUserError.message.includes('Invalid login credentials')) {
+                        setErrorMessage(`User with this email already exists but cannot be assigned with the default password. Please use a different email or reset the existing user's password manually in Supabase Auth.`);
+                        setLoading(false);
+                        return;
+                    } else if (existingUserError) {
+                        setErrorMessage(`Error checking existing user: ${existingUserError.message}`);
+                        setLoading(false);
+                        return;
+                    }
+                    console.log("User already registered, linking existing user:", existingUser.user);
+                    authData.user = existingUser.user;
+                } else {
+                    setErrorMessage(`Failed to create user account: ${authError.message}`);
+                    setLoading(false);
+                    return;
+                }
+            }
+
+            const userId = authData.user?.id;
+
+            if (!userId) {
+                setErrorMessage("Failed to get user ID after authentication.");
+                setLoading(false);
+                return;
+            }
+
+            // 2. Insert employee details into 'employees' table, linked by user_id
             const employeeDataToInsert = {
+                user_id: userId, // Link to Supabase Auth user
                 first_name: newEmployee.first_name,
                 last_name: newEmployee.last_name,
                 email: newEmployee.email,
@@ -60,33 +125,69 @@ const AddEmployeePage = () => { // Removed onSave and onCancel props
                 employment_status: newEmployee.employment_status,
             };
 
-            const { data, error } = await supabase
+            const { error: dbError } = await supabase
                 .from('employees')
-                .insert([employeeDataToInsert])
-                .select();
+                .insert([employeeDataToInsert]);
 
-            if (error) {
-                console.error('Error adding employee:', error);
-                setErrorMessage(`Failed to add employee: ${error.message}`);
+            if (dbError) {
+                console.error('Error adding employee to database:', dbError);
+                setErrorMessage(`Failed to add employee details: ${dbError.message}`);
+                // If DB insert fails, consider rolling back the auth user creation (requires admin client)
+                // await supabase.auth.admin.deleteUser(userId);
             } else {
-                console.log('Employee added successfully:', data);
-                setSuccessMessage('Employee added successfully! Redirecting...');
-                // Redirect to the employee list page after a short delay
+                setSuccessMessage('Employee registered and added successfully! Email with login details is being sent...');
+
+                // 3. Simulate Email Sending (Replace with actual API route call)
+                console.log(`--- SIMULATING EMAIL SEND ---`);
+                console.log(`To: ${employeeEmail}`);
+                console.log(`Subject: Welcome to Your Employee Dashboard!`);
+                console.log(`Body:
+                    Dear ${employeeFullName},
+
+                    Welcome! Your employee dashboard is ready.
+                    You can log in using the following credentials:
+
+                    Username (Email): ${employeeEmail}
+                    Default Password: ${defaultPassword}
+
+                    Please log in and change your password immediately.
+
+                    Dashboard Link: ${window.location.origin}/dashboard
+
+                    Best regards,
+                    Your HR Team
+                `);
+                console.log(`-----------------------------`);
+
+                // In a real application, you would make a fetch call to your Next.js API route here:
+                /*
+                const emailResponse = await fetch('/api/send-welcome-email', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        to: employeeEmail,
+                        subject: 'Welcome to Your Employee Dashboard!',
+                        body: `Dear ${employeeFullName},\n\nWelcome! Your employee dashboard is ready.\nYou can log in using the following credentials:\n\nUsername (Email): ${employeeEmail}\nDefault Password: ${defaultPassword}\n\nPlease log in and change your password immediately.\n\nDashboard Link: ${window.location.origin}/dashboard\n\nBest regards,\nYour HR Team`,
+                    }),
+                });
+                const emailResult = await emailResponse.json();
+                if (!emailResponse.ok) {
+                    console.error('Failed to send welcome email:', emailResult.error);
+                    // Decide if this should block success or just log
+                }
+                */
+
+                // Redirect after a short delay
                 setTimeout(() => {
-                    router.push('/humanResources/employees'); // Adjust path if needed
-                }, 1500); // Redirect after 1.5 seconds
+                    router.push('/humanResources/employees');
+                }, 2500); // Give user time to read success message
             }
         } catch (err) {
-            console.error('Unexpected error:', err);
-            setErrorMessage('An unexpected error occurred.');
+            console.error('Unexpected error during employee registration:', err);
+            setErrorMessage('An unexpected error occurred during registration.');
         } finally {
             setLoading(false);
         }
-    };
-
-    const handleCancel = () => {
-        router.back(); // Go back to the previous page
-        // Or specific path: router.push('/humanResources/employees');
     };
 
     useEffect(() => {
@@ -111,11 +212,15 @@ const AddEmployeePage = () => { // Removed onSave and onCancel props
         return () => clearInterval(intervalId);
     }, []);
 
+    const handleCancel = () => {
+        router.back();
+    };
+
     return (
-        <div className="max-w-[1400px] mx-auto">
+        <div className="max-w-[1400px] mx-auto p-4">
             <div className='flex justify-between items-center mt-5 mb-14'>
                 <div>
-                    <h1 className='text-2xl font-bold '>Add Employee</h1>
+                    <h1 className='text-2xl font-bold text-black'>Add Employee</h1>
                     <p className='text-[#A09D9D] font-medium mt-2'>Fill in the details below to add employee</p>
                 </div>
                 <span className='rounded-[20px] px-3 py-2 border-[0.5px] border-solid border-[#DDD9D9] text-[#A09D9D]'>
@@ -124,23 +229,23 @@ const AddEmployeePage = () => { // Removed onSave and onCancel props
             </div>
 
             {successMessage && (
-                <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative mb-4" role="alert">
+                <div className="bg-white border border-[#b88b1b] text-black px-4 py-3 rounded relative mb-4" role="alert">
                     <strong className="font-bold">Success!</strong>
                     <span className="block sm:inline"> {successMessage}</span>
                 </div>
             )}
             {errorMessage && (
-                <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">
+                <div className="bg-white border border-black text-black px-4 py-3 rounded relative mb-4" role="alert">
                     <strong className="font-bold">Error!</strong>
                     <span className="block sm:inline"> {errorMessage}</span>
                 </div>
             )}
 
-            <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-6 ">
                 {/* First Name */}
                 <div>
-                    <label htmlFor="first_name" className="block text-sm font-medium text-gray-700 mb-1">
-                        First Name <span className="text-red-500">*</span>
+                    <label htmlFor="first_name" className="block text-sm font-medium text-black mb-1">
+                        First Name <span className="text-[#b88b1b]">*</span>
                     </label>
                     <input
                         type="text"
@@ -148,15 +253,15 @@ const AddEmployeePage = () => { // Removed onSave and onCancel props
                         name="first_name"
                         value={newEmployee.first_name}
                         onChange={handleChange}
-                        className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                        className="mt-1 block w-full px-3 py-3 border border-black rounded-md shadow-sm focus:outline-none focus:ring-[#b88b1b] focus:border-[#b88b1b] sm:text-sm text-black bg-white"
                         required
                     />
                 </div>
 
                 {/* Last Name */}
                 <div>
-                    <label htmlFor="last_name" className="block text-sm font-medium text-gray-700 mb-1">
-                        Last Name <span className="text-red-500">*</span>
+                    <label htmlFor="last_name" className="block text-sm font-medium text-black mb-1">
+                        Last Name <span className="text-[#b88b1b]">*</span>
                     </label>
                     <input
                         type="text"
@@ -164,15 +269,15 @@ const AddEmployeePage = () => { // Removed onSave and onCancel props
                         name="last_name"
                         value={newEmployee.last_name}
                         onChange={handleChange}
-                        className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                        className="mt-1 block w-full px-3 py-3 border border-black rounded-md shadow-sm focus:outline-none focus:ring-[#b88b1b] focus:border-[#b88b1b] sm:text-sm text-black bg-white"
                         required
                     />
                 </div>
 
                 {/* Email */}
                 <div>
-                    <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
-                        Email <span className="text-red-500">*</span>
+                    <label htmlFor="email" className="block text-sm font-medium text-black mb-1">
+                        Email <span className="text-[#b88b1b]">*</span>
                     </label>
                     <input
                         type="email"
@@ -180,15 +285,15 @@ const AddEmployeePage = () => { // Removed onSave and onCancel props
                         name="email"
                         value={newEmployee.email}
                         onChange={handleChange}
-                        className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                        className="mt-1 block w-full px-3 py-3 border border-black rounded-md shadow-sm focus:outline-none focus:ring-[#b88b1b] focus:border-[#b88b1b] sm:text-sm text-black bg-white"
                         required
                     />
                 </div>
 
                 {/* Phone Number */}
                 <div>
-                    <label htmlFor="phone_number" className="block text-sm font-medium text-gray-700 mb-1">
-                        Phone Number <span className="text-red-500">*</span>
+                    <label htmlFor="phone_number" className="block text-sm font-medium text-black mb-1">
+                        Phone Number <span className="text-[#b88b1b]">*</span>
                     </label>
                     <input
                         type="tel"
@@ -196,15 +301,15 @@ const AddEmployeePage = () => { // Removed onSave and onCancel props
                         name="phone_number"
                         value={newEmployee.phone_number}
                         onChange={handleChange}
-                        className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                        className="mt-1 block w-full px-3 py-3 border border-black rounded-md shadow-sm focus:outline-none focus:ring-[#b88b1b] focus:border-[#b88b1b] sm:text-sm text-black bg-white"
                         required
                     />
                 </div>
 
                 {/* Address */}
                 <div className="md:col-span-2">
-                    <label htmlFor="address" className="block text-sm font-medium text-gray-700 mb-1">
-                        Address <span className="text-red-500">*</span>
+                    <label htmlFor="address" className="block text-sm font-medium text-black mb-1">
+                        Address <span className="text-[#b88b1b]">*</span>
                     </label>
                     <input
                         type="text"
@@ -212,15 +317,15 @@ const AddEmployeePage = () => { // Removed onSave and onCancel props
                         name="address"
                         value={newEmployee.address}
                         onChange={handleChange}
-                        className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                        className="mt-1 block w-full px-3 py-3 border border-black rounded-md shadow-sm focus:outline-none focus:ring-[#b88b1b] focus:border-[#b88b1b] sm:text-sm text-black bg-white"
                         required
                     />
                 </div>
 
                 {/* City */}
                 <div>
-                    <label htmlFor="city" className="block text-sm font-medium text-gray-700 mb-1">
-                        City <span className="text-red-500">*</span>
+                    <label htmlFor="city" className="block text-sm font-medium text-black mb-1">
+                        City <span className="text-[#b88b1b]">*</span>
                     </label>
                     <input
                         type="text"
@@ -228,15 +333,15 @@ const AddEmployeePage = () => { // Removed onSave and onCancel props
                         name="city"
                         value={newEmployee.city}
                         onChange={handleChange}
-                        className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                        className="mt-1 block w-full px-3 py-3 border border-black rounded-md shadow-sm focus:outline-none focus:ring-[#b88b1b] focus:border-[#b88b1b] sm:text-sm text-black bg-white"
                         required
                     />
                 </div>
 
                 {/* State */}
                 <div>
-                    <label htmlFor="state" className="block text-sm font-medium text-gray-700 mb-1">
-                        State <span className="text-red-500">*</span>
+                    <label htmlFor="state" className="block text-sm font-medium text-black mb-1">
+                        State <span className="text-[#b88b1b]">*</span>
                     </label>
                     <input
                         type="text"
@@ -244,14 +349,14 @@ const AddEmployeePage = () => { // Removed onSave and onCancel props
                         name="state"
                         value={newEmployee.state}
                         onChange={handleChange}
-                        className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                        className="mt-1 block w-full px-3 py-3 border border-black rounded-md shadow-sm focus:outline-none focus:ring-[#b88b1b] focus:border-[#b88b1b] sm:text-sm text-black bg-white"
                         required
                     />
                 </div>
 
                 {/* Zip Code */}
                 <div>
-                    <label htmlFor="zip_code" className="block text-sm font-medium text-gray-700 mb-1">
+                    <label htmlFor="zip_code" className="block text-sm font-medium text-black mb-1">
                         Zip Code
                     </label>
                     <input
@@ -260,14 +365,14 @@ const AddEmployeePage = () => { // Removed onSave and onCancel props
                         name="zip_code"
                         value={newEmployee.zip_code}
                         onChange={handleChange}
-                        className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                        className="mt-1 block w-full px-3 py-3 border border-black rounded-md shadow-sm focus:outline-none focus:ring-[#b88b1b] focus:border-[#b88b1b] sm:text-sm text-black bg-white"
                     />
                 </div>
 
                 {/* Country */}
                 <div>
-                    <label htmlFor="country" className="block text-sm font-medium text-gray-700 mb-1">
-                        Country <span className="text-red-500">*</span>
+                    <label htmlFor="country" className="block text-sm font-medium text-black mb-1">
+                        Country <span className="text-[#b88b1b]">*</span>
                     </label>
                     <input
                         type="text"
@@ -275,15 +380,15 @@ const AddEmployeePage = () => { // Removed onSave and onCancel props
                         name="country"
                         value={newEmployee.country}
                         onChange={handleChange}
-                        className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                        className="mt-1 block w-full px-3 py-3 border border-black rounded-md shadow-sm focus:outline-none focus:ring-[#b88b1b] focus:border-[#b88b1b] sm:text-sm text-black bg-white"
                         required
                     />
                 </div>
 
                 {/* Date of Birth */}
                 <div>
-                    <label htmlFor="date_of_birth" className="block text-sm font-medium text-gray-700 mb-1">
-                        Date of Birth <span className="text-red-500">*</span>
+                    <label htmlFor="date_of_birth" className="block text-sm font-medium text-black mb-1">
+                        Date of Birth <span className="text-[#b88b1b]">*</span>
                     </label>
                     <input
                         type="date"
@@ -291,15 +396,15 @@ const AddEmployeePage = () => { // Removed onSave and onCancel props
                         name="date_of_birth"
                         value={newEmployee.date_of_birth}
                         onChange={handleChange}
-                        className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                        className="mt-1 block w-full px-3 py-3 border border-black rounded-md shadow-sm focus:outline-none focus:ring-[#b88b1b] focus:border-[#b88b1b] sm:text-sm text-black bg-white"
                         required
                     />
                 </div>
 
                 {/* Hire Date */}
                 <div>
-                    <label htmlFor="hire_date" className="block text-sm font-medium text-gray-700 mb-1">
-                        Hire Date <span className="text-red-500">*</span>
+                    <label htmlFor="hire_date" className="block text-sm font-medium text-black mb-1">
+                        Hire Date <span className="text-[#b88b1b]">*</span>
                     </label>
                     <input
                         type="date"
@@ -307,15 +412,16 @@ const AddEmployeePage = () => { // Removed onSave and onCancel props
                         name="hire_date"
                         value={newEmployee.hire_date}
                         onChange={handleChange}
-                        className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                        className="mt-1 block w-full px-3 py-3 border border-black rounded-md shadow-sm focus:outline-none focus:ring-[#b88b1b] focus:border-[#b88b1b] sm:text-sm text-black bg-white"
                         required
                     />
                 </div>
 
+
                 {/* Salary */}
                 <div>
-                    <label htmlFor="salary" className="block text-sm font-medium text-gray-700 mb-1">
-                        Salary <span className="text-red-500">*</span>
+                    <label htmlFor="salary" className="block text-sm font-medium text-black mb-1">
+                        Salary <span className="text-[#b88b1b]">*</span>
                     </label>
                     <input
                         type="number"
@@ -323,7 +429,7 @@ const AddEmployeePage = () => { // Removed onSave and onCancel props
                         name="salary"
                         value={newEmployee.salary}
                         onChange={handleChange}
-                        className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                        className="mt-1 block w-full px-3 py-3 border border-black rounded-md shadow-sm focus:outline-none focus:ring-[#b88b1b] focus:border-[#b88b1b] sm:text-sm text-black bg-white"
                         step="0.01"
                         required
                     />
@@ -331,15 +437,15 @@ const AddEmployeePage = () => { // Removed onSave and onCancel props
 
                 {/* Employment Status */}
                 <div>
-                    <label htmlFor="employment_status" className="block text-sm font-medium text-gray-700 mb-1">
-                        Employment Status <span className="text-red-500">*</span>
+                    <label htmlFor="employment_status" className="block text-sm font-medium text-black mb-1">
+                        Employment Status <span className="text-[#b88b1b]">*</span>
                     </label>
                     <select
                         id="employment_status"
                         name="employment_status"
                         value={newEmployee.employment_status}
                         onChange={handleChange}
-                        className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                        className="mt-1 block w-full px-3 py-3 border border-black rounded-md shadow-sm focus:outline-none focus:ring-[#b88b1b] focus:border-[#b88b1b] sm:text-sm text-black bg-white"
                     >
                         <option value="Active">Active</option>
                         <option value="On Leave">On Leave</option>
@@ -354,14 +460,14 @@ const AddEmployeePage = () => { // Removed onSave and onCancel props
                     <button
                         type="button"
                         onClick={handleCancel}
-                        className="px-6 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-100 transition-colors cursor-pointer"
+                        className="px-6 py-3 border border-black rounded-md text-black hover:bg-black hover:text-white transition-colors cursor-pointer"
                         disabled={loading}
                     >
                         Cancel
                     </button>
                     <button
                         type="submit"
-                        className="px-6 py-2 bg-[#d19d19] text-white rounded-md hover:bg-[#5e460b] transition-colors shadow-md cursor-pointer"
+                        className="px-6 py-3 bg-[#b88b1b] text-white rounded-md hover:bg-black transition-colors shadow-md cursor-pointer"
                         disabled={loading}
                     >
                         {loading ? 'Adding...' : 'Add Employee'}
