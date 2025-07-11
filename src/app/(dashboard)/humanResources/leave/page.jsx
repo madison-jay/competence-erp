@@ -1,6 +1,5 @@
 "use client"
 
-import Link from 'next/link';
 import React, { useState, useEffect, useMemo } from 'react';
 
 const DEFAULT_AVATAR = 'https://placehold.co/40x40/cccccc/000000?text=👤';
