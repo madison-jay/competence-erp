@@ -1,6 +1,7 @@
 import { Roboto, Roboto_Serif } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "react-hot-toast";
+import { icon } from "@fortawesome/fontawesome-svg-core";
 
 const roboto = Roboto({
   variable: "--font-roboto",
