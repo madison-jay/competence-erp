@@ -1,11 +1,12 @@
 "use client"
 
-import Link from 'next/link';
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { createClient } from "@/app/lib/supabase/client"; // Your local Supabase client import
-import { useRouter } from 'next/navigation'; // Import useRouter for navigation
+import { createClient } from "@/app/lib/supabase/client";
+import AddEmployeeModal from '@/components/humanResources/employees/AddEmployee';
+import EmployeeDetailModal from '@/components/humanResources/employees/EmployeeDetails';
+import EditEmployeeModal from '@/components/humanResources/employees/EditEmployee';
 
-const supabase = createClient(); // Initialize your Supabase client
+const supabase = createClient();
 
 const DEFAULT_AVATAR = 'https://placehold.co/40x40/cccccc/000000?text=👤';
 
@@ -16,13 +17,15 @@ const formatDate = (isoString) => {
     return date.toLocaleDateString('en-US', options).replace(/(\w+) (\d+), (\d+)/, '$2 of $1 $3');
 };
 
-const EmployeeRow = ({ employee, onEdit, onDelete }) => { // Added onEdit and onDelete props
-    const [imgSrc, setImgSrc] = useState(employee.avatar || DEFAULT_AVATAR);
+const EmployeeRow = ({ employee, onEdit, onView }) => {
+    const [imgSrc, setImgSrc] = useState(employee.avatar_url || DEFAULT_AVATAR);
 
+    // Handles image loading errors, falling back to a default avatar
     const handleImageError = () => {
         setImgSrc(DEFAULT_AVATAR);
     };
 
+    // Determines the Tailwind CSS classes for the employment status badge
     const getStatusColor = (status) => {
         switch (status) {
             case 'Active':
@@ -62,7 +65,7 @@ const EmployeeRow = ({ employee, onEdit, onDelete }) => { // Added onEdit and on
                 {employee.phone_number || '—'}
             </td>
             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                {employee.position || 'N/A'}
+                {employee.position_id || 'N/A'}
             </td>
             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                 {formatDate(employee.date_of_birth)}
@@ -75,9 +78,19 @@ const EmployeeRow = ({ employee, onEdit, onDelete }) => { // Added onEdit and on
                     {employee.employment_status}
                 </span>
             </td>
-            <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                 <button
-                    onClick={() => onEdit(employee.id)} // Call onEdit with employee ID
+                    onClick={() => onView(employee)}
+                    className="text-gray-600 hover:text-gray-800 mr-2 p-1 rounded-md hover:bg-gray-50"
+                    title="View Details"
+                >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 inline-block" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                    </svg>
+                </button>
+                <button
+                    onClick={() => onEdit(employee)}
                     className="text-blue-600 hover:text-blue-800 mr-2 p-1 rounded-md hover:bg-blue-50"
                     title="Edit"
                 >
@@ -85,88 +98,111 @@ const EmployeeRow = ({ employee, onEdit, onDelete }) => { // Added onEdit and on
                         <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.38-2.828-2.829z" />
                     </svg>
                 </button>
-                <button
-                    onClick={() => onDelete(employee.id)} // Call onDelete with employee ID
-                    className="text-red-600 hover:text-red-800 p-1 rounded-md hover:bg-red-50"
-                    title="Delete"
-                >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 inline-block" viewBox="0 0 20 20" fill="currentColor">
-                        <path fillRule="evenodd" d="M9 2a1 1 0 01-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm6 0a1 1 0 11-2 0v6a1 1 0 112 0V8z" clipRule="evenodd" />
-                    </svg>
-                </button>
             </td>
         </tr>
     );
 };
 
+/**
+ * EmployeeListTable component displays a list of employees with search, pagination,
+ * and actions to add, view, and edit employees.
+ */
 const EmployeeListTable = () => {
-    const router = useRouter(); // Initialize useRouter
     const [searchTerm, setSearchTerm] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
     const [employees, setEmployees] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
-    const [successMessage, setSuccessMessage] = useState(''); // State for success messages
+    const [successMessage, setSuccessMessage] = useState(''); // Use setSuccessMessage
     const employeesPerPage = 10;
     const [currentDateTime, setCurrentDateTime] = useState('');
 
-    // Function to fetch employees from Supabase
+    const [isAddEmployeeModalOpen, setIsAddEmployeeModalOpen] = useState(false);
+    const [isViewEmployeeModalOpen, setIsViewEmployeeModalOpen] = useState(false);
+    const [selectedEmployee, setSelectedEmployee] = useState(null); // Used for viewing details
+
+    // State for the Edit Employee Modal
+    const [isEditEmployeeModalOpen, setIsEditEmployeeModalOpen] = useState(false);
+    const [selectedEmployeeForEdit, setSelectedEmployeeForEdit] = useState(null); // Holds employee data for editing
+
+    // Fetches employee data from Supabase, including linked position and department names.
     const fetchEmployees = useCallback(async () => {
         setLoading(true);
         setError(null);
+        // Select all employee fields and join with 'positions' and 'departments' tables
         const { data, error } = await supabase
             .from('employees')
-            .select('*');
+            .select(`
+                *,
+                positions (id, title),
+                departments (id, name)
+            `);
 
         if (error) {
             console.error("Error fetching employees:", error);
             setError("Failed to fetch employees. Please try again.");
         } else {
-            console.log("Supabase data fetched:", data);
-            setEmployees(data || []);
+            // Map the fetched data to include position_id and department_id as their names/titles
+            const employeesWithDetails = data.map(employee => ({
+                ...employee,
+                position_id: employee.positions?.id, // Keep ID for edit modal
+                position_title: employee.positions?.title || 'N/A', // Display title
+                department_id: employee.departments?.id, // Keep ID for edit modal
+                department_name: employee.departments?.name || 'N/A', // Display name
+            }));
+            setEmployees(employeesWithDetails || []);
         }
         setLoading(false);
-    }, []); // Empty dependency array means this function is created once
+    }, []);
 
+    // Effect hook to fetch employees on component mount
     useEffect(() => {
         fetchEmployees();
-    }, [fetchEmployees]); // Re-fetch when fetchEmployees function changes (rarely, due to useCallback)
+    }, [fetchEmployees]);
 
-    const handleEdit = (id) => {
-        router.push(`/humanResources/employees/edit/${id}`); // Navigate to an edit page for the specific employee
+    /**
+     * Handles the edit action for an employee.
+     * Sets the selected employee data for editing and opens the edit modal.
+     * @param {object} employeeData - The full employee object to be edited.
+     */
+    const handleEdit = (employeeData) => {
+        setSelectedEmployeeForEdit(employeeData);
+        setIsEditEmployeeModalOpen(true);
     };
 
-    const handleDelete = async (id) => {
-        if (!window.confirm("Are you sure you want to delete this employee? This action cannot be undone.")) {
-            return; // User cancelled the deletion
-        }
-
-        setLoading(true);
-        setSuccessMessage('');
-        setError(null);
-
-        try {
-            const { error } = await supabase
-                .from('employees')
-                .delete()
-                .eq('id', id);
-
-            if (error) {
-                console.error('Error deleting employee:', error);
-                setError(`Failed to delete employee: ${error.message}`);
-            } else {
-                setSuccessMessage('Employee deleted successfully!');
-                fetchEmployees(); // Re-fetch employees to update the list
-                setTimeout(() => setSuccessMessage(''), 3000); // Clear message after 3 seconds
-            }
-        } catch (err) {
-            console.error('Unexpected error during deletion:', err);
-            setError('An unexpected error occurred during deletion.');
-        } finally {
-            setLoading(false);
-        }
+    /**
+     * Handles the view action for an employee.
+     * Sets the selected employee data for viewing and opens the detail modal.
+     * @param {object} employeeData - The full employee object to be viewed.
+     */
+    const handleView = (employeeData) => {
+        setSelectedEmployee(employeeData);
+        setIsViewEmployeeModalOpen(true);
     };
 
+    /**
+     * Callback function executed after a new employee is successfully added.
+     * Refetches employees, closes the add modal, and displays a success toast.
+     */
+    const handleEmployeeAdded = () => {
+        fetchEmployees();
+        setIsAddEmployeeModalOpen(false);
+        setSuccessMessage('New employee added successfully!');
+        setTimeout(() => setSuccessMessage(''), 3000); // Clear message after 3 seconds
+    };
+
+    /**
+     * Callback function executed after an employee is successfully updated.
+     * Refetches employees, closes the edit modal, and displays a success toast.
+     */
+    const handleEmployeeUpdated = () => {
+        fetchEmployees();
+        setIsEditEmployeeModalOpen(false);
+        setSuccessMessage('Employee details updated successfully!');
+        setTimeout(() => setSuccessMessage(''), 3000); // Clear message after 3 seconds
+    };
+
+    // Memoized filtered employees based on search term
     const filteredEmployees = useMemo(() => {
         if (!searchTerm) {
             return employees;
@@ -176,12 +212,11 @@ const EmployeeListTable = () => {
             employee.first_name?.toLowerCase().includes(lowercasedSearchTerm) ||
             employee.last_name?.toLowerCase().includes(lowercasedSearchTerm) ||
             employee.email?.toLowerCase().includes(lowercasedSearchTerm) ||
-            employee.phone_number?.includes(lowercasedSearchTerm) ||
-            employee.position?.toLowerCase().includes(lowercasedSearchTerm) ||
-            employee.employment_status?.toLowerCase().includes(lowercasedSearchTerm)
+            employee.phone_number?.includes(lowercasedSearchTerm)
         );
     }, [searchTerm, employees]);
 
+    // Pagination logic
     const indexOfLastEmployee = currentPage * employeesPerPage;
     const indexOfFirstEmployee = indexOfLastEmployee - employeesPerPage;
     const currentEmployees = filteredEmployees.slice(indexOfFirstEmployee, indexOfLastEmployee);
@@ -189,6 +224,7 @@ const EmployeeListTable = () => {
 
     const paginate = (pageNumber) => setCurrentPage(pageNumber);
 
+    // Renders pagination numbers with ellipsis for large number of pages
     const renderPaginationNumbers = () => {
         const pageNumbers = [];
         const maxPagesToShow = 5;
@@ -227,6 +263,7 @@ const EmployeeListTable = () => {
         ));
     };
 
+    // Effect to update current date and time
     useEffect(() => {
         const updateDateTime = () => {
             const now = new Date();
@@ -251,7 +288,7 @@ const EmployeeListTable = () => {
 
     return (
         <div className="max-w-[1400px] mx-auto">
-            <div className='flex justify-between items-center mt-5 mb-14'>
+            <div className='flex justify-between items-center mt-5 mb-14 flex-wrap gap-4'>
                 <div>
                     <h1 className='text-2xl font-bold '>Employee directory page</h1>
                     <p className='text-[#A09D9D] font-medium mt-2'>Manage and collaborate within your organization’s teams</p>
@@ -260,38 +297,41 @@ const EmployeeListTable = () => {
                     {currentDateTime}
                 </span>
             </div>
-            <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
+            <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-6">
                 <h2 className="text-2xl font-semibold text-gray-800">Employee list</h2>
-                <div className="flex items-center space-x-4 w-full sm:w-auto">
-                    <div className="relative flex-grow">
-                        <input
-                            type="text"
-                            placeholder="Search..."
-                            className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            value={searchTerm}
-                            onChange={(e) => {
-                                setSearchTerm(e.target.value);
-                                setCurrentPage(1);
-                            }}
-                        />
-                        <svg className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                <div className="flex items-center space-x-4 w-full sm:w-auto flex-wrap gap-4">
+                    <div className='flex flex-nowrap gap-2 items-center'>
+                        <div className="relative flex-grow">
+                            <input
+                                type="text"
+                                placeholder="Search..."
+                                className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                value={searchTerm}
+                                onChange={(e) => {
+                                    setSearchTerm(e.target.value);
+                                    setCurrentPage(1);
+                                }}
+                            />
+                            <svg className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                        </div>
+                        <button
+                            className="p-2 border border-gray-300 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer"
+                            title="Filter"
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-600" viewBox="0 0 20 20" fill="currentColor">
+                                <path fillRule="evenodd" d="M3 3a1 1 0 011-1h12a1 1 0 011 1v3a1 1 0 01-.293.707L12 9.414V15a1 1 0 01-.293.707l-2 2A1 1 0 018 17v-5.586L3.293 6.707A1 1 0 013 6V3z" clipRule="evenodd" />
+                            </svg>
+                        </button>
                     </div>
                     <button
-                        className="p-2 border border-gray-300 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer"
-                        title="Filter"
+                        onClick={() => setIsAddEmployeeModalOpen(true)}
+                        className="flex items-center px-4 py-2 bg-[#b88b1b] text-white rounded-lg hover:bg-[#997417] transition-colors shadow-md cursor-pointer"
                     >
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-600" viewBox="0 0 20 20" fill="currentColor">
-                            <path fillRule="evenodd" d="M3 3a1 1 0 011-1h12a1 1 0 011 1v3a1 1 0 01-.293.707L12 9.414V15a1 1 0 01-.293.707l-2 2A1 1 0 018 17v-5.586L3.293 6.707A1 1 0 013 6V3z" clipRule="evenodd" />
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                            <path fillRule="evenodd" d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z" clipRule="evenodd" />
                         </svg>
+                        Add employee
                     </button>
-                    <Link href="employees/add">
-                        <button className="flex items-center px-4 py-2 bg-[#b88b1b] text-white rounded-lg hover:bg-[#997417] transition-colors shadow-md cursor-pointer">
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
-                                <path fillRule="evenodd" d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z" clipRule="evenodd" />
-                            </svg>
-                            Add employee
-                        </button>
-                    </Link>
                 </div>
             </div>
 
@@ -326,8 +366,8 @@ const EmployeeListTable = () => {
                                 <EmployeeRow
                                     key={employee.id}
                                     employee={employee}
-                                    onEdit={handleEdit} // Pass handleEdit to EmployeeRow
-                                    onDelete={handleDelete} // Pass handleDelete to EmployeeRow
+                                    onEdit={handleEdit}
+                                    onView={handleView}
                                 />
                             ))}
                         </tbody>
@@ -354,6 +394,28 @@ const EmployeeListTable = () => {
                     </button>
                 </div>
             )}
+
+            {/* Add Employee Multi-Step Modal */}
+            <AddEmployeeModal
+                isOpen={isAddEmployeeModalOpen}
+                onClose={() => setIsAddEmployeeModalOpen(false)}
+                onEmployeeAdded={handleEmployeeAdded}
+            />
+
+            {/* Employee Detail Modal */}
+            <EmployeeDetailModal
+                isOpen={isViewEmployeeModalOpen}
+                onClose={() => setIsViewEmployeeModalOpen(false)}
+                employee={selectedEmployee}
+            />
+
+            {/* Edit Employee Modal */}
+            <EditEmployeeModal
+                isOpen={isEditEmployeeModalOpen}
+                onClose={() => setIsEditEmployeeModalOpen(false)}
+                onEmployeeUpdated={handleEmployeeUpdated}
+                employee={selectedEmployeeForEdit}
+            />
         </div>
     );
 };

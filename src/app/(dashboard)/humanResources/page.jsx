@@ -33,7 +33,7 @@ export default function HRManagerDashboardPage() {
 
     return (
         <div>
-            <div className='flex justify-between items-center my-5'>
+            <div className='flex justify-between items-center my-5 flex-wrap gap-4'>
                 <div>
                     <h1 className='text-2xl font-bold '>HR Dashboard</h1>
                     <p className='text-[#A09D9D] font-medium mt-2'>Welcome to Madison Jay dashboard</p>

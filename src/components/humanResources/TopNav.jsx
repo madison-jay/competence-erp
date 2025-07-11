@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faBars, faSignOutAlt, faUserCircle, faBell, faCaretDown } from '@fortawesome/free-solid-svg-icons'; // Added faCaretDown
+import { faBars, faSignOutAlt, faUserCircle, faBell, faCaretDown } from '@fortawesome/free-solid-svg-icons';
 import Image from "next/image";
 import { createClient } from '@/app/lib/supabase/client';
 import { useRouter } from 'next/navigation';
