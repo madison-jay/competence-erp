@@ -43,13 +43,13 @@ export default function ShiftManagement() {
 
     return (
         <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200 my-8">
-            <div className="flex justify-between items-center mb-6">
+            <div className="flex justify-between items-center flex-wrap gap-3 mb-6">
                 <h2 className="text-2xl font-semibold text-gray-800">Shift Management</h2>
                 <button className="text-[#A09D9D] text-sm font-medium hover:text-black transition-all cursor-pointer rounded-md px-3 py-1">See all</button>
             </div>
 
             {/* Date Navigation */}
-            <div className="flex justify-between items-center mb-6 border-b border-gray-200 pb-4">
+            <div className="flex justify-between items-center mb-6 border-b border-gray-200 pb-4 overflow-x-scroll">
                 {displayDates.map((date, index) => {
                     const dateString = date.toISOString().split('T')[0];
                     const isSelected = dateString === selectedDate;

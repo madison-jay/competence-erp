@@ -1,4 +1,3 @@
-// components/humanResources/NavBar.jsx
 'use client';
 
 import React, { useEffect } from "react";
@@ -20,7 +19,7 @@ import {
 } from '@fortawesome/free-solid-svg-icons';
 import { usePathname } from 'next/navigation';
 
-export default function NavBar({ isMobileMenuOpen, closeMobileMenu, isDesktopSidebarExpanded, toggleDesktopSidebar }) {
+export default function NavBar({ isMobileMenuOpen, onCloseMobileMenu, isDesktopSidebarExpanded, toggleDesktopSidebar }) {
     const pathname = usePathname();
 
     useEffect(() => {
@@ -55,7 +54,7 @@ export default function NavBar({ isMobileMenuOpen, closeMobileMenu, isDesktopSid
             {/* Desktop Sidebar */}
             <nav
                 className={`hidden md:flex flex-col h-screen bg-white shadow-sm transition-all duration-300 ease-in-out
-                ${isDesktopSidebarExpanded ? 'w-64' : 'w-20'} fixed top-0 left-0 z-40`}
+                ${isDesktopSidebarExpanded ? 'w-64' : 'w-20'}`}
             >
                 <div className={`flex items-center p-4 h-[79.4px] ${isDesktopSidebarExpanded ? 'justify-between' : 'justify-center'} shadow-sm`}>
                     {isDesktopSidebarExpanded && (
@@ -118,12 +117,12 @@ export default function NavBar({ isMobileMenuOpen, closeMobileMenu, isDesktopSid
             <div
                 className={`fixed inset-y-0 left-0 z-50 transform transition-transform duration-300 ease-in-out
                     ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}
-                    w-64 bg-gray-800 shadow-lg text-white md:hidden flex flex-col`} 
+                    w-64 bg-gray-800 shadow-lg text-white md:hidden flex flex-col`}
             >
                 <div className="p-4 flex justify-between items-center border-b border-gray-700">
                     <div className="text-2xl font-bold text-white">Madison Jay</div>
                     <button
-                        onClick={closeMobileMenu}
+                        onClick={onCloseMobileMenu}
                         className="p-2 rounded-md hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-white"
                         aria-label="Close navigation menu"
                     >
@@ -136,7 +135,7 @@ export default function NavBar({ isMobileMenuOpen, closeMobileMenu, isDesktopSid
                     {navItems.map((item) => (
                         <Link href={item.path} key={item.name} passHref>
                             <div
-                                onClick={closeMobileMenu}
+                                onClick={onCloseMobileMenu}
                                 className={`flex items-center py-3 px-2 rounded-md transition-colors duration-200 mb-2
                                 ${pathname === item.path
                                     ? 'bg-gray-700 text-white'
@@ -151,7 +150,7 @@ export default function NavBar({ isMobileMenuOpen, closeMobileMenu, isDesktopSid
                     ))}
                     <Link href="/" passHref>
                         <div
-                            onClick={closeMobileMenu}
+                            onClick={onCloseMobileMenu}
                             className="flex items-center py-3 px-2 rounded-md text-red-400 hover:bg-gray-700 hover:text-red-300 transition-colors duration-200 mt-4"
                         >
                             <FontAwesomeIcon icon={faArrowRightFromBracket} className="mr-3 text-xl" />
@@ -165,7 +164,7 @@ export default function NavBar({ isMobileMenuOpen, closeMobileMenu, isDesktopSid
             {isMobileMenuOpen && (
                 <div
                     className="fixed inset-0 bg-black bg-opacity-50 z-40 md:hidden"
-                    onClick={closeMobileMenu}
+                    onClick={onCloseMobileMenu}
                 ></div>
             )}
         </>
