@@ -1,5 +1,4 @@
 // app/update-password/page.js
-
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -11,6 +10,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faArrowLeft, faCheckCircle, faTimesCircle } from '@fortawesome/free-solid-svg-icons';
 import { faEye, faEyeSlash } from '@fortawesome/free-regular-svg-icons';
 import Link from 'next/link';
+import { Suspense } from 'react';
 
 export default function UpdatePasswordPage() {
     const [newPassword, setNewPassword] = useState('');
@@ -124,105 +124,107 @@ export default function UpdatePasswordPage() {
     const isButtonDisabled = loading || !hasUppercase || !hasLowercase || !hasNumber || !hasSpecialChar || !isMinLength || newPassword !== confirmNewPassword;
 
     return (
-        <section className="flex justify-center items-center h-[100vh]">
-            <div className="flex justify-center items-center flex-nowrap gap-7 w-full max-w-[1200px] banner-width p-5">
-                <LoginBanner />
-                <div className="w-1/2 login-div h-full">
-                    <div className='flex flex-col justify-between h-full'>
-                        <div>
-                            <h4 className="text-xl font-medium text-[#cd9e27]">Madison Jay</h4>
-                            <div className="my-4">
-                                <h2 className="text-2xl font-bold">Set New Password</h2>
-                                <p className="text-[16px] text-[#878484]">
-                                    Enter your new password below.
-                                </p>
-                            </div>
+        <Suspense fallback={<div className="flex items-center justify-center h-screen">Loading...</div>}>
+            <section className="flex justify-center items-center h-[100vh]">
+                <div className="flex justify-center items-center flex-nowrap gap-7 w-full max-w-[1200px] banner-width p-5">
+                    <LoginBanner />
+                    <div className="w-1/2 login-div h-full">
+                        <div className='flex flex-col justify-between h-full'>
                             <div>
-                                <form onSubmit={handlePasswordUpdate} className="mt-7">
-                                    <label htmlFor="new-password" className="block text-sm font-medium text-gray-700 mt-4">
-                                        Password:
-                                    </label>
-                                    <div className="relative">
-                                        <input
-                                            type={showNewPassword ? "text" : "password"}
-                                            id="new-password"
-                                            placeholder="Enter new password"
-                                            value={newPassword}
-                                            onChange={(e) => {
-                                                setNewPassword(e.target.value);
-                                                setPasswordError('');
-                                            }}
-                                            className="border border-solid border-[#DDD9D9] p-2 text-sm rounded-lg w-full mt-2 mb-4 pr-10 focus:outline-none focus:ring-2 focus:ring-[#b88b1b] focus:border-[#b88b1b]"
-                                        />
-                                        <span
-                                            onClick={toggleNewPasswordVisibility}
-                                            className="absolute right-3 top-[45%] -translate-y-1/2 cursor-pointer text-[#A09D9D]"
+                                <h4 className="text-xl font-medium text-[#cd9e27]">Madison Jay</h4>
+                                <div className="my-4">
+                                    <h2 className="text-2xl font-bold">Set New Password</h2>
+                                    <p className="text-[16px] text-[#878484]">
+                                        Enter your new password below.
+                                    </p>
+                                </div>
+                                <div>
+                                    <form onSubmit={handlePasswordUpdate} className="mt-7">
+                                        <label htmlFor="new-password" className="block text-sm font-medium text-gray-700 mt-4">
+                                            Password:
+                                        </label>
+                                        <div className="relative">
+                                            <input
+                                                type={showNewPassword ? "text" : "password"}
+                                                id="new-password"
+                                                placeholder="Enter new password"
+                                                value={newPassword}
+                                                onChange={(e) => {
+                                                    setNewPassword(e.target.value);
+                                                    setPasswordError('');
+                                                }}
+                                                className="border border-solid border-[#DDD9D9] p-2 text-sm rounded-lg w-full mt-2 mb-4 pr-10 focus:outline-none focus:ring-2 focus:ring-[#b88b1b] focus:border-[#b88b1b]"
+                                            />
+                                            <span
+                                                onClick={toggleNewPasswordVisibility}
+                                                className="absolute right-3 top-[45%] -translate-y-1/2 cursor-pointer text-[#A09D9D]"
+                                            >
+                                                <FontAwesomeIcon icon={showNewPassword ? faEye : faEyeSlash} />
+                                            </span>
+                                        </div>
+
+                                        <div className="grid grid-cols-2 gap-2 mb-4">
+                                            <PasswordCheck condition={hasUppercase} text="one uppercase character" />
+                                            <PasswordCheck condition={hasSpecialChar} text="one special character" />
+                                            <PasswordCheck condition={hasLowercase} text="one lowercase character" />
+                                            <PasswordCheck condition={isMinLength} text="8 character minimum" />
+                                            <PasswordCheck condition={hasNumber} text="one number" />
+                                        </div>
+
+                                        <label htmlFor="confirm-password" className="block text-sm font-medium text-gray-700">
+                                            Confirm Password:
+                                        </label>
+                                        <div className="relative">
+                                            <input
+                                                type={showConfirmNewPassword ? "text" : "password"}
+                                                id="confirm-password"
+                                                placeholder="Confirm new password"
+                                                value={confirmNewPassword}
+                                                onChange={(e) => {
+                                                    setConfirmNewPassword(e.target.value);
+                                                    setPasswordError('');
+                                                }}
+                                                className="border border-solid border-[#DDD9D9] p-2 text-sm rounded-lg w-full mt-2 mb-4 pr-10 focus:outline-none focus:ring-2 focus:ring-[#b88b1b] focus:border-[#b88b1b]"
+                                            />
+                                            <span
+                                                onClick={toggleConfirmNewPasswordVisibility}
+                                                className="absolute right-3 top-[45%] -translate-y-1/2 cursor-pointer text-[#A09D9D]"
+                                            >
+                                                <FontAwesomeIcon icon={showConfirmNewPassword ? faEye : faEyeSlash} />
+                                            </span>
+                                        </div>
+
+                                        {passwordError && (
+                                            <div className="text-red-500 text-sm mt-2 mb-4">{passwordError}</div>
+                                        )}
+
+                                        <button
+                                            type="submit"
+                                            className={`${isButtonDisabled ? "bg-[#b88b1b99] cursor-not-allowed" : "bg-[#b88b1b] cursor-pointer hover:bg-[#ad841a]"} rounded-xl px-4 py-3 w-full mt-8 text-white`}
+                                            disabled={isButtonDisabled}
                                         >
-                                            <FontAwesomeIcon icon={showNewPassword ? faEye : faEyeSlash} />
-                                        </span>
-                                    </div>
+                                            {loading ? 'Updating Password...' : 'Set New Password'}
+                                        </button>
+                                    </form>
 
-                                    <div className="grid grid-cols-2 gap-2 mb-4">
-                                        <PasswordCheck condition={hasUppercase} text="one uppercase character" />
-                                        <PasswordCheck condition={hasSpecialChar} text="one special character" />
-                                        <PasswordCheck condition={hasLowercase} text="one lowercase character" />
-                                        <PasswordCheck condition={isMinLength} text="8 character minimum" />
-                                        <PasswordCheck condition={hasNumber} text="one number" />
-                                    </div>
-
-                                    <label htmlFor="confirm-password" className="block text-sm font-medium text-gray-700">
-                                        Confirm Password:
-                                    </label>
-                                    <div className="relative">
-                                        <input
-                                            type={showConfirmNewPassword ? "text" : "password"}
-                                            id="confirm-password"
-                                            placeholder="Confirm new password"
-                                            value={confirmNewPassword}
-                                            onChange={(e) => {
-                                                setConfirmNewPassword(e.target.value);
-                                                setPasswordError('');
-                                            }}
-                                            className="border border-solid border-[#DDD9D9] p-2 text-sm rounded-lg w-full mt-2 mb-4 pr-10 focus:outline-none focus:ring-2 focus:ring-[#b88b1b] focus:border-[#b88b1b]"
-                                        />
-                                        <span
-                                            onClick={toggleConfirmNewPasswordVisibility}
-                                            className="absolute right-3 top-[45%] -translate-y-1/2 cursor-pointer text-[#A09D9D]"
-                                        >
-                                            <FontAwesomeIcon icon={showConfirmNewPassword ? faEye : faEyeSlash} />
-                                        </span>
-                                    </div>
-
-                                    {passwordError && (
-                                        <div className="text-red-500 text-sm mt-2 mb-4">{passwordError}</div>
-                                    )}
-
-                                    <button
-                                        type="submit"
-                                        className={`${isButtonDisabled ? "bg-[#b88b1b99] cursor-not-allowed" : "bg-[#b88b1b] cursor-pointer hover:bg-[#ad841a]"} rounded-xl px-4 py-3 w-full mt-8 text-white`}
-                                        disabled={isButtonDisabled}
-                                    >
-                                        {loading ? 'Updating Password...' : 'Set New Password'}
-                                    </button>
-                                </form>
-
-                                <p className="mt-4 text-center flex justify-center gap-2 items-center text-sm text-[#b88b1b] hover:opacity-80">
-                                    <FontAwesomeIcon icon={faArrowLeft} />
-                                    <Link href="/login" className="font-medium">
-                                        Back to log in
-                                    </Link>
-                                </p>
+                                    <p className="mt-4 text-center flex justify-center gap-2 items-center text-sm text-[#b88b1b] hover:opacity-80">
+                                        <FontAwesomeIcon icon={faArrowLeft} />
+                                        <Link href="/login" className="font-medium">
+                                            Back to log in
+                                        </Link>
+                                    </p>
+                                </div>
                             </div>
-                        </div>
-                        <div className='pagination flex gap-3 justify-center items-center mt-8'>
-                            <div className='w-[12px] h-[12px] bg-[#ddd9d9] rounded-full'></div>
-                            <div className='w-[12px] h-[12px] bg-[#ddd9d9] rounded-full'></div>
-                            <div className='w-[12px] h-[12px] bg-[#b88b1b] rounded-full'></div>
-                            <div className='w-[12px] h-[12px] bg-[#ddd9d9] rounded-full'></div>
+                            <div className='pagination flex gap-3 justify-center items-center mt-8'>
+                                <div className='w-[12px] h-[12px] bg-[#ddd9d9] rounded-full'></div>
+                                <div className='w-[12px] h-[12px] bg-[#ddd9d9] rounded-full'></div>
+                                <div className='w-[12px] h-[12px] bg-[#b88b1b] rounded-full'></div>
+                                <div className='w-[12px] h-[12px] bg-[#ddd9d9] rounded-full'></div>
+                            </div>
                         </div>
                     </div>
                 </div>
-            </div>
-        </section>
+            </section>
+        </Suspense>
     );
 }
