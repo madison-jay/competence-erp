@@ -20,7 +20,7 @@ import {
 import { usePathname } from 'next/navigation';
 import Image from "next/image";
 
-export default function NavBar({ isMobileMenuOpen, onCloseMobileMenu, isDesktopSidebarExpanded, toggleDesktopSidebar }) {
+export default function SideNavBar({ isMobileMenuOpen, onCloseMobileMenu, isDesktopSidebarExpanded, toggleDesktopSidebar }) {
     const pathname = usePathname();
 
     useEffect(() => {

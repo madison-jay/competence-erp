@@ -4,9 +4,9 @@ import React, { useState, useEffect } from 'react';
 import { createClient } from '@/app/lib/supabase/client';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
-import NavBar from '@/components/humanResources/NavBar';
-import Loading from '@/components/Loading'; // Assuming this component exists
-import TopNav from '@/components/humanResources/TopNav'; // Assuming this component exists
+import SideNavBar from '@/components/hr/NavBar';
+import Loading from '@/components/Loading';
+import TopNavBar from '@/components/hr/TopNav';
 
 export default function HRManagerLayout({ children }) {
     const supabase = createClient();
@@ -110,7 +110,7 @@ export default function HRManagerLayout({ children }) {
     return (
         <div className='flex flex-nowrap h-screen'>
             {/* NavBar component */}
-            <NavBar
+            <SideNavBar
                 isMobileMenuOpen={isMobileMenuOpen}
                 onCloseMobileMenu={handleCloseMobileMenu}
                 isDesktopSidebarExpanded={isDesktopSidebarExpanded}
@@ -119,7 +119,7 @@ export default function HRManagerLayout({ children }) {
             {/* Main content area: uses flex-1 to take remaining horizontal space */}
             {/* Added overflow-x-auto to handle horizontal scrolling within this main content area */}
             <div className="flex-1 flex flex-col overflow-x-auto">
-                <TopNav />
+                <TopNavBar />
                 <div className="py-4 px-7 flex-1 overflow-y-auto"> {/* Added flex-1 and overflow-y-auto for content scrolling */}
                     {children}
                 </div>

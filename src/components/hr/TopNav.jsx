@@ -9,7 +9,7 @@ import { createClient } from '@/app/lib/supabase/client';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
 
-export default function TopNav({ onMobileMenuToggle, profile }) {
+export default function TopNavBar({ onMobileMenuToggle, profile }) {
     const supabase = createClient();
     const router = useRouter();
 

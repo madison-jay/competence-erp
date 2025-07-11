@@ -2,9 +2,9 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import DashboardCard from '@/components/humanResources/DashboardCard';
-import Attendance from '@/components/humanResources/AttendanceTable';
-import ShiftManagement from '@/components/humanResources/ShiftsTable';
+import DashboardCard from '@/components/hr/DashboardCard';
+import Attendance from '@/components/hr/AttendanceTable';
+import ShiftManagement from '@/components/hr/ShiftsTable';
 
 export default function HRManagerDashboardPage() {
     const [currentDateTime, setCurrentDateTime] = useState('');

@@ -2,9 +2,9 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { createClient } from "@/app/lib/supabase/client";
-import AddEmployeeModal from '@/components/humanResources/employees/AddEmployee';
-import EmployeeDetailModal from '@/components/humanResources/employees/EmployeeDetails';
-import EditEmployeeModal from '@/components/humanResources/employees/EditEmployee';
+import AddEmployeeModal from '@/components/hr/employees/AddEmployee';
+import EmployeeDetailModal from '@/components/hr/employees/EmployeeDetails';
+import EditEmployeeModal from '@/components/hr/employees/EditEmployee';
 
 const supabase = createClient();
 
