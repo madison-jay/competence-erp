@@ -63,13 +63,8 @@ export default function HRManagerLayout({ children }) {
                     setIsHRManager(true);
                 } else {
                     toast.error('Access Denied: You do not have HR Manager privileges.');
-                    router.replace('/dashboard');
+                    router.replace('/login');
                 }
-            } else {
-                console.warn('No profile found for authenticated user:', authUser.id);
-                setProfile({ username: 'Guest', full_name: 'Guest User', avatar_url: null, role: 'user' });
-                toast.info('Please complete your profile information.');
-                router.replace('/dashboard');
             }
             setLoading(false);
         }
@@ -103,7 +98,6 @@ export default function HRManagerLayout({ children }) {
 
     return (
         <div className='flex flex-nowrap h-screen'>
-            {/* NavBar component */}
             <SideNavBar
                 isMobileMenuOpen={isMobileMenuOpen}
                 onCloseMobileMenu={handleCloseMobileMenu}
