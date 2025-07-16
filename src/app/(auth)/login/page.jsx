@@ -100,7 +100,6 @@ export default function LoginPage() {
       toast.error(error.message || 'Login failed. Please check your credentials.');
     } else if (data.user) {
       toast.success("Successfully signed in!");
-      console.log("User logged in:", data.user);
       await redirectToDashboard(data.user);
     } else {
       setShowCredentialErrorBox(true);

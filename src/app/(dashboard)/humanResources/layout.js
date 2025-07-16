@@ -35,10 +35,9 @@ export default function HRManagerLayout({ children }) {
         async function checkUserAndRole() {
             setLoading(true);
             const { data: { user: authUser } } = await supabase.auth.getUser();
-
             if (!authUser) {
-                toast.error('You must be logged in to access this page.');
                 router.replace('/login');
+                toast.error('You must be logged in to access this page.');
                 setLoading(false);
                 return;
             }
