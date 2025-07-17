@@ -173,7 +173,7 @@ export default function PayrollPage() {
                 <p className='text-[#A09D9D] text-[16px] font-medium'>Your next payroll is</p>
                 <p className='text-black font-medium text-xl my-4'>Pay period (Jul 3, to Aug 10, 2023)</p>
                 <p className='text-[#A09D9D] text-[16px] font-medium'>Click prepare payroll to begin running payroll for this period</p>
-                <Link href="/dashboard/human-resources/payroll/prepare-payroll" className='inline-block mt-4 bg-[#b88b1b] text-white px-6 py-2 rounded-lg hover:bg-[#b88b1b]/90 transition-colors duration-300'>Prepare Payroll</Link>
+                <Link href="/humanResources/payroll/prepare-payroll" className='inline-block mt-4 bg-[#b88b1b] text-white px-6 py-2 rounded-lg hover:bg-[#b88b1b]/90 transition-colors duration-300'>Prepare Payroll</Link>
             </div>
             <div className='flex flex-wrap gap-4 justify-between items-center mb-10'>
                 <PayrollCard title="Total employees" value={54} />
