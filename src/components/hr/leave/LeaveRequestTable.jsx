@@ -2,93 +2,10 @@
 import React, { useState, useEffect } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faCheckCircle, faTimesCircle } from '@fortawesome/free-solid-svg-icons';
+import toast from 'react-hot-toast'; 
+import apiService from '@/app/lib/apiService';
 
 const DEFAULT_AVATAR = '/default-profile.png';
-
-const NIGERIAN_FIRST_NAMES = [
-    "Chinedu", "Fatima", "Oluwaseun", "Aisha", "Emeka", "Zainab", "Tunde", "Amaka",
-    "Mohammed", "Ngozi", "David", "Blessing", "Kunle", "Funke", "Segun"
-];
-const NIGERIAN_LAST_NAMES = [
-    "Okoro", "Abdullahi", "Adekunle", "Musa", "Nwachukwu", "Aliyu", "Oladipo", "Chukwu",
-    "Ibrahim", "Nwosu", "Akpan", "Eze", "Sani", "Bello", "Okafor"
-];
-
-const DEPARTMENTS = [
-    "Sales", "Warehouse", "HR", "IT", "Installer", "Loader", "Driver"
-];
-
-const POSITIONS = ["Employee"];
-
-const generateUuid = () => {
-    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
-        const r = Math.random() * 16 | 0,
-            v = c === 'x' ? r : (r & 0x3 | 0x8);
-        return v.toString(16);
-    });
-};
-
-const getRandomDate = (start, end) => {
-    const date = new Date(start.getTime() + Math.random() * (end.getTime() - start.getTime()));
-    return date.toISOString().split('T')[0];
-};
-
-export const generateFakeLeaveRequests = () => Array.from({ length: 20 }, (_, _i) => {
-    const firstName = NIGERIAN_FIRST_NAMES[Math.floor(Math.random() * NIGERIAN_FIRST_NAMES.length)];
-    const lastName = NIGERIAN_LAST_NAMES[Math.floor(Math.random() * NIGERIAN_LAST_NAMES.length)];
-    const department = DEPARTMENTS[Math.floor(Math.random() * DEPARTMENTS.length)];
-    const position = POSITIONS[0];
-
-    const statuses = ["Pending", "Approved", "Declined"];
-    const employmentStatus = statuses[Math.floor(Math.random() * statuses.length)];
-
-    let leave_start_date = null;
-    let leave_end_date = null;
-    let leave_duration = null;
-    const request_date = getRandomDate(new Date(2025, 0, 1), new Date(2025, 6, 16));
-
-    if (employmentStatus === "Pending") {
-        const today = new Date();
-        const futureStart = new Date(today.getFullYear(), today.getMonth(), today.getDate() + Math.floor(Math.random() * 10) + 1);
-        leave_start_date = getRandomDate(futureStart, new Date(futureStart.getFullYear(), futureStart.getMonth() + 1, futureStart.getDate()));
-        const endDate = new Date(leave_start_date);
-        endDate.setDate(new Date(leave_start_date).getDate() + Math.floor(Math.random() * 10) + 1);
-        leave_end_date = endDate.toISOString().split('T')[0];
-    } else if (employmentStatus === "Approved" || employmentStatus === "Declined") {
-        const pastEnd = new Date();
-        const pastStart = new Date();
-        pastStart.setDate(pastEnd.getDate() - (Math.floor(Math.random() * 30) + 1));
-        leave_start_date = getRandomDate(pastStart, pastEnd);
-        const endDate = new Date(leave_start_date);
-        endDate.setDate(new Date(leave_start_date).getDate() + Math.floor(Math.random() * 10) + 1);
-        leave_end_date = endDate.toISOString().split('T')[0];
-    }
-
-    if (leave_start_date && leave_end_date) {
-        const start = new Date(leave_start_date);
-        const end = new Date(leave_end_date);
-        const diffTime = Math.abs(end - start);
-        leave_duration = `${Math.ceil(diffTime / (1000 * 60 * 60 * 24))} days`;
-    }
-
-    const adminApprovalOptions = ['mark', 'x'];
-    const adminApproval = adminApprovalOptions[Math.floor(Math.random() * adminApprovalOptions.length)];
-
-    return {
-        id: generateUuid(),
-        first_name: firstName,
-        last_name: lastName,
-        email: `${firstName.toLowerCase()}.${lastName.toLowerCase()}@example.com`,
-        position: position,
-        department: department,
-        employment_status: employmentStatus,
-        admin_approval: adminApproval,
-        leave_start_date: leave_start_date,
-        leave_end_date: leave_end_date,
-        leave_duration: leave_duration,
-        request_date: request_date,
-    };
-});
 
 const formatDate = (isoString) => {
     if (!isoString) return '—';
@@ -99,11 +16,11 @@ const formatDate = (isoString) => {
 
 export const LeaveRow = ({ employee, onUpdateStatus }) => {
     const [imgSrc, setImgSrc] = useState(employee.avatar || DEFAULT_AVATAR);
-    const [employeeStatus, setEmployeeStatus] = useState(employee.employment_status);
-    const isStatusLocked = employeeStatus === 'Approved' || employeeStatus === 'Declined';
+    const [currentLeaveStatus, setCurrentLeaveStatus] = useState(employee.employment_status);
+    const isStatusLocked = currentLeaveStatus === 'Approved' || currentLeaveStatus === 'Declined';
 
     useEffect(() => {
-        setEmployeeStatus(employee.employment_status);
+        setCurrentLeaveStatus(employee.employment_status);
     }, [employee.employment_status]);
 
     const handleImageError = () => {
@@ -123,10 +40,26 @@ export const LeaveRow = ({ employee, onUpdateStatus }) => {
         }
     };
 
-    const handleDropdownChange = (e) => {
+    const handleDropdownChange = async (e) => {
         const newStatus = e.target.value;
-        setEmployeeStatus(newStatus);
-        onUpdateStatus(employee.id, newStatus);
+        setCurrentLeaveStatus(newStatus);
+
+        try {
+            const updatedLeaveData = {
+                status: newStatus,
+            };
+
+            await apiService.updateLeave(employee.id, updatedLeaveData);
+
+            toast.success(`Leave request for ${employee.first_name} ${employee.last_name} updated to ${newStatus}!`);
+            if (onUpdateStatus) {
+                onUpdateStatus(employee.id, newStatus);
+            }
+        } catch (error) {
+            console.error('Error updating leave status:', error);
+            toast.error(`Failed to update leave status: ${error.message || 'An unexpected error occurred.'}`);
+            setCurrentLeaveStatus(employee.employment_status); 
+        }
     };
 
     return (
@@ -164,8 +97,8 @@ export const LeaveRow = ({ employee, onUpdateStatus }) => {
             </td>
             <td className="px-6 py-4 whitespace-nowrap">
                 <select
-                    className={`px-2 py-1 text-xs leading-5 font-semibold rounded-full ${getStatusColor(employeeStatus)} ${isStatusLocked ? 'opacity-70 cursor-not-allowed' : ''}`}
-                    value={employeeStatus}
+                    className={`px-2 py-1 text-xs leading-5 font-semibold rounded-full ${getStatusColor(currentLeaveStatus)} ${isStatusLocked ? 'opacity-70 cursor-not-allowed' : ''}`}
+                    value={currentLeaveStatus}
                     onChange={handleDropdownChange}
                     disabled={isStatusLocked}
                 >

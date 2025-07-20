@@ -1,44 +1,77 @@
 "use client"
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { generateFakeLeaveRequests } from '@/components/hr/leave/LeaveRequestTable';
-import { LeaveRow } from '@/components/hr/leave/LeaveRequestTable';
+import { LeaveRow } from '@/components/hr/leave/LeaveRequestTable'; // Assuming LeaveRow is correctly imported
+import apiService from '@/app/lib/apiService';
+import toast from 'react-hot-toast'; // Assuming toast is available
 
 // LeaveRequestTable Component
 const LeaveRequestTable = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
-    const employeesPerPage = 5
+    const employeesPerPage = 5; // Renamed to leavesPerPage for clarity, but keeping original for now
     const [currentDateTime, setCurrentDateTime] = useState('');
-    const [employeesData, setEmployeesData] = useState(generateFakeLeaveRequests());
+
+    // State for actual leave data, loading, and error
+    const [leavesData, setLeavesData] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
+
+    // Fetch leave requests from the API on component mount
+    useEffect(() => {
+        const fetchLeaves = async () => {
+            try {
+                setLoading(true);
+                setError(null);
+                const data = await apiService.getLeaves();
+                // Assuming your backend returns an array of leave objects
+                setLeavesData(data);
+            } catch (err) {
+                console.error("Error fetching leave requests:", err);
+                setError("Failed to load leave requests. Please try again.");
+                toast.error("Failed to load leave requests.");
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchLeaves();
+    }, []); // Empty dependency array means this runs once on mount
 
     const handleUpdateEmployeeStatus = (employeeId, newStatus) => {
-        setEmployeesData(prevEmployees =>
-            prevEmployees.map(employee => {
-                if (employee.id === employeeId) {
-                    return { ...employee, employment_status: newStatus };
+        // Optimistically update the local state
+        setLeavesData(prevLeaves =>
+            prevLeaves.map(leave => {
+                if (leave.id === employeeId) {
+                    // Assuming 'employment_status' in your leave object maps to the status field
+                    return { ...leave, employment_status: newStatus };
                 }
-                return employee;
+                return leave;
             })
         );
+        // The actual API call for updating status is handled within LeaveRow,
+        // so no direct API call here. The onUpdateStatus prop is just for local state sync.
     };
 
-    const filteredEmployees = useMemo(() => {
+    const filteredLeaves = useMemo(() => {
         if (!searchTerm) {
-            return employeesData;
+            return leavesData;
         }
         const lowercasedSearchTerm = searchTerm.toLowerCase();
-        return employeesData.filter(employee =>
-            employee.first_name.toLowerCase().includes(lowercasedSearchTerm) ||
-            employee.last_name.toLowerCase().includes(lowercasedSearchTerm) ||
-            employee.email.toLowerCase().includes(lowercasedSearchTerm)
+        return leavesData.filter(leave =>
+            // Adjust these fields based on what's searchable in your leave object
+            (leave.first_name && leave.first_name.toLowerCase().includes(lowercasedSearchTerm)) ||
+            (leave.last_name && leave.last_name.toLowerCase().includes(lowercasedSearchTerm)) ||
+            (leave.email && leave.email.toLowerCase().includes(lowercasedSearchTerm)) ||
+            (leave.department && leave.department.toLowerCase().includes(lowercasedSearchTerm)) ||
+            (leave.position && leave.position.toLowerCase().includes(lowercasedSearchTerm))
         );
-    }, [searchTerm, employeesData]);
+    }, [searchTerm, leavesData]);
 
-    const indexOfLastEmployee = currentPage * employeesPerPage;
-    const indexOfFirstEmployee = indexOfLastEmployee - employeesPerPage;
-    const currentEmployees = filteredEmployees.slice(indexOfFirstEmployee, indexOfLastEmployee);
-    const totalPages = Math.ceil(filteredEmployees.length / employeesPerPage);
+    const indexOfLastLeave = currentPage * employeesPerPage;
+    const indexOfFirstLeave = indexOfLastLeave - employeesPerPage;
+    const currentLeaves = filteredLeaves.slice(indexOfFirstLeave, indexOfLastLeave);
+    const totalPages = Math.ceil(filteredLeaves.length / employeesPerPage);
 
     const paginate = (pageNumber) => setCurrentPage(pageNumber);
 
@@ -139,9 +172,13 @@ const LeaveRequestTable = () => {
                     </div>
                 </div>
 
-                {/* Employee Table */}
-                {filteredEmployees.length === 0 ? (
-                    <div className="text-center py-8 text-gray-500">No employees found matching your search.</div>
+                {/* Conditional rendering for loading, error, and empty states */}
+                {loading ? (
+                    <div className="text-center py-8 text-gray-500">Loading leave requests...</div>
+                ) : error ? (
+                    <div className="text-center py-8 text-red-500">{error}</div>
+                ) : filteredLeaves.length === 0 ? (
+                    <div className="text-center py-8 text-gray-500">No leave requests found.</div>
                 ) : (
                     <div className="overflow-x-auto shadow-md sm:rounded-lg rounded-lg border border-gray-200 table-container">
                         <table className="min-w-full divide-y divide-gray-200 bg-white">
@@ -159,8 +196,9 @@ const LeaveRequestTable = () => {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-200">
-                                {currentEmployees.map(employee => (
-                                    <LeaveRow key={employee.id} employee={employee} onUpdateStatus={handleUpdateEmployeeStatus} />
+                                {currentLeaves.map(leave => (
+                                    // Pass 'leave' object as 'employee' prop to LeaveRow
+                                    <LeaveRow key={leave.id} employee={leave} onUpdateStatus={handleUpdateEmployeeStatus} />
                                 ))}
                             </tbody>
                         </table>
@@ -168,7 +206,7 @@ const LeaveRequestTable = () => {
                 )}
 
                 {/* Pagination Controls */}
-                {filteredEmployees.length > 0 && (
+                {filteredLeaves.length > 0 && (
                     <div className="flex justify-center items-center mt-6 space-x-2">
                         <button
                             onClick={() => paginate(currentPage - 1)}

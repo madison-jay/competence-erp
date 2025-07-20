@@ -3,6 +3,7 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { createClient } from "@/app/lib/supabase/client";
 import toast from 'react-hot-toast';
+import apiService from '@/app/lib/apiService';
 
 const supabase = createClient();
 
@@ -23,9 +24,9 @@ const AddEmployeeModal = ({ isOpen, onClose, onEmployeeAdded }) => {
         date_of_birth: '',
         hire_date: '',
         employment_status: 'Active',
-        position_id: '',
+        position: '',
         department_id: '',
-        location_id: '', // Added location_id
+        location_id: '',
         guarantor_name: '',
         guarantor_phone_number: '',
         guarantor_name_2: '',
@@ -39,6 +40,7 @@ const AddEmployeeModal = ({ isOpen, onClose, onEmployeeAdded }) => {
         bank_name: '',
         account_name: '',
         gender: '',
+        role: '',
     });
 
     const [avatarFile, setAvatarFile] = useState(null);
@@ -52,9 +54,8 @@ const AddEmployeeModal = ({ isOpen, onClose, onEmployeeAdded }) => {
 
     const [loading, setLoading] = useState(false);
 
-    const [positions, setPositions] = useState([]);
     const [departments, setDepartments] = useState([]);
-    const [locations, setLocations] = useState([]); // New state for locations
+    const [locations, setLocations] = useState([]);
 
     const avatarInputRef = useRef(null);
     const documentsInputRef = useRef(null);
@@ -62,27 +63,21 @@ const AddEmployeeModal = ({ isOpen, onClose, onEmployeeAdded }) => {
 
     const modalContentRef = useRef(null);
 
-    // Fetch positions, departments, and locations from Supabase
     useEffect(() => {
         if (isOpen) {
             const fetchLookupData = async () => {
                 setLoading(true);
                 try {
-                    const { data: positionsData, error: positionsError } = await supabase
-                        .from('positions')
-                        .select('id, title as position_name');
-                    if (positionsError) throw positionsError;
-                    setPositions(positionsData);
 
                     const { data: departmentsData, error: departmentsError } = await supabase
                         .from('departments')
-                        .select('id, name as department_name');
+                        .select('id, name');
                     if (departmentsError) throw departmentsError;
                     setDepartments(departmentsData);
 
                     const { data: locationsData, error: locationsError } = await supabase
-                        .from('locations') // Assuming your locations table is named 'locations'
-                        .select('id, name as location_name'); // Assuming 'name' column for location name
+                        .from('locations')
+                        .select('id, name');
                     if (locationsError) throw locationsError;
                     setLocations(locationsData);
 
@@ -102,7 +97,7 @@ const AddEmployeeModal = ({ isOpen, onClose, onEmployeeAdded }) => {
         const requiredFields = {
             1: ['first_name', 'last_name', 'email', 'date_of_birth', 'marital_status', 'gender'],
             2: ['phone_number', 'address', 'city', 'state', 'country'],
-            3: ['hire_date', 'position_id', 'department_id', 'location_id', 'guarantor_name', 'guarantor_phone_number', 'guarantor_name_2', 'guarantor_phone_number_2'], // Added location_id
+            3: ['hire_date', 'guarantor_name', 'guarantor_phone_number', 'guarantor_name_2', 'guarantor_phone_number_2'], // Added location_id
             4: ['salary', 'compensation', 'incentive', 'bonus', 'bank_account_number', 'bank_name', 'account_name'],
         };
 
@@ -202,15 +197,6 @@ const AddEmployeeModal = ({ isOpen, onClose, onEmployeeAdded }) => {
         setDocumentPreviews(prev => prev.filter((_, index) => index !== indexToRemove));
     };
 
-    const generateDefaultPassword = () => {
-        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()_+';
-        let password = '';
-        for (let i = 0; i < 12; i++) {
-            password += chars.charAt(Math.floor(Math.random() * chars.length));
-        }
-        return password;
-    };
-
     const uploadFileToSupabase = async (file, bucketName, folderPath) => {
         const fileName = `${Date.now()}-${file.name}`;
         const filePath = `${folderPath}/${fileName}`;
@@ -218,7 +204,7 @@ const AddEmployeeModal = ({ isOpen, onClose, onEmployeeAdded }) => {
             .from(bucketName)
             .upload(filePath, file, {
                 cacheControl: '3600',
-                upsert: false
+                upsert: true
             });
 
         if (error) {
@@ -237,18 +223,37 @@ const AddEmployeeModal = ({ isOpen, onClose, onEmployeeAdded }) => {
         setCurrentStep(step);
     };
 
+    const generateStrongPassword = (length = 12) => {
+        const lowerCaseChars = 'abcdefghijklmnopqrstuvwxyz';
+        const upperCaseChars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+        const numberChars = '0123456789';
+        const allChars = lowerCaseChars + upperCaseChars + numberChars;
+
+        let password = '';
+        // Ensure at least one of each required type
+        password += lowerCaseChars.charAt(Math.floor(Math.random() * lowerCaseChars.length));
+        password += upperCaseChars.charAt(Math.floor(Math.random() * upperCaseChars.length));
+        password += numberChars.charAt(Math.floor(Math.random() * numberChars.length));
+
+        // Fill the rest of the password length
+        for (let i = password.length; i < length; i++) {
+            password += allChars.charAt(Math.floor(Math.random() * allChars.length));
+        }
+
+        // Shuffle the password to ensure randomness of character positions
+        return password.split('').sort(() => 0.5 - Math.random()).join('');
+    };
+
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         setLoading(true);
 
         if (!validateAllFields()) {
+            toast.error("Please fill in all required fields correctly.");
             setLoading(false);
             return;
         }
-
-        const defaultPassword = generateDefaultPassword();
-        const employeeEmail = newEmployee.email;
-        const employeeFullName = `${newEmployee.first_name} ${newEmployee.last_name}`;
 
         let avatarUrl = null;
         let signatureUrl = null;
@@ -270,51 +275,11 @@ const AddEmployeeModal = ({ isOpen, onClose, onEmployeeAdded }) => {
                 documentUrls = await Promise.all(uploadPromises);
             }
 
-            const { data: authData, error: authError } = await supabase.auth.signUp({
-                email: employeeEmail,
-                password: defaultPassword,
-                options: {
-                    data: {
-                        full_name: employeeFullName,
-                        role: 'employee'
-                    },
-                    emailRedirectTo: `${window.location.origin}/dashboard`,
-                },
-            });
-
-            if (authError) {
-                if (authError.message.includes('already registered')) {
-                    const { data: existingUser, error: existingUserError } = await supabase.auth.signInWithPassword({
-                        email: employeeEmail,
-                        password: defaultPassword,
-                    });
-                    if (existingUserError && existingUserError.message.includes('Invalid login credentials')) {
-                        toast.error(`User with this email already exists but cannot be assigned with the default password. Please use a different email or reset the existing user's password manually in Supabase Auth.`);
-                        setLoading(false);
-                        return;
-                    } else if (existingUserError) {
-                        toast.error(`Error checking existing user: ${existingUserError.message}`);
-                        setLoading(false);
-                        return;
-                    }
-                    authData.user = existingUser.user;
-                } else {
-                    toast.error(`Failed to create user account: ${authError.message}`);
-                    setLoading(false);
-                    return;
-                }
-            }
-
-            const userId = authData.user?.id;
-
-            if (!userId) {
-                toast.error("Failed to get user ID after authentication.");
-                setLoading(false);
-                return;
-            }
+            const temporaryPassword = generateStrongPassword();
 
             const employeeDataToInsert = {
-                user_id: userId,
+                initial_role: newEmployee.role,
+                password: temporaryPassword,
                 first_name: newEmployee.first_name,
                 last_name: newEmployee.last_name,
                 email: newEmployee.email,
@@ -327,9 +292,9 @@ const AddEmployeeModal = ({ isOpen, onClose, onEmployeeAdded }) => {
                 date_of_birth: newEmployee.date_of_birth,
                 hire_date: newEmployee.hire_date,
                 employment_status: 'Active',
-                position_id: newEmployee.position_id,
-                department_id: newEmployee.department_id,
-                location_id: newEmployee.location_id,
+                position: newEmployee.position || null,
+                department_id: newEmployee.department_id || null,
+                location_id: newEmployee.location_id || null,
                 guarantor_name: newEmployee.guarantor_name,
                 guarantor_phone_number: newEmployee.guarantor_phone_number,
                 guarantor_name_2: newEmployee.guarantor_name_2,
@@ -348,43 +313,41 @@ const AddEmployeeModal = ({ isOpen, onClose, onEmployeeAdded }) => {
                 document_urls: documentUrls,
             };
 
-            const { error: dbError } = await supabase
-                .from('employees')
-                .insert([employeeDataToInsert]);
+            // 4. Use apiService to create the employee record in your database
+            await apiService.createEmployee(employeeDataToInsert);
 
-            if (dbError) {
-                console.error('Error adding employee to database:', dbError);
-                toast.error(`Failed to add employee details: ${dbError.message}`);
-            } else {
-                toast.success('Employee registered and added successfully! Email with login details is being sent...');
+            toast.success('Employee registered successfully!');
 
-                setTimeout(() => {
-                    onEmployeeAdded();
-                    onClose();
-                    setNewEmployee({
-                        first_name: '', last_name: '', email: '', phone_number: '', address: '', city: '', state: '', zip_code: '', country: 'Nigeria', date_of_birth: '', hire_date: '', employment_status: 'Active', position_id: '', department_id: '', location_id: '', // Reset location_id
-                        guarantor_name: '', guarantor_phone_number: '', guarantor_name_2: '', guarantor_phone_number_2: '',
-                        salary: '', compensation: '', incentive: '', bonus: '', marital_status: '', bank_account_number: '', bank_name: '', account_name: '', gender: ''
-                    });
-                    setAvatarFile(null);
-                    setAvatarPreviewUrl(null);
-                    setSignatureFile(null);
-                    setSignaturePreviewUrl(null);
-                    setDocumentFiles([]);
-                    setDocumentPreviews([]);
-                    setCurrentStep(1);
-                    if (avatarInputRef.current) avatarInputRef.current.value = '';
-                    if (documentsInputRef.current) documentsInputRef.current.value = '';
-                    if (signatureInputRef.current) signatureInputRef.current.value = '';
-                }, 2500);
-            }
+            // 5. Reset form and state
+            setTimeout(() => {
+                onEmployeeAdded();
+                onClose();
+                setNewEmployee({
+                    first_name: '', last_name: '', email: '', phone_number: '', address: '', city: '', state: '', zip_code: '', country: 'Nigeria', date_of_birth: '', hire_date: '', employment_status: 'Active', position: '', department_id: '', location_id: '',
+                    guarantor_name: '', guarantor_phone_number: '', guarantor_name_2: '', guarantor_phone_number_2: '',
+                    salary: '', compensation: '', incentive: '', bonus: '', marital_status: '', bank_account_number: '', bank_name: '', account_name: '', gender: ''
+                });
+                setAvatarFile(null);
+                setAvatarPreviewUrl(null);
+                setSignatureFile(null);
+                setSignaturePreviewUrl(null);
+                setDocumentFiles([]);
+                setDocumentPreviews([]);
+                setCurrentStep(1);
+                if (avatarInputRef.current) avatarInputRef.current.value = '';
+                if (documentsInputRef.current) documentsInputRef.current.value = '';
+                if (signatureInputRef.current) signatureInputRef.current.value = '';
+            }, 2500);
+
         } catch (err) {
-            console.error('Unexpected error during employee registration or file upload:', err);
-            toast.error(`An unexpected error occurred: ${err.message}`);
+            console.error('Error during employee registration or file upload:', err);
+            toast.error(`Failed to add employee: ${err.message || 'An unexpected error occurred.'}`);
         } finally {
             setLoading(false);
         }
     };
+
+
 
     const renderStepContent = () => {
         switch (currentStep) {
@@ -650,21 +613,17 @@ const AddEmployeeModal = ({ isOpen, onClose, onEmployeeAdded }) => {
                             />
                         </div>
                         <div>
-                            <label htmlFor="position_id" className="block text-sm font-medium text-black mb-1">
+                            <label htmlFor="position" className="block text-sm font-medium text-black mb-1">
                                 Position <span className="text-[#b88b1b]">*</span>
                             </label>
-                            <select
-                                id="position_id"
-                                name="position_id"
-                                value={newEmployee.position_id}
+                            <input
+                                id="position"
+                                type='text'
+                                name="position"
+                                value={newEmployee.position}
                                 onChange={handleChange}
                                 className="mt-1 block w-full px-3 py-2 border border-black rounded-md shadow-sm focus:outline-none focus:ring-[#b88b1b] focus:border-[#b88b1b] sm:text-sm text-black bg-white"
-                            >
-                                <option value="">Select Position</option>
-                                {positions.map(position => (
-                                    <option key={position.id} value={position.id}>{position.position_name}</option>
-                                ))}
-                            </select>
+                            />
                         </div>
                         <div>
                             <label htmlFor="department_id" className="block text-sm font-medium text-black mb-1">
@@ -679,7 +638,7 @@ const AddEmployeeModal = ({ isOpen, onClose, onEmployeeAdded }) => {
                             >
                                 <option value="">Select Department</option>
                                 {departments.map(department => (
-                                    <option key={department.id} value={department.id}>{department.department_name}</option>
+                                    <option key={department.id} value={department.id}>{department.name}</option>
                                 ))}
                             </select>
                         </div>
@@ -697,7 +656,7 @@ const AddEmployeeModal = ({ isOpen, onClose, onEmployeeAdded }) => {
                             >
                                 <option value="">Select Location</option>
                                 {locations.map(location => (
-                                    <option key={location.id} value={location.id}>{location.location_name}</option>
+                                    <option key={location.id} value={location.id}>{location.name}</option>
                                 ))}
                             </select>
                         </div>
@@ -759,6 +718,24 @@ const AddEmployeeModal = ({ isOpen, onClose, onEmployeeAdded }) => {
                 return (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <h3 className="md:col-span-2 text-lg font-semibold text-black mb-4">4. Compensation & Documents</h3>
+                        <div>
+                            <label htmlFor="role" className="block text-sm font-medium text-black mb-1">
+                                Role <span className="text-[#b88b1b]">*</span>
+                            </label>
+                            <select
+                                id="role"
+                                name="role"
+                                value={newEmployee.role}
+                                onChange={handleChange}
+                                className="mt-1 block w-full px-3 py-2 border border-black rounded-md shadow-sm focus:outline-none focus:ring-[#b88b1b] focus:border-[#b88b1b] sm:text-sm text-black bg-white"
+                            >
+                                <option value="">Select Role</option>
+                                <option value="super_admin">super admin</option>
+                                <option value="hr_manager">hr manager</option>
+                                <option value="manager">manager</option>
+                                <option value="user">user</option>
+                            </select>
+                        </div>
                         <div>
                             <label htmlFor="salary" className="block text-sm font-medium text-black mb-1">
                                 Salary (NGN) <span className="text-[#b88b1b]">*</span>
@@ -936,9 +913,8 @@ const AddEmployeeModal = ({ isOpen, onClose, onEmployeeAdded }) => {
                             {[1, 2, 3, 4].map((step) => (
                                 <div
                                     key={step}
-                                    className={`w-6 h-2 rounded-full cursor-pointer transition-all duration-300 ${
-                                        currentStep === step ? 'bg-[#b88b1b] w-8' : 'bg-gray-300'
-                                    }`}
+                                    className={`w-6 h-2 rounded-full cursor-pointer transition-all duration-300 ${currentStep === step ? 'bg-[#b88b1b] w-8' : 'bg-gray-300'
+                                        }`}
                                     onClick={() => handleStepClick(step)}
                                 />
                             ))}
