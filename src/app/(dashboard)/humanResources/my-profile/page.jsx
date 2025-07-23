@@ -18,6 +18,7 @@ export default function MyProfile() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [activeTab, setActiveTab] = useState('personal');
+    const [currentDateTime, setCurrentDateTime] = useState('')
 
     useEffect(() => {
         const storedAuthUserId = localStorage.getItem("user_id");
@@ -27,6 +28,28 @@ export default function MyProfile() {
             router.push("/login");
         }
     }, [router]);
+
+    useEffect(() => {
+        const updateDateTime = () => {
+            const now = new Date();
+            const options = {
+                weekday: 'long',
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+                hour12: true
+            };
+            setCurrentDateTime(now.toLocaleString('en-US', options));
+        };
+
+        updateDateTime();
+        const intervalId = setInterval(updateDateTime, 1000);
+
+        return () => clearInterval(intervalId);
+    }, []);
 
     useEffect(() => {
         const fetchEmployeeDetails = async () => {
@@ -72,6 +95,16 @@ export default function MyProfile() {
 
     return (
         <div className="">
+            <div className='flex justify-between items-center mt-5 mb-14 flex-wrap gap-4'>
+                <div>
+                    <h1 className='text-2xl font-bold '>My Profile</h1>
+                    <p className='text-[#A09D9D] font-medium mt-2'>View and manage your profile informations</p>
+                </div>
+                <span className='rounded-[20px] px-3 py-2 border-[0.5px] border-solid border-[#DDD9D9] text-[#A09D9D]'>
+                    {currentDateTime}
+                </span>
+            </div>
+
             <div className="flex flex-col md:flex-row items-center md:gap-20 gap-6 mb-10 p-6 rounded-lg border border-gray-100">
                 <div className="flex flex-col items-center md:items-start flex-shrink-0">
                     {employee.avatar_url ? (
@@ -99,41 +132,37 @@ export default function MyProfile() {
             <div className="mt-8">
                 <div className="flex border-b border-gray-200 overflow-x-auto whitespace-nowrap -mb-px">
                     <button
-                        className={`py-3 px-6 text-lg font-medium transition-colors duration-300 ${
-                            activeTab === 'personal'
+                        className={`py-3 px-6 text-lg font-medium transition-colors duration-300 ${activeTab === 'personal'
                                 ? 'border-b-2 border-yellow-500 text-yellow-600'
                                 : 'text-gray-600 hover:text-gray-800'
-                        }`}
+                            }`}
                         onClick={() => setActiveTab('personal')}
                     >
                         Personal Information
                     </button>
                     <button
-                        className={`py-3 px-6 text-lg font-medium transition-colors duration-300 ${
-                            activeTab === 'contact'
+                        className={`py-3 px-6 text-lg font-medium transition-colors duration-300 ${activeTab === 'contact'
                                 ? 'border-b-2 border-yellow-500 text-yellow-600'
                                 : 'text-gray-600 hover:text-gray-800'
-                        }`}
+                            }`}
                         onClick={() => setActiveTab('contact')}
                     >
                         Contact Information
                     </button>
                     <button
-                        className={`py-3 px-6 text-lg font-medium transition-colors duration-300 ${
-                            activeTab === 'employment'
+                        className={`py-3 px-6 text-lg font-medium transition-colors duration-300 ${activeTab === 'employment'
                                 ? 'border-b-2 border-yellow-500 text-yellow-600'
                                 : 'text-gray-600 hover:text-gray-800'
-                        }`}
+                            }`}
                         onClick={() => setActiveTab('employment')}
                     >
                         Employment Details
                     </button>
                     <button
-                        className={`py-3 px-6 text-lg font-medium transition-colors duration-300 ${
-                            activeTab === 'guarantor'
+                        className={`py-3 px-6 text-lg font-medium transition-colors duration-300 ${activeTab === 'guarantor'
                                 ? 'border-b-2 border-yellow-500 text-yellow-600'
                                 : 'text-gray-600 hover:text-gray-800'
-                        }`}
+                            }`}
                         onClick={() => setActiveTab('guarantor')}
                     >
                         Guarantor Information
