@@ -26,7 +26,7 @@ export default function LoginPage() {
 
   const redirectToDashboard = async (user) => {
 
-    const userRole = user?.user_metadata?.role;
+    const userRole = user?.app_metadata?.role;
     switch (userRole) {
       case 'hr_manager':
         router.push('/humanResources');

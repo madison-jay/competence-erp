@@ -59,7 +59,7 @@ export const LeaveRow = ({ leaveRequest, onUpdateStatus }) => {
 
             await apiService.updateLeave(leaveRequest.id, updatedLeaveData);
 
-            toast.success(`Leave request for ${leaveRequest.employee.first_name} updated to ${newStatus}!`);
+            toast.success(`Leave request for ${leaveRequest.employee?.first_name} updated to ${newStatus}!`);
             if (onUpdateStatus) {
                 onUpdateStatus(leaveRequest.id, newStatus);
             }
@@ -77,14 +77,14 @@ export const LeaveRow = ({ leaveRequest, onUpdateStatus }) => {
                     <div className="flex-shrink-0 h-10 w-10 rounded-full overflow-hidden">
                         <img
                             className="h-full w-full object-cover rounded-full"
-                            src={imgSrc}
-                            alt={`${leaveRequest.employee.first_name}'s avatar`}
+                            src={leaveRequest.employee?.avatar_url || imgSrc} // Use optional chaining for avatar_url
+                            alt={`${leaveRequest.employee?.first_name || 'Employee'}'s avatar`} // Optional chaining
                             onError={handleImageError}
                         />
                     </div>
                     <div className="ml-4">
-                        <div className="text-sm font-medium text-gray-900">{`${leaveRequest.employee.first_name} ${leaveRequest.employee.last_name}`}</div>
-                        <div className="text-sm text-gray-500">{leaveRequest.employee.email}</div>
+                        <div className="text-sm font-medium text-gray-900">{`${leaveRequest.employee?.first_name || 'N/A'} ${leaveRequest.employee?.last_name || ''}`}</div>
+                        <div className="text-sm text-gray-500">{leaveRequest.employee?.email || 'N/A'}</div>
                     </div>
                 </div>
             </td>
@@ -112,11 +112,11 @@ export const LeaveRow = ({ leaveRequest, onUpdateStatus }) => {
                 >
                     <option value="pending">Pending</option>
                     <option value="approved">Approved</option>
-                    <option value="declined">Declined</option>
+                    <option value="rejected">Declined</option>
                 </select>
             </td>
             <td className="px-6 py-4 whitespace-nowrap text-sm text-center">
-                {leaveRequest.approver.first_name } {leaveRequest.approver.last_name || "Not Approved"}
+                {leaveRequest.approver?.first_name} {leaveRequest.approver?.last_name || "Not Approved"}
             </td>
             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 rounded-r-lg">
                 {formatDate(leaveRequest.created_at)}

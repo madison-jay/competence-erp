@@ -7,6 +7,13 @@ import { useRouter } from "next/navigation";
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSearch } from '@fortawesome/free-solid-svg-icons';
 
+const formatDateForInput = (dateString) => {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return '';
+    return date.toISOString().split('T')[0];
+};
+
 const UpdateTaskModal = ({ show, task, onSave, onCancel }) => {
     const router = useRouter();
     const dropdownRef = useRef(null);
@@ -17,6 +24,7 @@ const UpdateTaskModal = ({ show, task, onSave, onCancel }) => {
         start_date: '',
         end_date: '',
         assigned_to: '',
+        id: '',
     });
     const [isSaving, setIsSaving] = useState(false);
     const [allEmployees, setAllEmployees] = useState([]);
@@ -29,14 +37,14 @@ const UpdateTaskModal = ({ show, task, onSave, onCancel }) => {
             setFormData({
                 title: task.title || '',
                 description: task.description || '',
-                start_date: task.start_date || '',
-                end_date: task.end_date || '',
+                start_date: formatDateForInput(task.start_date),
+                end_date: formatDateForInput(task.end_date),
                 assigned_to: task.assigned_to?.id || '',
                 id: task.id,
             });
 
             if (task.assigned_to) {
-                setEmployeeSearchTerm(`${task.assigned_to.first_name} ${task.assigned_to.last_name}`);
+                setEmployeeSearchTerm(`${task.assigned_to.first_name} ${task.assigned_to.last_name} (${task.assigned_to.email})`);
             } else {
                 setEmployeeSearchTerm('');
             }
@@ -89,9 +97,17 @@ const UpdateTaskModal = ({ show, task, onSave, onCancel }) => {
     };
 
     const handleEmployeeSearchChange = (e) => {
-        setEmployeeSearchTerm(e.target.value);
+        const newSearchTerm = e.target.value;
+        setEmployeeSearchTerm(newSearchTerm);
         setDropdownOpen(true);
-        setFormData(prevData => ({ ...prevData, assigned_to: '' }));
+
+        const currentSelectedEmployee = allEmployees.find(emp => emp.id === formData.assigned_to);
+        const currentSelectedEmployeeName = currentSelectedEmployee ?
+            `${currentSelectedEmployee.first_name} ${currentSelectedEmployee.last_name} (${currentSelectedEmployee.email})` : '';
+
+        if (newSearchTerm !== currentSelectedEmployeeName) {
+            setFormData(prevData => ({ ...prevData, assigned_to: '' }));
+        }
     };
 
     const handleEmployeeSelect = (employeeId, employeeName) => {
@@ -103,14 +119,26 @@ const UpdateTaskModal = ({ show, task, onSave, onCancel }) => {
     const handleSubmit = async (e) => {
         e.preventDefault();
         setIsSaving(true);
+
+        if (!formData.assigned_to) {
+            toast.error("Please select an employee to assign the task.");
+            setIsSaving(false);
+            return;
+        }
+
         try {
-            const updatedTask = {
-                ...formData,
+            const updatedTaskPayload = {
+                id: formData.id,
+                title: formData.title,
+                description: formData.description,
+                start_date: formData.start_date,
+                end_date: formData.end_date,    
                 assigned_to: formData.assigned_to,
                 status: task.status,
                 created_by: task.created_by?.id,
             };
-            await onSave(updatedTask);
+            
+            await onSave(updatedTaskPayload);
             onCancel();
         } catch (error) {
             console.error("Error saving task:", error);
@@ -192,12 +220,13 @@ const UpdateTaskModal = ({ show, task, onSave, onCancel }) => {
                                             <input
                                                 type="text"
                                                 id="assigned_to_search"
-                                                className="block w-full rounded-md border border-gray-300  focus:border-[#b88b1b] focus:ring-[#b88b1b] sm:text-sm p-2 pr-10"
+                                                className="block w-full rounded-md border border-gray-300 focus:border-[#b88b1b] focus:ring-[#b88b1b] sm:text-sm p-2 pr-10"
                                                 placeholder="Search and select an employee"
                                                 value={employeeSearchTerm}
                                                 onChange={handleEmployeeSearchChange}
                                                 onFocus={() => setDropdownOpen(true)}
                                                 disabled={isSaving}
+                                                autoComplete="off" // Helps prevent browser autofill interference
                                             />
                                             <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
                                                 <FontAwesomeIcon icon={faSearch} className="h-4 w-4 text-gray-400" />
@@ -223,12 +252,14 @@ const UpdateTaskModal = ({ show, task, onSave, onCancel }) => {
                                             </ul>
                                         )}
 
-                                        {formData.assigned_to && selectedEmployeeForDisplay && (
+                                        {/* Display selected employee for clarity even if dropdown is closed */}
+                                        {formData.assigned_to && !dropdownOpen && selectedEmployeeForDisplay && (
                                             <p className="mt-2 text-sm text-gray-600">
-                                                Selected: **{selectedEmployeeForDisplay.first_name} {selectedEmployeeForDisplay.last_name}**
+                                                Currently assigned to: <strong>{selectedEmployeeForDisplay.first_name} {selectedEmployeeForDisplay.last_name}</strong>
                                             </p>
                                         )}
-                                        {!formData.assigned_to && !employeeSearchTerm && (
+                                        {/* Validation message if no employee is selected and input is not being typed into */}
+                                        {!formData.assigned_to && !dropdownOpen && employeeSearchTerm === '' && (
                                             <p className="mt-2 text-sm text-red-500">Please select an employee.</p>
                                         )}
                                     </div>
@@ -239,8 +270,8 @@ const UpdateTaskModal = ({ show, task, onSave, onCancel }) => {
                     <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
                         <button
                             type="submit"
-                            className={`w-full inline-flex justify-center rounded-md border border-transparent  px-4 py-2 text-base font-medium text-white sm:ml-3 sm:w-auto sm:text-sm
-                                ${isSaving ? 'bg-[#a89053] cursor-not-allowed' : 'bg-[#b88b1b] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#b88b1b]'}
+                            className={`w-full inline-flex justify-center rounded-md border border-transparent px-4 py-2 text-base font-medium text-white sm:ml-3 sm:w-auto sm:text-sm
+                                ${isSaving ? 'bg-[#b88b1b] cursor-not-allowed' : 'bg-[#b88b1b] hover:bg-[#a67c18] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#b88b1b]'}
                             `}
                             disabled={isSaving}
                         >
@@ -258,7 +289,7 @@ const UpdateTaskModal = ({ show, task, onSave, onCancel }) => {
                         </button>
                         <button
                             type="button"
-                            className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300  px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
+                            className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
                             onClick={onCancel}
                             disabled={isSaving}
                         >

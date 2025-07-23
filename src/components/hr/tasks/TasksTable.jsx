@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faChevronLeft, faChevronRight, faEye, faEdit, faTrashAlt } from '@fortawesome/free-solid-svg-icons';
+import { faChevronLeft, faChevronRight, faEye, faEdit, faTrashAlt, faCircleCheck, faCircleXmark } from '@fortawesome/free-solid-svg-icons';
 import DeleteConfirmationModal from './DeleteTaskModal';
 import UpdateTaskModal from './UpdateTaskModal';
 
@@ -30,7 +30,7 @@ const TaskTable = ({ tasks, searchTerm, onViewTask, loading, error, onUpdateTask
         bgColorClass = 'bg-green-100';
         textColorClass = 'text-green-800';
         break;
-      case 'In-progress':
+      case 'In Progress':
         bgColorClass = 'bg-yellow-100';
         textColorClass = 'text-yellow-800';
         break;
@@ -237,48 +237,14 @@ const TaskTable = ({ tasks, searchTerm, onViewTask, loading, error, onUpdateTask
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th
-                  scope="col"
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                >
-                  Assigned to
-                </th>
-                <th
-                  scope="col"
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                >
-                  Start date
-                </th>
-                <th
-                  scope="col"
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                >
-                  End date
-                </th>
-                <th
-                  scope="col"
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                >
-                  Task title
-                </th>
-                <th
-                  scope="col"
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                >
-                  Created By
-                </th>
-                <th
-                  scope="col"
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                >
-                  Status
-                </th>
-                <th
-                  scope="col"
-                  className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"
-                >
-                  Action
-                </th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Assigned to</th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Start date</th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">End date</th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Task title</th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created By</th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                <th scope="col" className="px-3 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Overdue</th>
+                <th scope="col" className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Action</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
@@ -315,20 +281,17 @@ const TaskTable = ({ tasks, searchTerm, onViewTask, loading, error, onUpdateTask
                           </div>
                         </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {task.start_date}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {task.end_date}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {task.title}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {task.created_by?.first_name} {task.created_by?.last_name || "N/A"}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-left">
-                        {renderBadge(task.status)}
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{task.start_date}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{task.end_date}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{task.title}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{task.created_by?.first_name} {task.created_by?.last_name || "N/A"}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-left">{renderBadge(task.status)}</td>
+                      <td className="px-3 py-4 whitespace-nowrap text-center text-sm">
+                          {task.isOverdue ? (
+                              <FontAwesomeIcon icon={faCircleCheck} className="text-red-500 h-5 w-5" />
+                          ) : (
+                              <FontAwesomeIcon icon={faCircleXmark} className="text-gray-400 h-5 w-5" />
+                          )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-center text-sm font-medium">
                         <button
@@ -355,7 +318,7 @@ const TaskTable = ({ tasks, searchTerm, onViewTask, loading, error, onUpdateTask
                 })
               ) : (
                 <tr>
-                  <td colSpan="7" className="px-6 py-4 text-center text-gray-500">
+                  <td colSpan="8" className="px-6 py-4 text-center text-gray-500">
                     No tasks found.
                   </td>
                 </tr>

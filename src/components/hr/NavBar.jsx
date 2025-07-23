@@ -3,25 +3,17 @@
 import React, { useEffect } from "react";
 import Link from 'next/link';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import {
-    faBars,
-    faTimes,
-    faThLarge,
-    faUsers,
-    faPlaneDeparture,
-    faCheckSquare,
-    faCalendarAlt,
-    faClipboardList,
-    faMoneyBillAlt,
-    faEnvelope,
-    faCog,
-    faArrowRightFromBracket,
-} from '@fortawesome/free-solid-svg-icons';
+import { faBars, faTimes, faThLarge, faUsers, faPlaneDeparture, faCheckSquare, faCalendarAlt, faClipboardList, faMoneyBillAlt, faEnvelope, faCog, faArrowRightFromBracket } from '@fortawesome/free-solid-svg-icons';
 import { usePathname } from 'next/navigation';
 import Image from "next/image";
+import { createClient } from "@/app/lib/supabase/client";
+import toast from "react-hot-toast";
+import { useRouter } from "next/navigation";
 
 export default function SideNavBar({ isMobileMenuOpen, onCloseMobileMenu, isDesktopSidebarExpanded, toggleDesktopSidebar }) {
     const pathname = usePathname();
+    const supabase = createClient();
+    const router = useRouter();
 
     useEffect(() => {
         if (typeof window !== 'undefined') {
@@ -46,9 +38,21 @@ export default function SideNavBar({ isMobileMenuOpen, onCloseMobileMenu, isDesk
         { name: "Shift", icon: faCalendarAlt, path: "/humanResources/shift" },
         { name: "Task", icon: faClipboardList, path: "/humanResources/tasks" },
         { name: "Payroll", icon: faMoneyBillAlt, path: "/humanResources/payroll" },
-        { name: "Message", icon: faEnvelope, path: "/humanResources/messages" },
+        { name: "Message", icon: faEnvelope, path: "/humanResources/chat" },
         { name: "Settings", icon: faCog, path: "/humanResources/settings" },
     ];
+
+    const handleLogout = async () => {
+        const { error } = await supabase.auth.signOut();
+
+        if (error) {
+            toast.error(error.message || 'Failed to log out.');
+            console.error('Logout error:', error.message);
+        } else {
+            toast.success('Successfully logged out!');
+            router.push('/');
+        }
+    };
 
     return (
         <>
@@ -77,9 +81,9 @@ export default function SideNavBar({ isMobileMenuOpen, onCloseMobileMenu, isDesk
                             <div
                                 className={`flex items-center py-3 rounded-md mb-2 cursor-pointer
                                 ${pathname === item.path
-                                    ? 'bg-[#EBC75F] text-white'
-                                    : 'text-gray-600 hover:bg-[#ffecc0] hover:text-[#b88b1b]'
-                                }
+                                        ? 'bg-[#EBC75F] text-white'
+                                        : 'text-gray-600 hover:bg-[#ffecc0] hover:text-[#b88b1b]'
+                                    }
                                 ${isDesktopSidebarExpanded ? 'px-4' : 'justify-center'}
                                 `}
                             >
@@ -96,7 +100,7 @@ export default function SideNavBar({ isMobileMenuOpen, onCloseMobileMenu, isDesk
 
                 {/* Logout button at the bottom for desktop sidebar */}
                 <div className={`mt-auto p-2 ${isDesktopSidebarExpanded ? 'px-4' : 'justify-center flex'}`}>
-                    <Link href="/" passHref>
+                    <button onClick={() => handleLogout()}>
                         <div className={`flex items-center py-3 rounded-md cursor-pointer
                             text-red-600 hover:bg-red-50 hover:text-red-700 transition-colors duration-200
                             ${isDesktopSidebarExpanded ? 'px-4 w-full' : 'justify-center'}
@@ -108,7 +112,7 @@ export default function SideNavBar({ isMobileMenuOpen, onCloseMobileMenu, isDesk
                                 </span>
                             )}
                         </div>
-                    </Link>
+                    </button>
                 </div>
             </nav>
 
@@ -137,9 +141,9 @@ export default function SideNavBar({ isMobileMenuOpen, onCloseMobileMenu, isDesk
                                 onClick={onCloseMobileMenu}
                                 className={`flex items-center py-3 px-2 rounded-md transition-colors duration-200 mb-2
                                 ${pathname === item.path
-                                    ? 'bg-gray-700 text-white'
-                                    : 'text-gray-300 hover:bg-gray-700 hover:text-white'
-                                }
+                                        ? 'bg-gray-700 text-white'
+                                        : 'text-gray-300 hover:bg-gray-700 hover:text-white'
+                                    }
                                 `}
                             >
                                 <FontAwesomeIcon icon={item.icon} className="mr-3 text-xl" />

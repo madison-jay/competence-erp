@@ -18,7 +18,7 @@ const ViewShiftModal = ({ isOpen, onClose, shift }) => {
                 bgColorClass = 'bg-blue-100';
                 textColorClass = 'text-blue-800';
                 break;
-            case 'Evening':
+            case 'Afternoon':
                 bgColorClass = 'bg-purple-100';
                 textColorClass = 'text-purple-800';
                 break;
@@ -26,7 +26,6 @@ const ViewShiftModal = ({ isOpen, onClose, shift }) => {
                 bgColorClass = 'bg-indigo-100';
                 textColorClass = 'text-indigo-800';
                 break;
-            // Add more shift types as needed
             default:
                 bgColorClass = 'bg-gray-100';
                 textColorClass = 'text-gray-800';
@@ -50,12 +49,10 @@ const ViewShiftModal = ({ isOpen, onClose, shift }) => {
                 >
                     <FontAwesomeIcon icon={faTimes} className="h-6 w-6" />
                 </button>
-                {/* Changed title to reflect shift details */}
-                <h2 className="text-2xl font-bold mb-6">Shift Details: {shift.shiftType} Shift</h2>
 
                 <div className="space-y-4">
                     <div>
-                        <p className="text-sm font-medium text-gray-700">Employee:</p>
+                        <p className="text-sm font-medium text-[#b88b1b]">Employee:</p>
                         <div className="flex items-center mt-1">
                             <Image
                                 className="h-8 w-8 rounded-full object-cover mr-2"
@@ -64,40 +61,40 @@ const ViewShiftModal = ({ isOpen, onClose, shift }) => {
                                 width={32}
                                 height={32}
                             />
-                            <p className="text-base text-gray-900">{shift.employee.name} ({shift.employee.email})</p>
+                            <p className="text-base text-gray-900 font-bold">{shift.employee.name} ({shift.employee.email})</p>
                         </div>
                     </div>
 
                     <div>
-                        <p className="text-sm font-medium text-gray-700">Department:</p>
-                        <p className="text-base text-gray-900">{shift.department}</p>
+                        <p className="text-sm font-medium text-[#b88b1b]">Department:</p>
+                        <p className="text-base text-gray-900 font-bold">{shift.department}</p>
                     </div>
 
                     <div>
-                        <p className="text-sm font-medium text-gray-700">Shift Type:</p>
+                        <p className="text-sm font-medium text-[#b88b1b]">Shift Type:</p>
                         {renderBadge(shift.shiftType)} {/* Use renderBadge for shiftType */}
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <p className="text-sm font-medium text-gray-700">Date:</p>
-                            <p className="text-base text-gray-900">{shift.date}</p>
+                            <p className="text-sm font-medium text-[#b88b1b]">Date:</p>
+                            <p className="text-base text-gray-900 font-bold">{shift.date}</p>
                         </div>
                         <div>
-                            <p className="text-sm font-medium text-gray-700">Start Time:</p>
-                            <p className="text-base text-gray-900">{shift.startTime}</p>
+                            <p className="text-sm font-medium text-[#b88b1b]">Start Time:</p>
+                            <p className="text-base text-gray-900 font-bold">{shift.startTime}</p>
                         </div>
                     </div>
 
                     <div>
-                        <p className="text-sm font-medium text-gray-700">End Time:</p>
-                        <p className="text-base text-gray-900">{shift.endTime}</p>
+                        <p className="text-sm font-medium text-[#b88b1b]">End Time:</p>
+                        <p className="text-base text-gray-900 font-bold">{shift.endTime}</p>
                     </div>
 
                     {shift.note && ( // Display note only if it exists
                         <div>
-                            <p className="text-sm font-medium text-gray-700">Note:</p>
-                            <p className="text-base text-gray-900">{shift.note}</p>
+                            <p className="text-sm font-medium text-[#b88b1b]">Note:</p>
+                            <p className="text-base text-gray-900 font-bold">{shift.note}</p>
                         </div>
                     )}
 

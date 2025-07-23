@@ -50,10 +50,31 @@ export default function TaskPage() {
         setError(null);
         try {
             const tasks = await apiService.getTasks(router);
-            setAllTasks(tasks);
+            const processedTasks = Array.isArray(tasks)
+                ? tasks.map(task => {
+                    const dueDate = task.end_date ? new Date(task.end_date) : null;
+                    const now = new Date();
+                    const isOverdue = dueDate && !isNaN(dueDate) && dueDate < now && task.status !== 'Completed';
+                    return { ...task, isOverdue };
+                }).sort((a, b) => {
+                    const dateA = a.createdAt ? new Date(a.createdAt) : null;
+                    const dateB = b.createdAt ? new Date(b.createdAt) : null;
+
+                    if (dateA && dateB && !isNaN(dateA) && !isNaN(dateB)) {
+                        return dateB.getTime() - dateA.getTime();
+                    } else if (dateA && !isNaN(dateA)) {
+                        return -1;
+                    } else if (dateB && !isNaN(dateB)) {
+                        return 1;
+                    }
+                    return 0;
+                })
+                : [];
+            setAllTasks(processedTasks);
         } catch (err) {
             console.error("Failed to fetch tasks:", err);
             setError(err.message || "Failed to load tasks.");
+            setAllTasks([]);
         } finally {
             setLoading(false);
         }
@@ -79,22 +100,19 @@ export default function TaskPage() {
 
     const handleAddTask = async (newTaskData) => {
         try {
-            const createdTask = await apiService.addTask(newTaskData, router);
-            setAllTasks(prevTasks => [...prevTasks, createdTask]);
-            toast.success("Task added successfully!");
+            await apiService.createTask(newTaskData, router);
+            setIsAddTaskModalOpen(false);
+            fetchTasks();
         } catch (error) {
             console.error("Failed to add task:", error);
-            toast.error("Failed to add task. Try again");
         }
     };
 
     const handleUpdateTask = async (updatedTask) => {
         try {
-            const response = await apiService.updateTask(updatedTask.id, updatedTask, router);
-            setAllTasks(prevTasks => prevTasks.map(task =>
-                task.id === updatedTask.id ? response : task
-            ));
+            await apiService.updateTask(updatedTask.id, updatedTask, router);
             toast.success("Task updated successfully!");
+            fetchTasks();
         } catch (err) {
             console.error("Failed to update task:", err);
             toast.error("Failed to update task. Try again");
@@ -104,8 +122,8 @@ export default function TaskPage() {
     const handleDeleteTask = async (taskId) => {
         try {
             await apiService.deleteTask(taskId, router);
-            setAllTasks(prevTasks => prevTasks.filter(task => task.id !== taskId));
             toast.success("Task deleted successfully!");
+            fetchTasks();
         } catch (err) {
             console.error("Failed to delete task:", err);
             toast.error("Failed to delete task. Try again");
@@ -142,47 +160,57 @@ export default function TaskPage() {
                     {currentDateTime}
                 </span>
             </div>
-            <div className="flex flex-wrap gap-5 items-center justify-between mb-14">
-                <TaskCard title="All task" no={allTasks.length} />
-                <TaskCard title="Pending" no={allTasks.filter(t => t.status === 'Pending').length} />
-                <TaskCard title="In progress" no={allTasks.filter(t => t.status === 'In-progress').length} />
-                <TaskCard title="Completed" no={allTasks.filter(t => t.status === 'Completed').length} />
-                <TaskCard title="Overdue" no={allTasks.filter(t => t.status === 'Overdue').length} />
-            </div>
 
-            <div className="flex items-center justify-between p-4 md:p-6 bg-white border-b border-gray-200">
-                <h1 className="text-2xl font-semibold text-gray-900">Task list</h1>
-                <div className="flex items-center space-x-4">
-                    {renderSearchBar('Search...', searchTerm, handleSearchChange)}
-                    <button
-                        onClick={() => setIsAddTaskModalOpen(true)}
-                        className="whitespace-nowrap px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-[#b88b1b] hover:bg-[#a67c18] outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#b88b1b]"
-                    >
-                        Add new task
-                    </button>
-                </div>
-            </div>
+            {loading && <p className="text-center text-gray-500">Loading tasks...</p>}
+            {error && <p className="text-center text-red-500">Error: {error}</p>}
 
-            <TaskTable
-                tasks={allTasks}
-                searchTerm={searchTerm}
-                onViewTask={handleViewTask}
-                onUpdateTask={handleUpdateTask}
-                onDeleteTask={handleDeleteTask}
-                loading={loading}
-                error={error}
-            />
+            {!loading && !error && (
+                <>
+                    <div className="flex flex-wrap gap-5 items-center justify-between mb-14">
+                        <TaskCard title="All task" no={allTasks.length} />
+                        <TaskCard title="Pending" no={allTasks.filter(t => t.status === 'Pending').length} />
+                        <TaskCard title="In progress" no={allTasks.filter(t => t.status === 'In Progress').length} />
+                        <TaskCard title="Completed" no={allTasks.filter(t => t.status === 'Completed').length} />
+                        <TaskCard title="Overdue" no={allTasks.filter(t => t.isOverdue).length} /> {/* Updated filter for overdue */}
+                    </div>
+
+                    <div className="flex items-center justify-between p-4 md:p-6 bg-white border-b border-gray-200">
+                        <h1 className="text-2xl font-semibold text-gray-900">Task list</h1>
+                        <div className="flex items-center space-x-4">
+                            {renderSearchBar('Search...', searchTerm, handleSearchChange)}
+                            <button
+                                onClick={() => setIsAddTaskModalOpen(true)}
+                                className="whitespace-nowrap px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-[#b88b1b] hover:bg-[#a67c18] outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#b88b1b]"
+                            >
+                                Add new task
+                            </button>
+                        </div>
+                    </div>
+
+                    <TaskTable
+                        tasks={allTasks}
+                        searchTerm={searchTerm}
+                        onViewTask={handleViewTask}
+                        onUpdateTask={handleUpdateTask}
+                        onDeleteTask={handleDeleteTask}
+                        loading={loading}
+                        error={error}
+                    />
+                </>
+            )}
 
             <AddTaskModal
                 isOpen={isAddTaskModalOpen}
                 onClose={() => setIsAddTaskModalOpen(false)}
-                onTaskAdded={handleAddTask}
+                onAddTask={handleAddTask}
             />
 
             <ViewTaskModal
                 isOpen={isViewModalOpen}
                 onClose={handleCloseViewModal}
                 task={selectedTask}
+                onUpdateTaskSuccess={fetchTasks}
+                onDeleteTaskSuccess={fetchTasks}
             />
         </div>
     );

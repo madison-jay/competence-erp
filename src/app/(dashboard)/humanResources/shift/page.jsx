@@ -3,7 +3,8 @@
 import React, { useState, useEffect } from "react";
 import ShiftCard from "@/components/hr/shift/ShiftCard";
 import ViewShiftModal from "@/components/hr/shift/ViewShiftModal";
-import AddShiftModal from "@/components/hr/shift/AddShiftModal";
+import UpdateShiftModal from "@/components/hr/shift/UpdateShiftModal";
+import ManageShiftTypesModal from "@/components/hr/shift/ManageShiftTypesModal";
 import ShiftTable from "@/components/hr/shift/ShiftTable";
 import apiService from "@/app/lib/apiService";
 import { useRouter } from "next/navigation";
@@ -16,12 +17,15 @@ export default function ShiftPage() {
     const router = useRouter();
     const [currentDateTime, setCurrentDateTime] = useState('');
     const [searchTerm, setSearchTerm] = useState('');
-    const [isAddShiftModalOpen, setIsAddShiftModalOpen] = useState(false);
+    const [isAssignShiftModalOpen, setIsAssignShiftModalOpen] = useState(false);
+    const [isManageShiftTypesModalOpen, setIsManageShiftTypesModalOpen] = useState(false);
     const [selectedShift, setSelectedShift] = useState(null);
     const [isViewShiftModalOpen, setIsViewShiftModalOpen] = useState(false);
-    const [allShifts, setAllShifts] = useState([]);
+    const [allAssignedShifts, setAllAssignedShifts] = useState([]);
+    const [shiftTypes, setShiftTypes] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [employeeToUpdateShift, setEmployeeToUpdateShift] = useState(null);
 
     useEffect(() => {
         const updateDateTime = () => {
@@ -45,68 +49,128 @@ export default function ShiftPage() {
         return () => clearInterval(intervalId);
     }, []);
 
-    const fetchShifts = async () => {
+    const fetchAssignedShifts = async () => {
         setLoading(true);
         setError(null);
         try {
-            const data = await apiService.getShifts(router);
-            setAllShifts(data);
+            const employeesData = await apiService.getEmployees(router);
+
+            const today = new Date();
+            const todayFormatted = today.toLocaleDateString('en-US');
+
+            const transformedAssignedShifts = employeesData.map(employee => ({
+                id: employee.id,
+                employee: {
+                    name: `${employee.first_name || ''} ${employee.last_name || ''}`.trim(),
+                    email: employee.email || 'N/A',
+                    avatar: employee.avatar_url || '/default-profile.png',
+                },
+                department: employee.departments?.name || 'N/A',
+                shiftType: employee.shift_types?.name || 'Unassigned',
+                shiftTypeId: employee.shift_types?.id || null,
+                date: todayFormatted,
+                startTime: employee.shift_types?.start_time ? employee.shift_types.start_time.substring(0, 5) : 'N/A',
+                endTime: employee.shift_types?.end_time ? employee.shift_types.end_time.substring(0, 5) : 'N/A',
+                originalEmployeeData: employee,
+            }));
+
+            setAllAssignedShifts(transformedAssignedShifts);
+            toast.success("Employee shifts loaded successfully!");
         } catch (err) {
-            console.error("Failed to fetch shifts:", err);
-            setError(err.message || "Failed to load shifts.");
-            toast.error(err.message || "Failed to load shifts.");
+            console.error("Failed to fetch employee shifts:", err);
+            setError(err.message || "Failed to load employee shifts.");
+            toast.error(err.message || "Failed to load employee shifts.");
         } finally {
             setLoading(false);
         }
     };
 
+    const fetchShiftTypes = async () => {
+        try {
+            const data = await apiService.getShifts(router);
+            setShiftTypes(data);
+        } catch (err) {
+            console.error("Failed to fetch shift types:", err);
+            toast.error(err.message || "Failed to load shift types.");
+        }
+    };
+
     useEffect(() => {
-        fetchShifts();
-    }, []);
+        fetchAssignedShifts();
+        fetchShiftTypes();
+    }, [router]);
 
     const handleSearchChange = (e) => {
         setSearchTerm(e.target.value);
     };
 
-    const handleAddShift = async (newShiftData) => {
+    const handleUpdateEmployeeShift = async (assignmentData) => {
         try {
-            await apiService.createShift(newShiftData, router);
-            toast.success("Shift added successfully!");
-            setIsAddShiftModalOpen(false);
-            fetchShifts();
+            const employeeId = assignmentData.employeeId;
+            const updatedEmployeeData = {
+                shift_type_id: assignmentData.shiftTypeId,
+            };
+
+            await apiService.updateEmployee(employeeId, updatedEmployeeData, router);
+            toast.success("Employee shift updated successfully!");
+            setIsAssignShiftModalOpen(false);
+            setEmployeeToUpdateShift(null);
+            fetchAssignedShifts();
         } catch (err) {
-            console.error("Error adding shift:", err);
-            toast.error(err.message || "Failed to add shift.");
+            console.error("Error updating employee shift:", err);
+            toast.error(err.message || "Failed to update employee shift.");
         }
     };
 
-    const handleUpdateShift = async (shiftId, updatedShiftData) => {
-        try {
-            await apiService.updateShift(shiftId, updatedShiftData, router);
-            toast.success("Shift updated successfully!");
-            fetchShifts();
-        } catch (err) {
-            console.error("Error updating shift:", err);
-            toast.error(err.message || "Failed to update shift.");
-        }
-    };
-
-    const handleDeleteShift = async (shiftId) => {
-        if (window.confirm("Are you sure you want to delete this shift?")) {
+    const handleDeleteAssignedShift = async (employeeId) => {
+        if (window.confirm("Are you sure you want to unassign this employee from their shift?")) {
             try {
-                await apiService.deleteShift(shiftId, router);
-                toast.success("Shift deleted successfully!");
-                fetchShifts();
+                const updatedEmployeeData = { shift_type_id: null };
+                await apiService.updateEmployee(employeeId, updatedEmployeeData, router);
+                toast.success("Employee unassigned from shift successfully!");
+                fetchAssignedShifts();
             } catch (err) {
-                console.error("Error deleting shift:", err);
-                toast.error(err.message || "Failed to delete shift.");
+                console.error("Error unassigning shift:", err);
+                toast.error(err.message || "Failed to unassign shift.");
             }
+        }
+    };
+
+    const handleUpdateShiftType = async (shiftTypeId, updatedShiftTypeData) => {
+        setShiftTypes(prevTypes =>
+            prevTypes.map(type =>
+                type.id === shiftTypeId ? { ...type, ...updatedShiftTypeData } : type
+            )
+        );
+        toast.loading("Saving shift type...", { id: `update-shift-type-${shiftTypeId}` });
+
+        try {
+            await apiService.updateShift(shiftTypeId, updatedShiftTypeData, router);
+            toast.success("Shift type updated successfully!", { id: `update-shift-type-${shiftTypeId}` });
+            fetchShiftTypes();
+            fetchAssignedShifts();
+        } catch (err) {
+            console.error("Error updating shift type:", err);
+            setShiftTypes(prevTypes => {
+                const original = shiftTypes.find(s => s.id === shiftTypeId);
+                return prevTypes.map(type =>
+                    type.id === shiftTypeId && original
+                        ? original
+                        : type
+                );
+            });
+            toast.error(`Failed to update shift type: ${err.message || "Unknown error"}`, { id: `update-shift-type-${shiftTypeId}` });
         }
     };
 
     const handleViewShift = (shift) => {
         setSelectedShift(shift);
         setIsViewShiftModalOpen(true);
+    };
+
+    const handleOpenUpdateShiftModal = (employeeData) => {
+        setEmployeeToUpdateShift(employeeData);
+        setIsAssignShiftModalOpen(true);
     };
 
     const renderSearchBar = (placeholder = 'Search...', value, onChange) => {
@@ -128,19 +192,24 @@ export default function ShiftPage() {
         );
     };
 
-    const filteredShifts = allShifts.filter(shift => {
-        const employeeName = shift.employee ? `${shift.employee.first_name} ${shift.employee.last_name}` : '';
-        const departmentName = shift.department?.name || '';
+    const filteredShifts = allAssignedShifts.filter(shift => {
+        if (!shift) return false;
+
+        const employeeName = `${shift.employee?.name || ''}`.trim();
+        const departmentName = shift.department || '';
+        const shiftTypeName = shift.shiftType || '';
+
+        const lowerCaseSearchTerm = searchTerm.toLowerCase();
+
         return (
-            employeeName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            departmentName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            shift.shift_type?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            shift.note?.toLowerCase().includes(searchTerm.toLowerCase())
+            employeeName.toLowerCase().includes(lowerCaseSearchTerm) ||
+            departmentName.toLowerCase().includes(lowerCaseSearchTerm) ||
+            shiftTypeName.toLowerCase().includes(lowerCaseSearchTerm)
         );
     });
 
     return (
-        <div className="max-w-[1400px] mx-auto p-4">
+        <div className="max-w-[1400px] mx-auto p-4 font-inter">
             <div className='flex justify-between items-center mt-5 mb-14 flex-wrap gap-4'>
                 <div>
                     <h1 className='text-2xl font-bold '>Shift Management</h1>
@@ -152,47 +221,59 @@ export default function ShiftPage() {
             </div>
 
             <div className="flex flex-wrap gap-5 items-center justify-between mb-14">
-                <ShiftCard title="All Shifts" count={allShifts.length} />
-                <ShiftCard title="Morning Shifts" count={allShifts.filter(s => s.shift_type === 'Morning').length} />
-                <ShiftCard title="Evening Shifts" count={allShifts.filter(s => s.shift_type === 'Evening').length} />
-                <ShiftCard title="Night Shifts" count={allShifts.filter(s => s.shift_type === 'Night').length} />
+                <ShiftCard title="All Shifts" count={allAssignedShifts.length} />
+                <ShiftCard title="Morning Shifts" count={allAssignedShifts.filter(s => s.shiftType === 'Morning').length} />
+                <ShiftCard title="Afternoon Shifts" count={allAssignedShifts.filter(s => s.shiftType === 'Afternoon').length} />
+                <ShiftCard title="Night Shifts" count={allAssignedShifts.filter(s => s.shiftType === 'Night').length} />
             </div>
 
-            <div className="flex items-center justify-between p-4 md:p-6 bg-white border-b border-gray-200">
-                <h1 className="text-2xl font-semibold text-gray-900">Shift List</h1>
-                <div className="flex items-center space-x-4">
+            <div className="flex flex-col md:flex-row items-center justify-between p-4 md:p-6 bg-white border-b border-gray-200 rounded-t-lg">
+                <h1 className="text-2xl font-semibold text-gray-900 mb-4 md:mb-0">Shift List</h1>
+                <div className="flex flex-col md:flex-row items-center space-y-4 md:space-y-0 md:space-x-4 w-full md:w-auto">
                     {renderSearchBar('Search shifts...', searchTerm, handleSearchChange)}
                     <button
-                        onClick={() => setIsAddShiftModalOpen(true)}
-                        className="whitespace-nowrap px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-[#b88b1b] hover:bg-[#a67c18] outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#b88b1b]"
+                        onClick={() => setIsManageShiftTypesModalOpen(true)}
+                        className="whitespace-nowrap px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-[#b88b1b] hover:bg-[#a67c18] outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#b88b1b] w-full md:w-auto"
                     >
-                        Add New Shift
+                        Manage Shift Types
                     </button>
                 </div>
             </div>
 
-            <div className="mt-6">
+            <div className="mt-0">
                 <ShiftTable
                     shifts={filteredShifts}
                     searchTerm={searchTerm}
                     onViewShift={handleViewShift}
-                    onUpdateShift={handleUpdateShift}
-                    onDeleteShift={handleDeleteShift}
+                    onOpenUpdateShiftModal={handleOpenUpdateShiftModal}
+                    onDeleteShift={handleDeleteAssignedShift}
                     loading={loading}
                     error={error}
                 />
             </div>
 
-            <AddShiftModal
-                isOpen={isAddShiftModalOpen}
-                onClose={() => setIsAddShiftModalOpen(false)}
-                onAddShift={handleAddShift}
+            <UpdateShiftModal
+                isOpen={isAssignShiftModalOpen}
+                onClose={() => {
+                    setIsAssignShiftModalOpen(false);
+                    setEmployeeToUpdateShift(null);
+                }}
+                onAssignShift={handleUpdateEmployeeShift}
+                shiftTypes={shiftTypes}
+                employee={employeeToUpdateShift}
             />
 
             <ViewShiftModal
                 isOpen={isViewShiftModalOpen}
                 onClose={() => setIsViewShiftModalOpen(false)}
                 shift={selectedShift}
+            />
+
+            <ManageShiftTypesModal
+                isOpen={isManageShiftTypesModalOpen}
+                onClose={() => setIsManageShiftTypesModalOpen(false)}
+                shiftTypes={shiftTypes}
+                onUpdateShiftType={handleUpdateShiftType}
             />
         </div>
     );

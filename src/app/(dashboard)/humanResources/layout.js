@@ -13,7 +13,7 @@ export default function HRManagerLayout({ children }) {
     const router = useRouter();
 
     const [loading, setLoading] = useState(false);
-    const [isHRManager, setIsHRManager] = useState(true);
+    const [isHRManager, setIsHRManager] = useState(false);
     const [profile, setProfile] = useState(null); 
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
@@ -35,6 +35,7 @@ export default function HRManagerLayout({ children }) {
         async function checkUserAndRole() {
             setLoading(true);
             const { data: { user: authUser } } = await supabase.auth.getUser();
+
             if (!authUser) {
                 router.replace('/login');
                 toast.error('You must be logged in to access this page.');
@@ -42,17 +43,34 @@ export default function HRManagerLayout({ children }) {
                 return;
             }
 
-            const userRole = authUser.user_metadata?.role;
-            const userFullName = authUser.user_metadata?.full_name || "User"; 
-            const userAvatarUrl = authUser.user_metadata?.avatar_url || "/default-profile.png";
-            const username = authUser.user_metadata?.username || "user";
+            const { data: employeeData, error: employeeError } = await supabase
+                .from('employees')
+                .select('id, first_name, last_name, email, avatar_url, user_id')
+                .eq('user_id', authUser.id)
+                .single();
+
+            if (employeeError || !employeeData) {
+                console.error('Error fetching employee profile:', employeeError?.message || 'Employee data not found.');
+                toast.error('Failed to load employee profile. Please ensure your employee record exists.');
+                router.replace('/login');
+                setLoading(false);
+                return;
+            }
+
+            const userRole = authUser.app_metadata?.role;
+            
+            const employeeFullName = `${employeeData.first_name} ${employeeData.last_name}`;
+            const employeeUsername = employeeData.email.split('@')[0];
+            const employeeAvatarUrl = employeeData.avatar_url || "/default-profile.png";
+
 
             if (userRole) {
                 setProfile({
-                    username: username,
-                    full_name: userFullName,
-                    avatar_url: userAvatarUrl,
-                    role: userRole
+                    username: employeeUsername,
+                    full_name: employeeFullName,
+                    avatar_url: employeeAvatarUrl,
+                    role: userRole,
+                    employee_id: employeeData.id
                 });
 
                 if (userRole === 'hr_manager') {
@@ -62,8 +80,8 @@ export default function HRManagerLayout({ children }) {
                     router.replace('/login');
                 }
             } else {
-                console.error('Error: User role not found in user metadata.');
-                toast.error('Failed to load user profile. Role not found.');
+                console.error('Error: User role not found in user metadata for auth user:', authUser.id);
+                toast.error('Failed to load user profile. Role not found in authentication data.');
                 router.replace('/login');
             }
             
@@ -107,8 +125,8 @@ export default function HRManagerLayout({ children }) {
             />
             <div className="flex-1 flex flex-col overflow-x-auto">
                 <TopNavBar
-                profile={profile}
-                onMobileMenuToggle={handleMobileMenuToggle}
+                    profile={profile}
+                    onMobileMenuToggle={handleMobileMenuToggle}
                 />
                 <div className="py-4 px-7 flex-1 overflow-y-auto">
                     {children}

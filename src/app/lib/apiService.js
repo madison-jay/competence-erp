@@ -133,23 +133,15 @@ const apiService = {
     },
 
     getShifts: async (router) => {
-        return callApi("/shift_type", "GET", null, router);
+        return callApi("/shift_types", "GET", null, router);
     },
 
     getShiftById: async (shiftId, router) => {
-        return callApi(`/shift_type/${shiftId}`, "GET", null, router);
-    },
-
-    createShift: async (shiftData, router) => {
-        return callApi("/shift_type", "POST", shiftData, router);
+        return callApi(`/shift_types/${shiftId}`, "GET", null, router);
     },
 
     updateShift: async (shiftId, shiftData, router) => {
-        return callApi(`/shift_type/${shiftId}`, "PUT", shiftData, router);
-    },
-
-    deleteShift: async (shiftId, router) => {
-        return callApi(`/shift_type/${shiftId}`, "DELETE", null, router);
+        return callApi(`/shift_types/${shiftId}`, "PUT", shiftData, router);
     },
 };
 

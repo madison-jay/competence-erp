@@ -1,12 +1,11 @@
-// components/hr/shift/ShiftTable.js
 "use client";
 
 import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faChevronLeft, faChevronRight, faEye } from '@fortawesome/free-solid-svg-icons';
+import { faChevronLeft, faChevronRight, faEye, faCalendarDays, faTrash } from '@fortawesome/free-solid-svg-icons';
 
-const ShiftTable = ({ shifts, searchTerm, onViewShift }) => {
+const ShiftTable = ({ shifts, searchTerm, onViewShift, onOpenUpdateShiftModal, onDeleteShift, loading, error }) => {
     const [currentPage, setCurrentPage] = useState(1);
     const itemsPerPage = 8;
 
@@ -22,6 +21,10 @@ const ShiftTable = ({ shifts, searchTerm, onViewShift }) => {
             case 'Morning':
                 bgColorClass = 'bg-blue-100';
                 textColorClass = 'text-blue-800';
+                break;
+            case 'Afternoon':
+                bgColorClass = 'bg-green-100';
+                textColorClass = 'text-green-800';
                 break;
             case 'Evening':
                 bgColorClass = 'bg-purple-100';
@@ -45,38 +48,59 @@ const ShiftTable = ({ shifts, searchTerm, onViewShift }) => {
         );
     };
 
+    const filteredShifts = shifts.filter(shift =>
+        (shift.employee?.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (shift.department || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (shift.shiftType || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (shift.note || '').toLowerCase().includes(searchTerm.toLowerCase())
+    );
+
+    const totalPages = Math.ceil(filteredShifts.length / itemsPerPage);
+
+    const indexOfLastItem = currentPage * itemsPerPage;
+    const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+    const currentShifts = filteredShifts.slice(indexOfFirstItem, indexOfLastItem);
+
+    const handlePageChange = (page) => {
+        if (page > 0 && page <= totalPages) {
+            setCurrentPage(page);
+        }
+    };
+
+    const PageButton = ({ page, isActive, onClick }) => (
+        <button
+            onClick={onClick}
+            className={`px-3 py-1 rounded-md text-sm font-medium ${
+                isActive
+                    ? 'bg-[#b88b1b] text-white'
+                    : 'text-gray-700 hover:bg-gray-100'
+            }`}
+        >
+            {page}
+        </button>
+    );
+
     const renderPagination = (currentPage, totalPages, onPageChange) => {
-        const pages = Array.from({ length: totalPages }, (_, i) => i + 1);
+        const pageNumbers = [];
+        const maxPagesToShow = 7;
+        const middleOffset = Math.floor(maxPagesToShow / 2);
 
-        const PageButton = ({ page, isActive, onClick }) => (
-            <button
-                onClick={onClick}
-                className={`px-3 py-1 rounded-md text-sm font-medium ${
-                    isActive
-                        ? 'bg-[#b88b1b] text-white'
-                        : 'text-gray-700 hover:bg-gray-100'
-                }`}
-            >
-                {page}
-            </button>
-        );
+        if (totalPages <= 1) {
+            return null;
+        }
 
-        const renderPageNumbers = () => {
-            const pageNumbers = [];
-            const maxPagesToShow = 7;
-            const middleOffset = Math.floor(maxPagesToShow / 2);
-
-            if (totalPages <= maxPagesToShow) {
-                return pages.map(page => (
+        if (totalPages <= maxPagesToShow) {
+            for (let i = 1; i <= totalPages; i++) {
+                pageNumbers.push(
                     <PageButton
-                        key={page}
-                        page={page}
-                        isActive={page === currentPage}
-                        onClick={() => onPageChange(page)}
+                        key={i}
+                        page={i}
+                        isActive={i === currentPage}
+                        onClick={() => onPageChange(i)}
                     />
-                ));
+                );
             }
-
+        } else {
             let startPage = Math.max(1, currentPage - middleOffset);
             let endPage = Math.min(totalPages, currentPage + middleOffset);
 
@@ -115,9 +139,7 @@ const ShiftTable = ({ shifts, searchTerm, onViewShift }) => {
                     <PageButton key={totalPages} page={totalPages} isActive={false} onClick={() => onPageChange(totalPages)} />
                 );
             }
-
-            return pageNumbers;
-        };
+        }
 
         return (
             <div className="flex justify-center py-3">
@@ -130,7 +152,7 @@ const ShiftTable = ({ shifts, searchTerm, onViewShift }) => {
                         <span className="sr-only">Previous</span>
                         <FontAwesomeIcon icon={faChevronLeft} className="h-5 w-5" aria-hidden="true" />
                     </button>
-                    {renderPageNumbers()}
+                    {pageNumbers}
                     <button
                         onClick={() => onPageChange(currentPage + 1)}
                         disabled={currentPage === totalPages}
@@ -142,23 +164,6 @@ const ShiftTable = ({ shifts, searchTerm, onViewShift }) => {
                 </nav>
             </div>
         );
-    };
-
-    const filteredShifts = shifts.filter(shift =>
-        shift.employee.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        shift.department.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        shift.shiftType.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        shift.note.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-
-    const totalPages = Math.ceil(filteredShifts.length / itemsPerPage);
-
-    const indexOfLastItem = currentPage * itemsPerPage;
-    const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-    const currentShifts = filteredShifts.slice(indexOfFirstItem, indexOfLastItem);
-
-    const handlePageChange = (page) => {
-        setCurrentPage(page);
     };
 
     return (
@@ -185,7 +190,7 @@ const ShiftTable = ({ shifts, searchTerm, onViewShift }) => {
                             >
                                 Shift Type
                             </th>
-                             <th
+                            <th
                                 scope="col"
                                 className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
                             >
@@ -207,12 +212,24 @@ const ShiftTable = ({ shifts, searchTerm, onViewShift }) => {
                                 scope="col"
                                 className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"
                             >
-                                Action
+                                Actions
                             </th>
                         </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                        {currentShifts.length > 0 ? (
+                        {loading ? (
+                            <tr>
+                                <td colSpan="7" className="px-6 py-4 text-center text-gray-500">
+                                    Loading shifts...
+                                </td>
+                            </tr>
+                        ) : error ? (
+                            <tr>
+                                <td colSpan="7" className="px-6 py-4 text-center text-red-500">
+                                    Error: {error}
+                                </td>
+                            </tr>
+                        ) : currentShifts.length > 0 ? (
                             currentShifts.map((shift) => (
                                 <tr key={shift.id} className="hover:bg-gray-50">
                                     <td className="px-6 py-4 whitespace-nowrap">
@@ -220,39 +237,54 @@ const ShiftTable = ({ shifts, searchTerm, onViewShift }) => {
                                             <div className="flex-shrink-0 h-10 w-10">
                                                 <Image
                                                     className="h-10 w-10 rounded-full object-cover"
-                                                    src={shift.employee.avatar || '/default-profile.png'}
-                                                    alt={shift.employee.name}
+                                                    src={shift.employee?.avatar || '/default-profile.png'}
+                                                    alt={shift.employee?.name || 'Employee Avatar'}
                                                     width={40}
                                                     height={40}
                                                 />
                                             </div>
                                             <div className="ml-4">
-                                                <div className="text-sm font-medium text-gray-900">{shift.employee.name}</div>
-                                                <div className="text-sm text-gray-500">{shift.employee.email}</div>
+                                                <div className="text-sm font-medium text-gray-900">{shift.employee?.name || 'N/A'}</div>
+                                                <div className="text-sm text-gray-500">{shift.employee?.email || 'N/A'}</div>
                                             </div>
                                         </div>
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                        {shift.department}
+                                        {shift.department || 'N/A'}
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-left">
                                         {renderBadge(shift.shiftType)}
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                        {shift.date}
+                                        {shift.date || 'N/A'}
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-500">
-                                        {shift.startTime}
+                                        {shift.startTime || 'N/A'}
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-500">
-                                        {shift.endTime}
+                                        {shift.endTime || 'N/A'}
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-center text-sm font-medium">
                                         <button
                                             onClick={() => onViewShift(shift)}
                                             className="text-gray-500 hover:text-gray-900 p-2 rounded-full hover:bg-gray-100"
+                                            title="View Shift Details"
                                         >
                                             <FontAwesomeIcon icon={faEye} className="h-5 w-5" aria-hidden="true" />
+                                        </button>
+                                        <button
+                                            onClick={() => onOpenUpdateShiftModal(shift.originalEmployeeData)}
+                                            className="text-blue-600 hover:text-blue-900 p-2 rounded-full hover:bg-blue-100 ml-2"
+                                            title="Update Employee Shift"
+                                        >
+                                            <FontAwesomeIcon icon={faCalendarDays} className="h-5 w-5" aria-hidden="true" />
+                                        </button>
+                                        <button
+                                            onClick={() => onDeleteShift(shift.id)}
+                                            className="text-red-600 hover:text-red-900 p-2 rounded-full hover:bg-red-100 ml-2"
+                                            title="Unassign Shift"
+                                        >
+                                            <FontAwesomeIcon icon={faTrash} className="h-5 w-5" aria-hidden="true" />
                                         </button>
                                     </td>
                                 </tr>
@@ -260,7 +292,7 @@ const ShiftTable = ({ shifts, searchTerm, onViewShift }) => {
                         ) : (
                             <tr>
                                 <td colSpan="7" className="px-6 py-4 text-center text-gray-500">
-                                    No shifts found.
+                                    No shifts found matching your criteria.
                                 </td>
                             </tr>
                         )}
