@@ -10,17 +10,19 @@ import toast from 'react-hot-toast';
 
 const AddTaskModal = ({ isOpen, onClose, onAddTask }) => {
     const supabase = createClient();
+    const router = useRouter();
 
     const [formData, setFormData] = useState({
         title: '',
         description: '',
-        assigned_to: '',
         start_date: '',
         end_date: '',
-        attachments: [],
-        attachment_urls: [],
+        status: 'Pending',
+        priority: 'Medium',
+        documents: []
     });
 
+    const [selectedEmployees, setSelectedEmployees] = useState([]);
     const [attachmentPreviews, setAttachmentPreviews] = useState([]);
     const [allEmployees, setAllEmployees] = useState([]);
     const [filteredEmployees, setFilteredEmployees] = useState([]);
@@ -30,7 +32,6 @@ const AddTaskModal = ({ isOpen, onClose, onAddTask }) => {
     const [searchTerm, setSearchTerm] = useState('');
     const [dropdownOpen, setDropdownOpen] = useState(false);
 
-    const router = useRouter();
     const dropdownRef = useRef(null);
 
     useEffect(() => {
@@ -56,7 +57,7 @@ const AddTaskModal = ({ isOpen, onClose, onAddTask }) => {
         return () => {
             attachmentPreviews.forEach(preview => URL.revokeObjectURL(preview.url));
         };
-    }, [isOpen, router, attachmentPreviews]);
+    }, [isOpen, router]);
 
     useEffect(() => {
         if (searchTerm) {
@@ -96,131 +97,128 @@ const AddTaskModal = ({ isOpen, onClose, onAddTask }) => {
     const handleFileChange = (e) => {
         const files = Array.from(e.target.files);
         if (files.length > 0) {
-            setFormData(prevData => ({
-                ...prevData,
-                attachments: [...prevData.attachments, ...files]
+            const newDocuments = files.map(file => ({
+                file,
+                name: file.name,
+                type: file.type,
+                category: 'Task Attachment',
+                preview: file.type.startsWith('image/') ? URL.createObjectURL(file) : null
             }));
 
-            const newPreviews = files.map(file => {
-                if (file.type.startsWith('image/')) {
-                    return { file: file.name, url: URL.createObjectURL(file), type: 'image' };
-                } else {
-                    return { file: file.name, url: null, type: 'file' };
-                }
-            });
-            setAttachmentPreviews(prevPreviews => [...prevPreviews, ...newPreviews]);
-
+            setFormData(prevData => ({
+                ...prevData,
+                documents: [...prevData.documents, ...newDocuments]
+            }));
         }
     };
 
     const handleRemoveAttachment = (indexToRemove) => {
         setFormData(prevData => {
-            const updatedAttachments = prevData.attachments.filter((_, index) => index !== indexToRemove);
+            const removedDoc = prevData.documents[indexToRemove];
+            if (removedDoc.preview) {
+                URL.revokeObjectURL(removedDoc.preview);
+            }
             return {
                 ...prevData,
-                attachments: updatedAttachments
+                documents: prevData.documents.filter((_, index) => index !== indexToRemove)
             };
-        });
-
-        setAttachmentPreviews(prevPreviews => {
-            const removedPreview = prevPreviews[indexToRemove];
-            if (removedPreview && removedPreview.url) {
-                URL.revokeObjectURL(removedPreview.url);
-            }
-            return prevPreviews.filter((_, index) => index !== indexToRemove);
         });
     };
 
-    const handleEmployeeSelect = (employeeId, employeeName) => {
-        setFormData(prevData => ({
-            ...prevData,
-            assigned_to: employeeId
-        }));
-        setSearchTerm(employeeName);
-        setDropdownOpen(false);
+    const handleEmployeeSelect = (employee) => {
+        if (!selectedEmployees.some(e => e.id === employee.id)) {
+            setSelectedEmployees(prev => [...prev, employee]);
+            setSearchTerm('');
+            setDropdownOpen(false);
+        }
+    };
+
+    const handleRemoveEmployee = (employeeId) => {
+        setSelectedEmployees(prev => prev.filter(e => e.id !== employeeId));
     };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
         setIsSubmitting(true);
 
-        const { title, description, assigned_to, start_date, end_date, attachments } = formData;
-
-        if (!assigned_to) {
-            console.error("Please select an employee.");
-            toast("Please select an employee.");
-            setIsSubmitting(false);
-            return;
-        }
-
-        let finalAttachmentUrls = [];
-
         try {
-            if (attachments.length > 0) {
-                for (const attachment of attachments) {
-                    const timestamp = Date.now();
-                    const originalFileName = attachment.name.replace(/[^a-zA-Z0-9.]/g, '_');
-                    const fileName = `${timestamp}_${originalFileName}`;
-                    const filePath = `task_attachments/${fileName}`;
-
-                    const { data: uploadData, error: uploadError } = await supabase.storage
-                        .from('taskattachments')
-                        .upload(filePath, attachment, {
-                            cacheControl: '3600',
-                            upsert: false,
-                        });
-
-                    if (uploadError) {
-                        throw new Error(`Error uploading file ${attachment.name}: ${uploadError.message}`);
-                    }
-
-                    const { data: publicUrlData } = supabase.storage
-                        .from('taskattachments')
-                        .getPublicUrl(filePath);
-
-                    if (publicUrlData && publicUrlData.publicUrl) {
-                        finalAttachmentUrls.push(publicUrlData.publicUrl);
-                    } else {
-                        throw new Error(`Could not get public URL for the uploaded file: ${attachment.name}`);
-                    }
-                }
-            }
-
-            const newTaskData = {
-                title,
-                description,
-                assigned_to,
-                start_date,
-                end_date,
+            const taskResponse = await apiService.createTask({
+                title: formData.title,
+                description: formData.description,
+                start_date: formData.start_date,
+                end_date: formData.end_date,
+                priority: formData.priority,
                 status: 'Pending',
-                attachment_urls: finalAttachmentUrls,
-            };
+                assigned_to: selectedEmployees.map(employee => employee.id)
+            }, router);
 
-            await apiService.createTask(newTaskData, router);
+            const taskId = taskResponse.id;
 
-            toast.success("Task added successfully!");
-            setFormData({
-                title: '',
-                description: '',
-                assigned_to: '',
-                start_date: '',
-                end_date: '',
-                attachments: [],
-                attachment_urls: [],
-            });
-            setAttachmentPreviews([]);
-            setSearchTerm('');
-            setDropdownOpen(false);
-            onClose();
-            if (onAddTask) {
-                onAddTask();
+            await Promise.all(
+                selectedEmployees.map(employee =>
+                    apiService.addEmployeeToTask(taskId, employee.id, router)
+                )
+            );
+
+            if (formData.documents.length > 0) {
+                const creatorResponse = await supabase
+                    .from('employees')
+                    .select('id')
+                    .eq('user_id', (await supabase.auth.getSession()).data.session?.user.id)
+                    .single();
+
+                const creatorId = creatorResponse.data?.id;
+
+                await Promise.all(
+                    formData.documents.map(async (doc) => {
+                        const filePath = `task_documents/${Date.now()}_${doc.name.replace(/[^a-zA-Z0-9.]/g, '_')}`;
+
+                        const { error: uploadError } = await supabase.storage
+                            .from('taskattachments')
+                            .upload(filePath, doc.file);
+                        if (uploadError) throw uploadError;
+
+                        const { data: { publicUrl } } = supabase.storage
+                            .from('taskattachments')
+                            .getPublicUrl(filePath);
+
+                        await apiService.addTaskDocument(taskId, {
+                            name: doc.name,
+                            url: publicUrl,
+                            type: doc.type,
+                            category: doc.category || 'General',
+                            created_by: creatorId
+                        }, router);
+                    })
+                );
             }
-        } catch (err) {
-            console.error("Failed to add task:", err);
-            toast.error("Failed to assign task. Try again!");
+
+            toast.success("Task created successfully!");
+            onClose();
+            resetForm();
+            if (onAddTask) onAddTask();
+
+        } catch (error) {
+            console.error("Task creation failed:", error);
+            toast.error(error.message || "Task creation failed");
         } finally {
             setIsSubmitting(false);
         }
+    };
+
+    const resetForm = () => {
+        setFormData({
+            title: '',
+            description: '',
+            start_date: '',
+            end_date: '',
+            status: 'Pending',
+            priority: 'Medium',
+            documents: []
+        });
+        setSelectedEmployees([]);
+        setAttachmentPreviews([]);
+        setSearchTerm('');
     };
 
     return (
@@ -274,21 +272,58 @@ const AddTaskModal = ({ isOpen, onClose, onAddTask }) => {
                             ></textarea>
                         </div>
 
+                        <div className="mb-4">
+                            <label htmlFor="priority" className="block text-sm font-medium text-gray-700 mb-1">
+                                Priority
+                            </label>
+                            <select
+                                id="priority"
+                                name="priority"
+                                className="block w-full rounded-md border border-gray-300 shadow-sm focus:border-[#b88b1b] focus:ring-[#b88b1b] sm:text-sm p-2"
+                                value={formData.priority}
+                                onChange={handleChange}
+                                disabled={isSubmitting}
+                            >
+                                <option value="Low">Low</option>
+                                <option value="Medium">Medium</option>
+                                <option value="High">High</option>
+                            </select>
+                        </div>
+
                         <div className="mb-4 relative" ref={dropdownRef}>
-                            <label htmlFor="assigned_to" className="block text-sm font-medium text-gray-700 mb-1">
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
                                 Assign to
                             </label>
+
+                            {/* Selected employees chips */}
+                            {selectedEmployees.length > 0 && (
+                                <div className="flex flex-wrap gap-2 mb-2">
+                                    {selectedEmployees.map(employee => (
+                                        <div key={employee.id} className="flex items-center bg-gray-100 rounded-full px-3 py-1">
+                                            <span className="text-sm">
+                                                {employee.first_name} {employee.last_name}
+                                            </span>
+                                            <button
+                                                type="button"
+                                                onClick={() => handleRemoveEmployee(employee.id)}
+                                                className="ml-2 text-gray-500 hover:text-red-500"
+                                            >
+                                                <FontAwesomeIcon icon={faTimes} className="h-3 w-3" />
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+
                             <div className="relative">
                                 <input
                                     type="text"
-                                    id="assigned_to_search"
                                     className="block w-full rounded-md border border-gray-300 shadow-sm focus:border-[#b88b1b] focus:ring-[#b88b1b] sm:text-sm p-2 pr-10"
-                                    placeholder="Search and select an employee"
+                                    placeholder="Search and select employees"
                                     value={searchTerm}
                                     onChange={(e) => {
                                         setSearchTerm(e.target.value);
                                         setDropdownOpen(true);
-                                        setFormData(prevData => ({ ...prevData, assigned_to: '' }));
                                     }}
                                     onFocus={() => setDropdownOpen(true)}
                                     disabled={isSubmitting}
@@ -304,8 +339,9 @@ const AddTaskModal = ({ isOpen, onClose, onAddTask }) => {
                                         filteredEmployees.map(employee => (
                                             <li
                                                 key={employee.id}
-                                                className="px-4 py-2 cursor-pointer hover:bg-gray-100"
-                                                onClick={() => handleEmployeeSelect(employee.id, `${employee.first_name} ${employee.last_name}`)}
+                                                className={`px-4 py-2 cursor-pointer hover:bg-gray-100 ${selectedEmployees.some(e => e.id === employee.id) ? 'bg-gray-100' : ''
+                                                    }`}
+                                                onClick={() => handleEmployeeSelect(employee)}
                                             >
                                                 {employee.first_name} {employee.last_name}
                                             </li>
@@ -314,14 +350,6 @@ const AddTaskModal = ({ isOpen, onClose, onAddTask }) => {
                                         <li className="px-4 py-2 text-gray-500">No employees found.</li>
                                     )}
                                 </ul>
-                            )}
-                            {formData.assigned_to && (
-                                <p className="mt-2 text-sm text-gray-600">
-                                    Selected: **{allEmployees.find(emp => emp.id === formData.assigned_to)?.first_name} {allEmployees.find(emp => emp.id === formData.assigned_to)?.last_name}**
-                                </p>
-                            )}
-                            {!formData.assigned_to && (
-                                <p className="mt-2 text-sm text-red-500">Please select an employee.</p>
                             )}
                         </div>
 
@@ -388,23 +416,31 @@ const AddTaskModal = ({ isOpen, onClose, onAddTask }) => {
                                             className="relative cursor-pointer rounded-md bg-white font-medium text-[#b88b1b] focus-within:outline-none focus-within:ring-2 focus-within:ring-[#b88b1b] focus-within:ring-offset-2 hover:text-[#a67c18]"
                                         >
                                             <span>Upload files</span>
-                                            <input id="file-upload" name="attachments" type="file" multiple className="sr-only" onChange={handleFileChange} disabled={isSubmitting} /> 
+                                            <input
+                                                id="file-upload"
+                                                name="documents"
+                                                type="file"
+                                                multiple
+                                                className="sr-only"
+                                                onChange={handleFileChange}
+                                                disabled={isSubmitting}
+                                            />
                                         </label>
                                         <p className="pl-1">or drag and drop</p>
                                     </div>
                                     <p className="text-xs text-gray-500">PNG, JPG, GIF, PDF, DOCX etc. up to 5MB each</p>
 
-                                    {attachmentPreviews.length > 0 && (
+                                    {formData.documents.length > 0 && (
                                         <ul className="mt-4 text-left">
-                                            {attachmentPreviews.map((preview, index) => (
+                                            {formData.documents.map((doc, index) => (
                                                 <li key={index} className="flex items-center justify-between py-2 border-b border-gray-200 last:border-b-0">
                                                     <div className="flex items-center">
-                                                        {preview.type === 'image' && preview.url ? (
-                                                            <img src={preview.url} alt="Attachment Preview" className="h-10 w-10 object-contain rounded-md mr-3" />
+                                                        {doc.preview ? (
+                                                            <img src={doc.preview} alt="Document Preview" className="h-10 w-10 object-contain rounded-md mr-3" />
                                                         ) : (
                                                             <FontAwesomeIcon icon={faFileAlt} className="h-6 w-6 text-gray-500 mr-3" />
                                                         )}
-                                                        <span className="text-sm text-gray-800 break-all">{preview.file}</span>
+                                                        <span className="text-sm text-gray-800 break-all">{doc.name}</span>
                                                     </div>
                                                     <button
                                                         type="button"
@@ -434,9 +470,9 @@ const AddTaskModal = ({ isOpen, onClose, onAddTask }) => {
                             <button
                                 type="submit"
                                 className="inline-flex justify-center rounded-md border border-transparent bg-[#b88b1b] px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-[#a67c18] focus:outline-none focus:ring-2 focus:ring-[#b88b1b] focus:ring-offset-2"
-                                disabled={isSubmitting}
+                                disabled={isSubmitting || selectedEmployees.length === 0}
                             >
-                                {isSubmitting ? 'Adding task...' : 'Add task'}
+                                {isSubmitting ? 'Creating task...' : 'Create task'}
                             </button>
                         </div>
                     </form>

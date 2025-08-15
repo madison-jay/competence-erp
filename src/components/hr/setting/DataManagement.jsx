@@ -1,16 +1,14 @@
 "use client";
 
 import React, { useState } from 'react';
-import { createClient } from '@/app/lib/supabase/client';
+import toast from 'react-hot-toast';
+import apiService from '@/app/lib/apiService';
 
 const DataManagement = () => {
     const [importFile, setImportFile] = useState(null);
-    const [importStatus, setImportStatus] = useState('');
-    const [exportStatus, setExportStatus] = useState('');
     const [loadingImport, setLoadingImport] = useState(false);
     const [loadingExport, setLoadingExport] = useState(false);
 
-    const supabase = createClient()
 
     const handleFileChange = (e) => {
         if (e.target.files.length > 0) {
@@ -18,86 +16,143 @@ const DataManagement = () => {
         } else {
             setImportFile(null);
         }
-        setImportStatus('');
     };
 
     const handleImportSubmit = async (e) => {
         e.preventDefault();
         if (!importFile) {
-            setImportStatus('Please select a file to import.');
+            toast.error('Please select a file to import.');
             return;
         }
 
         setLoadingImport(true);
-        setImportStatus('Importing data...');
-
-        // IMPORTANT: For robust import, you should send this file to a backend API route
-        // for parsing, validation, and secure database insertion.
-        // Example: Using a Next.js API route or Supabase Edge Function
-        const formData = new FormData();
-        formData.append('file', importFile);
-        formData.append('dataType', 'employees'); // Could be 'employees', 'users', etc.
 
         try {
-            // Replace '/api/import-data' with your actual backend API endpoint
-            // This backend endpoint would read the CSV, validate it, and insert into Supabase
-            const response = await fetch('/api/import-data', {
-                method: 'POST',
-                body: formData,
-            });
+            const reader = new FileReader();
+            reader.onload = async (event) => {
+                try {
+                    const csvText = event.target.result;
+                    const rows = csvText.split('\n').filter(row => row.trim() !== '');
 
-            if (response.ok) {
-                const result = await response.json();
-                setImportStatus(`Import successful! ${result.importedCount} records processed. Errors: ${result.errorCount}`);
-                setImportFile(null); // Clear file input
-                e.target.reset(); // Reset the form to clear file input visual
-            } else {
-                const errorData = await response.json();
-                setImportStatus(`Import failed: ${errorData.message || 'An unknown error occurred.'}`);
-            }
+                    if (rows.length < 2) {
+                        toast.error('CSV file must contain at least a header and one row of data.');
+                        setLoadingImport(false);
+                        return;
+                    }
+
+                    const headers = rows[0].split(',').map(header => header.trim().replace(/"/g, ''));
+                    
+                    const expectedHeaders = [
+                        'account_name', 'address', 'bank_account_number', 'bank_name', 'city', 'country',
+                        'date_of_birth', 'email', 'employment_status', 'first_name',
+                        'gender', 'guarantor_name', 'guarantor_name_2', 'guarantor_phone_number', 'guarantor_phone_number_2', 'last_name', 'marital_status', 'phone_number', 'position', 'state', 'zip_code', 'initial_role', 'password', 'salary', 'incentives', 'bonus', 'compensation', 'hire_date'
+                    ];
+
+                    const areHeadersValid = headers.every(h => expectedHeaders.includes(h));
+                    if (!areHeadersValid || headers.length !== expectedHeaders.length) {
+                        toast.error('CSV headers do not match the expected schema. Please use the provided template.');
+                        setLoadingImport(false);
+                        return;
+                    }
+
+                    const dataToInsert = [];
+
+                    for (let i = 1; i < rows.length; i++) {
+                        const values = rows[i].split(',');
+                        const rowData = {};
+                        headers.forEach((header, index) => {
+                            rowData[header] = values[index] ? values[index].trim().replace(/"/g, '') : null;
+                        });
+                        dataToInsert.push(rowData);
+                    }
+
+                    let successfulImports = 0;
+                    let failedImports = 0;
+
+                    for (const employeeData of dataToInsert) {
+                        try {
+                            await apiService.createEmployee(employeeData);
+                            successfulImports++;
+                        } catch (apiError) {
+                            console.error('API create employee error:', apiError);
+                            toast.error(`Failed to import a record. Check console for details.`);
+                            failedImports++;
+                        }
+                    }
+
+                    if (failedImports === 0) {
+                        toast.success(`Import successful! ${successfulImports} records processed.`);
+                    } else {
+                        toast.error(`Import finished with errors. ${successfulImports} records imported, ${failedImports} failed.`);
+                    }
+                    setImportFile(null);
+                    e.target.reset();
+
+                } catch (parseError) {
+                    console.error('Error parsing CSV file:', parseError);
+                    toast.error('An error occurred while parsing the CSV file.');
+                } finally {
+                    setLoadingImport(false);
+                }
+            };
+            reader.onerror = () => {
+                toast.error('Error reading the file.');
+                setLoadingImport(false);
+            };
+
+            reader.readAsText(importFile);
         } catch (error) {
             console.error('Error during import:', error);
-            setImportStatus('An error occurred during import. Check console for details.');
-        } finally {
+            toast.error('An error occurred during import. Check console for details.');
             setLoadingImport(false);
         }
     };
-
-    // --- Export Functions ---
+    
     const exportDataToCsv = async () => {
         setLoadingExport(true);
-        setExportStatus('Exporting data...');
-
         try {
-            // Example: Exporting 'employees' data
-            const { data: employees, error } = await supabase
-                .from('employees') // Adjust table name if you want to export other data
-                .select('*'); // Select all columns
-
-            if (error) {
-                console.error('Error fetching data for export:', error.message);
-                setExportStatus('Failed to fetch data for export.');
-                setLoadingExport(false);
-                return;
-            }
+            const employees = await apiService.getEmployees();
 
             if (!employees || employees.length === 0) {
-                setExportStatus('No data available to export.');
+                toast.error('No data available to export.');
                 setLoadingExport(false);
                 return;
             }
 
-            // Generate CSV string
-            const headers = Object.keys(employees[0]);
+            const headers = [
+                'account_name',
+                'address',
+                'bank_account_number',
+                'bank_name',
+                'city',
+                'country',
+                'date_of_birth',
+                'departments.name',
+                'email',
+                'employment_status',
+                'first_name',
+                'gender',
+                'last_name',
+                'marital_status',
+                'phone_number',
+                'position'
+            ];
+
             const csv = [
-                headers.join(','), // CSV Headers
-                ...employees.map(row => headers.map(fieldName => JSON.stringify(row[fieldName])).join(',')) // CSV Rows
+                headers.join(','),
+                ...employees.map(row => {
+                    return headers.map(fieldName => {
+                        if (fieldName === 'departments.name') {
+                            return JSON.stringify(row.departments ? row.departments.name : '');
+                        }
+                        return JSON.stringify(row[fieldName]);
+                    }).join(',');
+                })
             ].join('\n');
 
-            // Create a Blob and download it
             const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
             const link = document.createElement('a');
-            if (link.download !== undefined) { // Feature detection for download attribute
+            if (link.download !== undefined) {
                 const url = URL.createObjectURL(blob);
                 link.setAttribute('href', url);
                 link.setAttribute('download', 'employees_data.csv');
@@ -105,24 +160,23 @@ const DataManagement = () => {
                 document.body.appendChild(link);
                 link.click();
                 document.body.removeChild(link);
-                setExportStatus('Data exported successfully!');
+                toast.success('Data exported successfully!');
             } else {
-                setExportStatus('Your browser does not support downloading files directly.');
+                toast.error('Your browser does not support downloading files directly.');
             }
 
         } catch (error) {
             console.error('Error during export:', error);
-            setExportStatus('An error occurred during export.');
+            toast.error('An error occurred during export.');
         } finally {
             setLoadingExport(false);
         }
     };
-
+    
     return (
-        <div className=" mt-14">
+        <div className="mt-14">
             <h2 className="text-xl font-bold mb-4 text-gray-800">Data Management</h2>
 
-            {/* Import Section */}
             <div className="mb-8 p-4 border border-solid border-gray-100 rounded-lg bg-gray-50">
                 <h3 className="text-xl font-semibold mb-3 text-gray-700">Import Data</h3>
                 <p className="text-gray-600 mb-4">
@@ -144,7 +198,6 @@ const DataManagement = () => {
                     >
                         {loadingImport ? 'Importing...' : 'Upload & Import'}
                     </button>
-                    {importStatus && <p className={`text-sm ${importStatus.includes('failed') ? 'text-red-600' : 'text-green-600'}`}>{importStatus}</p>}
                 </form>
             </div>
 
@@ -160,7 +213,6 @@ const DataManagement = () => {
                 >
                     {loadingExport ? 'Generating...' : 'Export Employee Data (CSV)'}
                 </button>
-                {exportStatus && <p className={`text-sm ${exportStatus.includes('failed') ? 'text-red-600' : 'text-green-600'}`}>{exportStatus}</p>}
             </div>
         </div>
     );

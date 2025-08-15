@@ -1,46 +1,42 @@
-// components/hr/shift/UpdateShiftModal.jsx
 "use client";
 
 import React, { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
 
 export default function UpdateShiftModal({ isOpen, onClose, onAssignShift, shiftTypes, employee }) {
-    const [selectedEmployeeId, setSelectedEmployeeId] = useState('');
     const [selectedShiftTypeId, setSelectedShiftTypeId] = useState('');
-    const [assignmentDate, setAssignmentDate] = useState('');
 
     useEffect(() => {
-        if (isOpen) {
-            setSelectedEmployeeId(employee?.id || '');
-            setSelectedShiftTypeId(employee?.shiftTypeId || '');
-            setAssignmentDate(employee?.originalEmployeeData?.assigned_date || '');
+        if (isOpen && employee) {
+            // Prefill with employee's current shift type or empty if unassigned
+            setSelectedShiftTypeId(employee.shiftTypeId || '');
         } else {
-            setSelectedEmployeeId('');
             setSelectedShiftTypeId('');
-            setAssignmentDate('');
         }
     }, [isOpen, employee]);
 
     const handleSubmit = (e) => {
         e.preventDefault();
 
-        if (!selectedEmployeeId || !selectedShiftTypeId) {
+        if (!employee?.id) {
+            toast.error("No employee selected.");
+            return;
+        }
+
+        if (!selectedShiftTypeId && selectedShiftTypeId !== 'unassign') {
             toast.error("Please select a shift type.");
             return;
         }
 
         onAssignShift({
-            employeeId: selectedEmployeeId,
-            shiftTypeId: selectedShiftTypeId,
-            assignmentDate: assignmentDate
+            employeeId: employee.id,
+            shiftTypeId: selectedShiftTypeId
         });
     };
 
     if (!isOpen) return null;
 
-    // Construct the employee name from first_name and last_name
     const employeeFullName = employee ? `${employee.first_name || ''} ${employee.last_name || ''}`.trim() : 'N/A';
-
 
     return (
         <div className="fixed inset-0 bg-[#000000aa] bg-opacity-75 flex items-center justify-center z-50 p-4">
@@ -64,20 +60,20 @@ export default function UpdateShiftModal({ isOpen, onClose, onAssignShift, shift
                         <input
                             type="text"
                             id="employeeName"
-                            className="mt-1 block w-full px-3 py-2 border border-gray-500 rounded-md focus:outline-none focus:ring-[#b88b1b] focus:border-[#b88b1b] sm:text-sm text-black bg-white"
-                            value={employeeFullName} // Use the constructed full name here
+                            className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-[#b88b1b] focus:border-[#b88b1b] sm:text-sm text-black bg-gray-50"
+                            value={employeeFullName}
                             readOnly
                             disabled
                         />
                     </div>
 
-                    <div className="mb-4">
+                    <div className="mb-6">
                         <label htmlFor="shiftType" className="block text-sm font-medium text-gray-700">
                             Shift Type
                         </label>
                         <select
                             id="shiftType"
-                            className="mt-1 block w-full px-3 py-2 border border-gray-500 rounded-md focus:outline-none focus:ring-[#b88b1b] focus:border-[#b88b1b] sm:text-sm text-black bg-white"
+                            className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-[#b88b1b] focus:border-[#b88b1b] sm:text-sm text-black bg-white"
                             value={selectedShiftTypeId}
                             onChange={(e) => setSelectedShiftTypeId(e.target.value)}
                             required
@@ -92,34 +88,21 @@ export default function UpdateShiftModal({ isOpen, onClose, onAssignShift, shift
                             ) : (
                                 <option disabled>No shift types available</option>
                             )}
-                            <option value="unassign">-- Unassign Shift --</option>
+                            <option value="unassign">Unassign Shift</option>
                         </select>
-                    </div>
-
-                    <div className="mb-6">
-                        <label htmlFor="assignmentDate" className="block text-sm font-medium text-gray-700">
-                            Assignment Date (Optional)
-                        </label>
-                        <input
-                            type="date"
-                            id="assignmentDate"
-                            className="mt-1 block w-full px-3 py-2 border border-gray-500 rounded-md focus:outline-none focus:ring-[#b88b1b] focus:border-[#b88b1b] sm:text-sm text-black bg-white"
-                            value={assignmentDate}
-                            onChange={(e) => setAssignmentDate(e.target.value)}
-                        />
                     </div>
 
                     <div className="flex justify-end space-x-3">
                         <button
                             type="button"
                             onClick={onClose}
-                            className="inline-flex justify-center py-2 px-4 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:bg-[#b88b1b]"
+                            className="inline-flex justify-center py-2 px-4 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#b88b1b]"
                         >
                             Cancel
                         </button>
                         <button
                             type="submit"
-                            className="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-[#b88b1b] hover:bg-[#69500f] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:bg-[#b88b1b]"
+                            className="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-[#b88b1b] hover:bg-[#a67c18] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#b88b1b]"
                         >
                             {employee ? "Update Shift" : "Assign Shift"}
                         </button>

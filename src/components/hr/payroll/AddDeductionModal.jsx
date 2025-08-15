@@ -2,31 +2,38 @@
 
 import React, { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
-import apiService from '@/app/lib/apiService';
 import { useRouter } from 'next/navigation';
+import apiService from '@/app/lib/apiService';
 
-const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN' }).format(amount);
-};
-
-const AddDeductionModal = ({ isOpen, onClose, defaultCharges, employeeId, onAddDeduction }) => {
+const AddDeductionModal = ({ isOpen, onClose, defaultCharges, employeeId, onSuccess }) => {
     const router = useRouter();
     const [selectedChargeId, setSelectedChargeId] = useState('');
     const [instances, setInstances] = useState(1);
+    const [reason, setReason] = useState('');
     const [isSaving, setIsSaving] = useState(false);
+
+    const formatCurrency = (amount) => {
+        return new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN' }).format(amount);
+    };
 
     useEffect(() => {
         if (isOpen) {
             setSelectedChargeId('');
             setInstances(1);
+            setReason('');
         }
     }, [isOpen]);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        
+
         if (!selectedChargeId || !instances || instances <= 0) {
             toast.error("Please select a charge and enter a valid number of instances.");
+            return;
+        }
+
+        if (!reason.trim()) {
+            toast.error("Please provide a reason for the deduction.");
             return;
         }
 
@@ -42,18 +49,16 @@ const AddDeductionModal = ({ isOpen, onClose, defaultCharges, employeeId, onAddD
             const deductionData = {
                 default_charge_id: selectedCharge.id,
                 instances: instances,
-                employee_id: employeeId
+                employee_id: employeeId,
+                reason: reason.trim()
             };
 
             await apiService.addDeduction(deductionData, router);
-            
-            const newDeduction = {
-                id: selectedCharge.id,
-                name: selectedCharge.charge_name,
-                price: (selectedCharge.penalty_fee || 0) * instances
-            };
-            onAddDeduction(employeeId, newDeduction);
-            
+
+            if (onSuccess) {
+                await onSuccess();
+            }
+
             toast.success("Deduction added successfully.");
             onClose();
         } catch (error) {
@@ -67,7 +72,6 @@ const AddDeductionModal = ({ isOpen, onClose, defaultCharges, employeeId, onAddD
     if (!isOpen) return null;
 
     const selectedCharge = defaultCharges.find(charge => charge.id === selectedChargeId);
-    
     const totalFee = selectedCharge ? selectedCharge.penalty_fee * instances : 0;
 
     return (
@@ -76,9 +80,7 @@ const AddDeductionModal = ({ isOpen, onClose, defaultCharges, employeeId, onAddD
                 <div className="flex justify-between items-center mb-4">
                     <h3 className="text-xl font-bold">Add Deduction</h3>
                     <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
-                        <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-                        </svg>
+                        ×
                     </button>
                 </div>
                 <form onSubmit={handleSubmit}>
@@ -115,8 +117,22 @@ const AddDeductionModal = ({ isOpen, onClose, defaultCharges, employeeId, onAddD
                             required
                         />
                     </div>
-                    
-                    {/* Display the calculated price to avoid NaN */}
+
+                    <div className="mb-4">
+                        <label htmlFor="reason-input" className="block text-sm font-medium text-gray-700 mb-1">
+                            Reason
+                        </label>
+                        <textarea
+                            id="reason-input"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#b88b1b]"
+                            value={reason}
+                            onChange={(e) => setReason(e.target.value)}
+                            placeholder="Enter the reason for this deduction"
+                            required
+                            rows={3}
+                        />
+                    </div>
+
                     <div className="mb-4 text-center p-3 bg-gray-100 rounded-lg">
                         <span className="text-sm font-medium text-gray-700">Total Deduction:</span>
                         <span className="ml-2 text-lg font-bold text-gray-900">

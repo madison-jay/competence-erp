@@ -48,11 +48,14 @@ const LeaveRequestTable = () => {
     };
 
     const filteredLeaves = useMemo(() => {
+        const activeLeaves = leavesData.filter(leave => leave.status !== 'cancelled');
+
         if (!searchTerm) {
-            return leavesData;
+            return activeLeaves;
         }
+
         const lowercasedSearchTerm = searchTerm.toLowerCase();
-        return leavesData.filter(leave =>
+        return activeLeaves.filter(leave =>
             (leave.employee?.first_name && leave.employee.first_name.toLowerCase().includes(lowercasedSearchTerm)) ||
             (leave.employee?.last_name && leave.employee.last_name.toLowerCase().includes(lowercasedSearchTerm)) ||
             (leave.employee?.email && leave.employee.email.toLowerCase().includes(lowercasedSearchTerm)) ||

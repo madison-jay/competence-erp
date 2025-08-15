@@ -21,8 +21,8 @@ export default function UpcomingHolidaysSection() {
         const { data, error } = await supabase
           .from('holidays')
           .select('*')
-          .gte('date', today) // Filter by the 'date' column
-          .order('date', { ascending: true }) // Order by the 'date' column
+          .gte('date', today)
+          .order('date', { ascending: true })
           .limit(5);
 
         if (error) {
@@ -61,7 +61,6 @@ export default function UpcomingHolidaysSection() {
   const calculateDaysLeft = (holidayDateString) => {
     const holidayDate = new Date(holidayDateString);
     const today = new Date();
-    // Set both dates to start of the day to ensure accurate day difference
     holidayDate.setHours(0, 0, 0, 0);
     today.setHours(0, 0, 0, 0);
 
@@ -75,32 +74,31 @@ export default function UpcomingHolidaysSection() {
     } else if (diffDays > 0) {
       return `${diffDays} days left`;
     }
-    return ""; // Should not happen for upcoming holidays, but for safety
+    return "";
   };
 
 
   return (
-    <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
+    <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200 h-full flex flex-col">
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-lg font-semibold text-gray-800">Upcoming Holidays</h2>
-        <a href="#" className="text-sm text-blue-600 hover:underline">View all</a>
       </div>
 
-      {loading && <p className="text-gray-500 text-center">Loading holidays...</p>}
-      {error && <p className="text-red-500 text-center">{error}</p>}
+      {loading && <p className="text-gray-500 text-center py-4">Loading holidays...</p>}
+      {error && <p className="text-red-500 text-center py-4">{error}</p>}
       {!loading && !error && holidays.length === 0 && (
-        <p className="text-gray-500 text-center">No upcoming holidays found.</p>
+        <p className="text-gray-500 text-center py-4">No upcoming holidays found.</p>
       )}
 
-      <div className="space-y-2">
+      <div className="flex-1 overflow-y-auto max-h-[300px]">
         {!loading && !error && holidays.length > 0 && (
           holidays.map(holiday => (
             <div key={holiday.id} className="flex items-center p-3 border-b border-gray-100 last:border-b-0">
-                <div className="ml-4 flex-grow flex items-center justify-between w-full"> {/* Adjusted for flex between date and name */}
-                    <p className="text-sm font-medium text-gray-800 pr-2">{formatOrdinalDate(holiday.date)}</p>
-                    <p className="text-sm text-gray-600 flex-grow text-center">{holiday.name}</p> {/* Centered holiday name */}
-                    <span className="text-xs text-gray-500 pl-2">{calculateDaysLeft(holiday.date)}</span>
-                </div>
+              <div className="ml-4 flex-grow flex items-center justify-between w-full">
+                <p className="text-sm font-medium text-gray-800 pr-2">{formatOrdinalDate(holiday.date)}</p>
+                <p className="text-sm text-gray-600 flex-grow text-center">{holiday.name}</p>
+                <span className="text-xs text-gray-500 pl-2">{calculateDaysLeft(holiday.date)}</span>
+              </div>
             </div>
           ))
         )}

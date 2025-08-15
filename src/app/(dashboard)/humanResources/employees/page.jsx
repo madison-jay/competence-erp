@@ -169,7 +169,7 @@ const EmployeeListTable = () => {
     }, []);
 
     return (
-        <div className="max-w-[1400px] mx-auto">
+        <div>
             <div className='flex justify-between items-center mt-5 mb-14 flex-wrap gap-4'>
                 <div>
                     <h1 className='text-2xl font-bold '>Employee directory page</h1>

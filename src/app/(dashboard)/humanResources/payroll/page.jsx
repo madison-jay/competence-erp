@@ -5,7 +5,7 @@ import Link from 'next/link';
 import React from 'react';
 import { useState, useEffect, useMemo } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSearch, faAngleLeft, faAngleRight } from '@fortawesome/free-solid-svg-icons'; // Removed faEye
+import { faSearch, faAngleLeft, faAngleRight } from '@fortawesome/free-solid-svg-icons';
 import apiService from '@/app/lib/apiService';
 import { toast } from "react-hot-toast";
 
@@ -14,18 +14,49 @@ export default function PayrollPage() {
     const [searchTerm, setSearchTerm] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage] = useState(8);
-    const [sortConfig, setSortConfig] = useState({ key: null, direction: 'ascending' });
+    const [sortConfig, setSortConfig] = useState({ key: 'name', direction: 'descending' });
     const [payrollData, setPayrollData] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
-    const [summaryData, setSummaryData] = useState({ totalEmployees: 0, totalNet: '0', totalSalary: '0', totalGross: '0' });
+    const [summaryData, setSummaryData] = useState({
+        totalEmployees: 0,
+        totalNet: '0',
+        totalSalary: '0',
+        totalGross: '0',
+        totalDeductions: '0'
+    });
+    const [payPeriod, setPayPeriod] = useState('');
 
-    // Function to generate a simple avatar placeholder with initials if no avatar_url is provided
     const generateAvatar = (firstName, lastName) => {
         const initials = `${firstName ? firstName[0] : ''}${lastName ? lastName[0] : ''}`;
         const colors = ['#FFD700', '#ADD8E6', '#90EE90', '#FFB6C1', '#DDA0DD', '#FFFACD', '#C0C0C0', '#FFDAB9'];
         const color = colors[Math.floor(Math.random() * colors.length)];
         return `https://placehold.co/40x40/${color.substring(1)}/000?text=${initials.toUpperCase()}`;
+    };
+
+    const calculatePayPeriod = () => {
+        const now = new Date();
+        const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+        
+        const startDay = 28;
+        const endDay = 3;
+
+        let startDate, endDate;
+
+        if (now.getDate() < endDay) {
+            const prevMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+            startDate = new Date(prevMonth.getFullYear(), prevMonth.getMonth(), startDay);
+            endDate = new Date(now.getFullYear(), now.getMonth(), endDay);
+        } else {
+            startDate = new Date(now.getFullYear(), now.getMonth(), startDay);
+            endDate = new Date(nextMonth.getFullYear(), nextMonth.getMonth(), endDay);
+        }
+        
+        const options = { month: 'short', day: 'numeric', year: 'numeric' };
+        const formattedStartDate = startDate.toLocaleDateString('en-US', options);
+        const formattedEndDate = endDate.toLocaleDateString('en-US', options);
+
+        setPayPeriod(`Pay period (${formattedStartDate} to ${formattedEndDate})`);
     };
 
     useEffect(() => {
@@ -34,29 +65,29 @@ export default function PayrollPage() {
             setError(null);
             try {
                 const data = await apiService.getEmployeePayments();
-                
+
                 let totalSalarySum = 0;
                 let totalGrossSum = 0;
                 let totalNetSum = 0;
+                let totalDeductionsSum = 0;
 
                 const transformedData = data.map((item) => {
                     const firstName = item.employee_details?.first_name || '';
                     const lastName = item.employee_details?.last_name || '';
-                    
+
                     const baseSalary = item.salary?.base_salary || 0;
                     const bonus = item.salary?.bonus || 0;
                     const incentives = item.salary?.incentives || 0;
 
-                    // Calculate total deductions for the employee
                     let totalDeductionAmount = 0;
                     if (item.deductions?.deductions_details && Array.isArray(item.deductions.deductions_details)) {
                         totalDeductionAmount = item.deductions.deductions_details.reduce((sum, detail) => {
-                            return sum + (detail.default_fee || 0);
+                            const instances = detail.instances || 0;
+                            const fee = detail.default_fee || 0;
+                            return sum + (fee * instances);
                         }, 0);
                     }
-                    // Subtract pardoned fees from total deductions
                     totalDeductionAmount -= (item.deductions?.total_pardoned_fee || 0);
-                    // Ensure deductions are not negative
                     totalDeductionAmount = Math.max(0, totalDeductionAmount);
 
                     const grossPay = baseSalary + bonus + incentives;
@@ -65,20 +96,19 @@ export default function PayrollPage() {
                     totalSalarySum += baseSalary;
                     totalGrossSum += grossPay;
                     totalNetSum += netPay;
+                    totalDeductionsSum += totalDeductionAmount;
 
                     return {
                         id: item.employee_details?.id,
-                        firstName: firstName,
-                        lastName: lastName,
-                        name: `${firstName} ${lastName}`, // Combined name for sorting/filtering convenience
-                        email: item.employee_details?.email, // Using actual email from API
-                        department: item.employee_details?.department,
+                        name: `${firstName} ${lastName}`,
+                        email: item.employee_details?.email,
+                        department: item.employee_details?.department || 'N/A',
                         salary: baseSalary,
                         bonus: bonus,
-                        incentives: incentives, // Using actual incentives from API
-                        totalDeductions: totalDeductionAmount, // Calculated total deductions
-                        netPay: netPay, // Calculated net pay
-                        avatar: item.employee_details?.avatar_url || generateAvatar(firstName, lastName), // Using actual avatar_url or fallback
+                        incentives: incentives,
+                        totalDeductions: totalDeductionAmount,
+                        netPay: netPay,
+                        avatar: item.employee_details?.avatar_url || generateAvatar(firstName, lastName),
                     };
                 });
 
@@ -88,6 +118,7 @@ export default function PayrollPage() {
                     totalNet: totalNetSum.toLocaleString(),
                     totalSalary: totalSalarySum.toLocaleString(),
                     totalGross: totalGrossSum.toLocaleString(),
+                    totalDeductions: totalDeductionsSum.toLocaleString(),
                 });
 
             } catch (err) {
@@ -123,6 +154,20 @@ export default function PayrollPage() {
 
         return () => clearInterval(intervalId);
     }, []);
+    
+    // New useEffect hook to calculate the pay period on component mount and update monthly
+    useEffect(() => {
+        calculatePayPeriod();
+        
+        const now = new Date();
+        const msUntilNextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1) - now;
+        
+        const intervalId = setInterval(() => {
+            calculatePayPeriod();
+        }, msUntilNextMonth);
+
+        return () => clearInterval(intervalId);
+    }, []);
 
     const handleSearchChange = (e) => {
         setSearchTerm(e.target.value);
@@ -136,7 +181,6 @@ export default function PayrollPage() {
                 let aValue = a[sortConfig.key];
                 let bValue = b[sortConfig.key];
 
-                // Handle string comparison for names, emails, and departments
                 if (typeof aValue === 'string' && typeof bValue === 'string') {
                     aValue = aValue.toLowerCase();
                     bValue = bValue.toLowerCase();
@@ -159,11 +203,11 @@ export default function PayrollPage() {
             (item.name && item.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
             (item.email && item.email.toLowerCase().includes(searchTerm.toLowerCase())) ||
             (item.department && item.department.toLowerCase().includes(searchTerm.toLowerCase())) ||
-            (item.salary && item.salary.toString().includes(searchTerm)) || // Allow searching by salary
-            (item.bonus && item.bonus.toString().includes(searchTerm)) ||   // Allow searching by bonus
-            (item.incentives && item.incentives.toString().includes(searchTerm)) || // Allow searching by incentives
-            (item.totalDeductions && item.totalDeductions.toString().includes(searchTerm)) || // Allow searching by deductions
-            (item.netPay && item.netPay.toString().includes(searchTerm)) // Allow searching by net pay
+            (item.salary && item.salary.toString().includes(searchTerm)) ||
+            (item.bonus && item.bonus.toString().includes(searchTerm)) ||
+            (item.incentives && item.incentives.toString().includes(searchTerm)) ||
+            (item.totalDeductions && item.totalDeductions.toString().includes(searchTerm)) ||
+            (item.netPay && item.netPay.toString().includes(searchTerm))
         );
     }, [sortedData, searchTerm]);
 
@@ -176,8 +220,8 @@ export default function PayrollPage() {
 
     const requestSort = (key) => {
         let direction = 'ascending';
-        if (sortConfig.key === key && sortConfig.direction === 'ascending') {
-            direction = 'descending';
+        if (sortConfig.key === key) {
+            direction = sortConfig.direction === 'ascending' ? 'descending' : 'ascending';
         }
         setSortConfig({ key, direction });
     };
@@ -217,26 +261,26 @@ export default function PayrollPage() {
 
     return (
         <div className="">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mt-5 mb-14">
+            <div className='flex justify-between items-center mt-5 mb-14 flex-wrap gap-4'>
                 <div>
-                    <h1 className="text-2xl sm:text-3xl font-bold text-gray-800 mb-2">Payroll Management</h1>
-                    <p className="text-[#A09D9D] font-medium mt-2 text-sm">View and manage all payroll activities in your organization</p>
+                    <h1 className='text-2xl font-bold '>Payroll Management</h1>
+                    <p className='text-[#A09D9D] font-medium mt-2'>View and manage all payroll activities in your organization</p>
                 </div>
-                <span className='rounded-[20px] px-3 py-2 border-[0.5px] border-solid border-[#DDD9D9] text-[#A09D9D] text-sm mt-4 sm:mt-0'>
+                <span className='rounded-[20px] px-3 py-2 border-[0.5px] border-solid border-[#DDD9D9] text-[#A09D9D]'>
                     {currentDateTime}
                 </span>
             </div>
             <div className='mb-10 px-5 py-7 bg-[#FDEDC5] text-center rounded-xl'>
                 <p className='text-[#A09D9D] text-[16px] font-medium'>Your next payroll is</p>
-                <p className='text-black font-medium text-xl my-4'>Pay period (Jul 3, to Aug 10, 2023)</p>
+                <p className='text-black font-medium text-xl my-4'>{payPeriod}</p>
                 <p className='text-[#A09D9D] text-[16px] font-medium'>Click prepare payroll to begin running payroll for this period</p>
                 <Link href="/humanResources/payroll/prepare-payroll" className='inline-block mt-4 bg-[#b88b1b] text-white px-6 py-2 rounded-lg hover:bg-[#b88b1b]/90 transition-colors duration-300'>Prepare Payroll</Link>
             </div>
             <div className='flex flex-wrap gap-4 justify-between items-center mb-10'>
                 <PayrollCard title="Total employees" value={summaryData.totalEmployees} />
-                <PayrollCard title="Total net(N)" value={summaryData.totalNet} />
-                <PayrollCard title="Total salary(N)" value={summaryData.totalSalary} />
                 <PayrollCard title="Total gross(N)" value={summaryData.totalGross} />
+                <PayrollCard title="Total deductions(N)" value={summaryData.totalDeductions} />
+                <PayrollCard title="Total net(N)" value={summaryData.totalNet} />
             </div>
 
             <div>
@@ -263,19 +307,11 @@ export default function PayrollPage() {
                                 </th>
                                 <th
                                     className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                                    onClick={() => requestSort('firstName')}
+                                    onClick={() => requestSort('name')}
                                 >
-                                    First Name
-                                    {getClassNamesFor('firstName') === 'ascending' && ' ↑'}
-                                    {getClassNamesFor('firstName') === 'descending' && ' ↓'}
-                                </th>
-                                <th
-                                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                                    onClick={() => requestSort('lastName')}
-                                >
-                                    Last Name
-                                    {getClassNamesFor('lastName') === 'ascending' && ' ↑'}
-                                    {getClassNamesFor('lastName') === 'descending' && ' ↓'}
+                                    Name
+                                    {getClassNamesFor('name') === 'ascending' && ' ↑'}
+                                    {getClassNamesFor('name') === 'descending' && ' ↓'}
                                 </th>
                                 <th
                                     className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
@@ -351,10 +387,7 @@ export default function PayrollPage() {
                                             </div>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                                            {item.firstName}
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                                            {item.lastName}
+                                            {item.name}
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                             {item.email}
@@ -404,10 +437,10 @@ export default function PayrollPage() {
                                 key={index}
                                 onClick={() => typeof number === 'number' && paginate(number)}
                                 className={`px-4 py-2 text-sm font-medium rounded-lg ${currentPage === number
-                                        ? 'bg-[#b88b1b] text-white'
-                                        : typeof number === 'number'
-                                            ? 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                                            : 'text-gray-500 cursor-default'
+                                    ? 'bg-[#b88b1b] text-white'
+                                    : typeof number === 'number'
+                                        ? 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                                        : 'text-gray-500 cursor-default'
                                     }`}
                                 disabled={typeof number !== 'number'}
                             >

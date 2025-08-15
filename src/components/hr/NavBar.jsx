@@ -3,7 +3,7 @@
 import React, { useEffect } from "react";
 import Link from 'next/link';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faBars, faTimes, faThLarge, faUsers, faPlaneDeparture, faCheckSquare, faCalendarAlt, faClipboardList, faMoneyBillAlt, faEnvelope, faCog, faArrowRightFromBracket } from '@fortawesome/free-solid-svg-icons';
+import { faBars, faTimes, faThLarge, faUsers, faPlaneDeparture, faCheckSquare, faCalendarAlt, faClipboardList, faMoneyBillAlt, faEnvelope, faCog, faArrowRightFromBracket, faFile } from '@fortawesome/free-solid-svg-icons';
 import { usePathname } from 'next/navigation';
 import Image from "next/image";
 import { createClient } from "@/app/lib/supabase/client";
@@ -38,7 +38,8 @@ export default function SideNavBar({ isMobileMenuOpen, onCloseMobileMenu, isDesk
         { name: "Shift", icon: faCalendarAlt, path: "/humanResources/shift" },
         { name: "Task", icon: faClipboardList, path: "/humanResources/tasks" },
         { name: "Payroll", icon: faMoneyBillAlt, path: "/humanResources/payroll" },
-        { name: "Message", icon: faEnvelope, path: "/humanResources/chat" },
+        { name: "Documents", icon: faFile, path: "/humanResources/documents" },
+        // { name: "Message", icon: faEnvelope, path: "/humanResources/chat" },
         { name: "Settings", icon: faCog, path: "/humanResources/settings" },
     ];
 

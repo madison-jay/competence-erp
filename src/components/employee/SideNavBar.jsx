@@ -3,7 +3,7 @@
 import React, { useEffect } from "react";
 import Link from 'next/link';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faBars, faTimes, faThLarge, faPlaneDeparture, faCheckSquare, faClipboardList, faMoneyBillAlt, faEnvelope, faArrowRightFromBracket } from '@fortawesome/free-solid-svg-icons';
+import { faBars, faTimes, faThLarge, faPlaneDeparture, faCheckSquare, faClipboardList, faMoneyBillAlt, faEnvelope, faFileAlt, faArrowRightFromBracket } from '@fortawesome/free-solid-svg-icons';
 import { usePathname } from 'next/navigation';
 import Image from "next/image";
 import { createClient } from "@/app/lib/supabase/client";
@@ -36,7 +36,8 @@ export default function SideNavBar({ isMobileMenuOpen, onCloseMobileMenu, isDesk
         { name: "Task", icon: faClipboardList, path: "/employee/tasks" },
         { name: "Leave", icon: faPlaneDeparture, path: "/employee/leave" },
         { name: "Payroll", icon: faMoneyBillAlt, path: "/employee/payroll" },
-        { name: "Message", icon: faEnvelope, path: "/employee/chat" }
+        { name: "Documents", icon: faFileAlt, path: "/employee/documents" }
+        // { name: "Message", icon: faEnvelope, path: "/employee/chat" }
     ];
 
     const handleLogout = async () => {

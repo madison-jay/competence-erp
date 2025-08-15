@@ -1,25 +1,39 @@
-// components/hr/shift/ManageShiftTypesModal.jsx
 "use client";
 
 import React, { useState, useEffect } from 'react';
+
+const SHIFT_ORDER = ["Morning", "Afternoon", "Night"];
+
+const sortShiftTypes = (shifts) => {
+    if (!Array.isArray(shifts)) {
+        return [];
+    }
+    return [...shifts].sort((a, b) => {
+        const indexA = SHIFT_ORDER.indexOf(a.name);
+        const indexB = SHIFT_ORDER.indexOf(b.name);
+        return (indexA === -1 ? Infinity : indexA) - (indexB === -1 ? Infinity : indexB);
+    });
+};
 
 export default function ManageShiftTypesModal({ isOpen, onClose, shiftTypes, onUpdateShiftType }) {
     const [editableShiftTypes, setEditableShiftTypes] = useState([]);
 
     useEffect(() => {
         if (isOpen && shiftTypes) {
-            setEditableShiftTypes(shiftTypes.map(type => ({ ...type })));
+            const sortedShifts = sortShiftTypes(shiftTypes);
+            setEditableShiftTypes(sortedShifts.map(type => ({ ...type })));
         }
     }, [isOpen, shiftTypes]);
 
     if (!isOpen) return null;
 
     const handleTimeChange = (id, field, value) => {
-        setEditableShiftTypes(prevTypes =>
-            prevTypes.map(type =>
+        setEditableShiftTypes(prevTypes => {
+            const updatedTypes = prevTypes.map(type =>
                 type.id === id ? { ...type, [field]: value } : type
-            )
-        );
+            );
+            return sortShiftTypes(updatedTypes);
+        });
     };
 
     const handleSave = async (shiftTypeToSave) => {
@@ -31,7 +45,7 @@ export default function ManageShiftTypesModal({ isOpen, onClose, shiftTypes, onU
     };
 
     return (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-75 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-[#000000aa] flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl p-6 relative">
                 <h2 className="text-2xl font-bold mb-6 text-gray-900">Manage Shift Types</h2>
 
@@ -74,7 +88,7 @@ export default function ManageShiftTypesModal({ isOpen, onClose, shiftTypes, onU
                                                 type="time"
                                                 value={type.start_time || ''}
                                                 onChange={(e) => handleTimeChange(type.id, 'start_time', e.target.value)}
-                                                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#b88b1b] focus:ring-[#b88b1b] sm:text-sm"
+                                                className="mt-1 block w-full px-3 py-2 border rounded-md border-gray-300 shadow-sm focus:outline-none focus:ring-[#b88b1b] focus:border-[#b88b1b] sm:text-sm text-black bg-white"
                                             />
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
@@ -82,7 +96,7 @@ export default function ManageShiftTypesModal({ isOpen, onClose, shiftTypes, onU
                                                 type="time"
                                                 value={type.end_time || ''}
                                                 onChange={(e) => handleTimeChange(type.id, 'end_time', e.target.value)}
-                                                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#b88b1b] focus:ring-[#b88b1b] sm:text-sm"
+                                                className="mt-1 block w-full px-3 py-2 border rounded-md border-gray-300 shadow-sm focus:outline-none focus:ring-[#b88b1b] focus:border-[#b88b1b] sm:text-sm text-black bg-white"
                                             />
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">

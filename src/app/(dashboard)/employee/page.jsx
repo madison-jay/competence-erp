@@ -6,13 +6,14 @@ import { useRouter } from "next/navigation";
 import TaskCard from "@/components/employee/TaskCard";
 import UpcomingHolidaysSection from "@/components/employee/UpcomingHolidays";
 import ShiftPage from "@/components/employee/shift/ShiftCard";
-import { faTasks, faCheckCircle, faSpinner, faHourglassHalf } from '@fortawesome/free-solid-svg-icons';
+import { faTasks, faCheckCircle, faSpinner, faCalendarCheck } from '@fortawesome/free-solid-svg-icons';
 
 export default function EmployeeDashboard() {
     const router = useRouter();
     const [currentDateTime, setCurrentDateTime] = useState('');
     const [greeting, setGreeting] = useState('');
     const [allTasks, setAllTasks] = useState([]);
+    const [approvedLeaves, setApprovedLeaves] = useState(0);
 
     const first_name = localStorage.getItem('first_name');
 
@@ -20,7 +21,6 @@ export default function EmployeeDashboard() {
         assigned: 0,
         completed: 0,
         inProgress: 0,
-        pending: 0,
     });
 
     useEffect(() => {
@@ -56,23 +56,27 @@ export default function EmployeeDashboard() {
     }, []);
 
     useEffect(() => {
-        const fetchAndProcessTasks = async () => {
+        const fetchData = async () => {
             try {
+                const leaves = await apiService.getLeaves(router);
+                const approvedCount = leaves.filter(leave => leave.status === 'Approved').length;
+                setApprovedLeaves(approvedCount);
+                
                 const tasks = await apiService.getTasks(router);
                 setAllTasks(tasks);
+                
             } catch (error) {
-                console.error("Error fetching tasks:", error);
+                console.error("Error fetching data:", error);
             }
         };
 
-        fetchAndProcessTasks();
+        fetchData();
     }, [router]);
 
     useEffect(() => {
         let assignedCount = 0;
         let completedCount = 0;
         let inProgressCount = 0;
-        let pendingCount = 0;
 
         assignedCount = allTasks.length;
 
@@ -84,9 +88,6 @@ export default function EmployeeDashboard() {
                 case "In-progress":
                     inProgressCount++;
                     break;
-                case "Pending":
-                    pendingCount++;
-                    break;
                 default:
                     break;
             }
@@ -96,9 +97,7 @@ export default function EmployeeDashboard() {
             assigned: assignedCount,
             completed: completedCount,
             inProgress: inProgressCount,
-            pending: pendingCount,
         });
-
     }, [allTasks]);
 
     return (
@@ -116,12 +115,16 @@ export default function EmployeeDashboard() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mt-8">
                 <TaskCard title="Task Assigned" value={taskData.assigned} icon={faTasks} iconColor="text-blue-500" />
                 <TaskCard title="Task Completed" value={taskData.completed} icon={faCheckCircle} iconColor="text-green-500" />
-                <TaskCard title="Task In-progress" value={taskData.inProgress} icon={faSpinner} iconColor="text-orange-500" />
-                <TaskCard title="Task Pending" value={taskData.pending} icon={faHourglassHalf} iconColor="text-purple-500" />
+                <TaskCard title="Days Present" value="23" icon={faSpinner} iconColor="text-orange-500" />
+                <TaskCard title="Approved Leaves" value={approvedLeaves} icon={faCalendarCheck} iconColor="text-purple-500" />
             </div>
-            <div className="flex flex-wrap gap-6 items-start">
-                <UpcomingHolidaysSection className='grow'/>
-                <ShiftPage />
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-8">
+                <div className="w-full">
+                    <UpcomingHolidaysSection />
+                </div>
+                <div className="w-full">
+                    <ShiftPage />
+                </div>
             </div>
         </div>
     );

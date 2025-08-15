@@ -1,4 +1,3 @@
-// app/lib/apiService.js
 import { createClient } from "./supabase/client";
 
 const supabase = createClient();
@@ -10,7 +9,6 @@ const getAuthToken = async (router = null) => {
         data: { session },
         error,
     } = await supabase.auth.getSession();
-    console.log("Supabase Session:", session);
 
     if (error) {
         console.error("Error getting Supabase session:", error.message);
@@ -86,6 +84,7 @@ const callApi = async (endpoint, method = "GET", data = null, router = null) => 
 };
 
 const apiService = {
+    // employee APIs
     getEmployees: async (router) => {
         return callApi("/employees", "GET", null, router);
     },
@@ -106,6 +105,7 @@ const apiService = {
         return callApi(`/employees/${employeeId}`, "DELETE", employeeData, router);
     },
 
+    // leave APIs
     getLeaves: async (router) => {
         return callApi("/leave_requests", "GET", null, router);
     },
@@ -119,9 +119,10 @@ const apiService = {
     },
 
     requestLeave: async (leaveData, router) => {
-        return callApi("/leave_requests", "POST", leaveData, router);
+        return callApi("/leave-requests", "POST", leaveData, router);
     },
 
+    // Enhanced Task APIs (from Flask backend)
     getTasks: async (router) => {
         return callApi("/tasks", "GET", null, router);
     },
@@ -142,6 +143,29 @@ const apiService = {
         return callApi(`/tasks/${taskId}`, "DELETE", null, router);
     },
 
+    // Task Document APIs
+    addTaskDocument: async (taskId, documentData, router) => {
+        return callApi(`/tasks/${taskId}/documents`, "POST", documentData, router);
+    },
+
+    updateTaskDocument: async (taskId, documentId, documentData, router) => {
+        return callApi(`/tasks/${taskId}/documents/${documentId}`, "PUT", documentData, router);
+    },
+
+    deleteTaskDocument: async (taskId, documentId, router) => {
+        return callApi(`/tasks/${taskId}/documents/${documentId}`, "DELETE", null, router);
+    },
+
+    // Task Assignment APIs
+    addEmployeeToTask: async (taskId, employeeId, router) => {
+        return callApi(`/task/${taskId}/assignments`, "POST", { employee_id: employeeId }, router);
+    },
+
+    removeEmployeeFromTask: async (taskId, employeeId, router) => {
+        return callApi(`/task/${taskId}/assignments/${employeeId}`, "DELETE", null, router);
+    },
+
+    // shift APIs
     getShifts: async (router) => {
         return callApi("/shift_types", "GET", null, router);
     },
@@ -154,6 +178,7 @@ const apiService = {
         return callApi(`/shift_types/${shiftId}`, "PUT", shiftData, router);
     },
 
+    // payment APIs
     getEmployeePayments: async (router) => {
         return callApi("/employee_payments", "GET", null, router);
     },
@@ -162,6 +187,7 @@ const apiService = {
         return callApi(`/employee_payments/${shiftId}`, "GET", null, router);
     },
 
+    // deduction APIs
     getDeductions: async (router) => {
         return callApi("/deductions", "GET", null, router);
     },
@@ -174,9 +200,35 @@ const apiService = {
         return callApi(`/deductions`, "POST", deductionData, router);
     },
 
+    updateDeduction: async (deductionId, deductionData, router) => {
+        return callApi(`/deductions/${deductionId}`, "PUT", deductionData, router);
+    },
+
+    // default charges APIs
     getDefaultCharges: async (router) => {
         return callApi("/default_charges", "GET", null, router);
     },
+
+    addDefaultCharge: async (defaultChargeData, router) => {
+        return callApi(`/default_charges`, "POST", defaultChargeData, router);
+    },
+
+    generateEmployeePayment: async (employeeId, router) => {
+        return callApi(`/employee_payments/${employeeId}`, "POST", null, router);
+    },
+
+    addEmployeeDocument: async (employeeId, documentData, router) => {
+        return callApi(`/employees/${employeeId}/documents`, 'POST', documentData, router);
+    },
+
+    updateEmployeeDocument: async (documentId, documentData, router) => {
+        return callApi(`/employee_documents/${documentId}`, 'PUT', documentData, router);
+    },
+
+    deleteEmployeeDocument: async (documentId, router) => {
+        return callApi(`/employee_documents/${documentId}`, 'DELETE', null, router);
+    },
+
 };
 
 export default apiService;

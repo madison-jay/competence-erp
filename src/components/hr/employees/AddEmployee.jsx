@@ -97,8 +97,8 @@ const AddEmployeeModal = ({ isOpen, onClose, onEmployeeAdded }) => {
         const requiredFields = {
             1: ['first_name', 'last_name', 'email', 'date_of_birth', 'marital_status', 'gender'],
             2: ['phone_number', 'address', 'city', 'state', 'country'],
-            3: ['hire_date', 'guarantor_name', 'guarantor_phone_number', 'guarantor_name_2', 'guarantor_phone_number_2'], // Added location_id
-            4: ['salary', 'compensation', 'incentive', 'bonus', 'bank_account_number', 'bank_name', 'account_name'],
+            3: ['hire_date', 'guarantor_name', 'guarantor_phone_number', 'guarantor_name_2', 'guarantor_phone_number_2'],
+            4: ['salary', 'bank_account_number', 'bank_name', 'account_name'],
         };
 
         let isValid = true;
@@ -730,10 +730,8 @@ const AddEmployeeModal = ({ isOpen, onClose, onEmployeeAdded }) => {
                                 className="mt-1 block w-full px-3 py-2 border border-gray-500 rounded-md focus:outline-none focus:ring-[#b88b1b] focus:border-[#b88b1b] sm:text-sm text-black bg-white"
                             >
                                 <option value="">Select Role</option>
-                                <option value="super_admin">super admin</option>
-                                <option value="hr_manager">hr manager</option>
-                                <option value="manager">manager</option>
-                                <option value="user">user</option>
+                                <option value="user">User</option>
+                                <option value="manager">Manager</option>
                             </select>
                         </div>
                         <div>

@@ -25,7 +25,7 @@ export const LeaveRow = ({ leaveRequest, onUpdateStatus }) => {
     const [imgSrc, setImgSrc] = useState(DEFAULT_AVATAR);
     const [currentLeaveStatus, setCurrentLeaveStatus] = useState(leaveRequest.status);
 
-    const isStatusLocked = currentLeaveStatus.toLowerCase() === 'approved' || currentLeaveStatus.toLowerCase() === 'declined';
+    const isStatusLocked = currentLeaveStatus.toLowerCase() === 'approved' || currentLeaveStatus.toLowerCase() === 'rejected';
 
     useEffect(() => {
         setCurrentLeaveStatus(leaveRequest.status);
@@ -41,7 +41,7 @@ export const LeaveRow = ({ leaveRequest, onUpdateStatus }) => {
                 return 'bg-green-100 text-green-800';
             case 'pending':
                 return 'bg-yellow-100 text-yellow-800';
-            case 'declined':
+            case 'rejected':
                 return 'bg-red-100 text-red-800';
             default:
                 return 'bg-gray-100 text-gray-800';
@@ -59,7 +59,7 @@ export const LeaveRow = ({ leaveRequest, onUpdateStatus }) => {
 
             await apiService.updateLeave(leaveRequest.id, updatedLeaveData);
 
-            toast.success(`Leave request for ${leaveRequest.employee?.first_name} updated to ${newStatus}!`);
+            toast.success(`Leave request for ${leaveRequest.employee?.first_name} has been updated!`);
             if (onUpdateStatus) {
                 onUpdateStatus(leaveRequest.id, newStatus);
             }
@@ -111,8 +111,8 @@ export const LeaveRow = ({ leaveRequest, onUpdateStatus }) => {
                     disabled={isStatusLocked}
                 >
                     <option value="pending">Pending</option>
-                    <option value="approved">Approved</option>
-                    <option value="rejected">Declined</option>
+                    <option value="approved">Approve</option>
+                    <option value="rejected">Decline</option>
                 </select>
             </td>
             <td className="px-6 py-4 whitespace-nowrap text-sm text-center">

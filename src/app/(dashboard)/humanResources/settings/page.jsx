@@ -45,13 +45,6 @@ export default function HrDashboardSettingsPage() {
             <div className="space-y-8">
                 <HolidayCalendarManager />
                 <DataManagement />
-
-                {/* You can add more settings sections here */}
-                {/* E.g., User & Role Management, Policy Configuration, etc. */}
-                {/* <div className="p-6 bg-white dark:bg-gray-800 rounded-lg shadow-md">
-                    <h2 className="text-2xl font-bold mb-4 text-gray-800 dark:text-white">User & Role Management</h2>
-                    <p className="text-gray-700 dark:text-gray-300">Manage HR user accounts and their permissions.</p>
-                </div> */}
             </div>
         </div>
     );

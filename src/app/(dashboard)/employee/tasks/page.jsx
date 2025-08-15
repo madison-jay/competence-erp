@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import apiService from "@/app/lib/apiService";
 import { useRouter } from "next/navigation";
 import TaskCard from "@/components/employee/TaskCard";
+import TasksTable from "@/components/employee/task/TaskTable";
 import { faTasks, faCheckCircle, faSpinner, faHourglassHalf } from '@fortawesome/free-solid-svg-icons';
 
 export default function TaskPage() {
@@ -11,6 +12,10 @@ export default function TaskPage() {
     const [currentDateTime, setCurrentDateTime] = useState('');
     const [greeting, setGreeting] = useState('');
     const [allTasks, setAllTasks] = useState([]);
+    const [searchTerm, setSearchTerm] = useState('');
+    const [isAddTaskModalOpen, setIsAddTaskModalOpen] = useState(false);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
 
     const first_name = localStorage.getItem('first_name');
 
@@ -56,10 +61,15 @@ export default function TaskPage() {
     useEffect(() => {
         const fetchAndProcessTasks = async () => {
             try {
+                setLoading(true);
                 const tasks = await apiService.getTasks(router);
                 setAllTasks(tasks);
+                setError(null);
             } catch (error) {
                 console.error("Error fetching tasks:", error);
+                setError("Failed to fetch tasks.");
+            } finally {
+                setLoading(false);
             }
         };
 
@@ -99,6 +109,34 @@ export default function TaskPage() {
 
     }, [allTasks]);
 
+    // Define the missing functions and components from the original prompt
+    const handleSearchChange = (event) => {
+        setSearchTerm(event.target.value);
+    };
+
+    const handleViewTask = (taskId) => {
+        // Placeholder for view task logic
+        console.log(`Viewing task with ID: ${taskId}`);
+    };
+
+    const handleUpdateTask = (taskId) => {
+        // Placeholder for update task logic
+        console.log(`Updating task with ID: ${taskId}`);
+    };
+    
+    // A simplified render function for the search bar
+    const renderSearchBar = (placeholder, value, onChange) => {
+        return (
+            <input
+                type="text"
+                placeholder={placeholder}
+                value={value}
+                onChange={onChange}
+                className="block w-full rounded-md border-gray-300 shadow-sm focus:border-[#b88b1b] focus:ring-[#b88b1b] sm:text-sm"
+            />
+        );
+    };
+
     return (
         <div className="max-w-[1400px] mx-auto">
             <div className='flex justify-between items-center mt-5 mb-14 flex-wrap gap-4'>
@@ -117,6 +155,29 @@ export default function TaskPage() {
                 <TaskCard title="Task In-progress" value={taskData.inProgress} icon={faSpinner} iconColor="text-orange-500" />
                 <TaskCard title="Task Pending" value={taskData.pending} icon={faHourglassHalf} iconColor="text-purple-500" />
             </div>
+
+            <div className="flex flex-col md:flex-row gap-4 md:items-center justify-between p-4 bg-white border-b border-gray-200 rounded-t-md shadow-sm">
+                <h1 className="text-2xl font-semibold text-gray-900">Task list</h1>
+                <div className="flex items-center space-x-4">
+                    {renderSearchBar('Search...', searchTerm, handleSearchChange)}
+                    <button
+                        onClick={() => setIsAddTaskModalOpen(true)}
+                        className="whitespace-nowrap px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-[#b88b1b] hover:bg-[#a67c18] outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#b88b1b]"
+                    >
+                        Add new task
+                    </button>
+                </div>
+            </div>
+
+            {/* The TasksTable component is now included */}
+            <TasksTable
+                tasks={allTasks}
+                searchTerm={searchTerm}
+                onViewTask={handleViewTask}
+                onUpdateTask={handleUpdateTask}
+                loading={loading}
+                error={error}
+            />
         </div>
     );
 }

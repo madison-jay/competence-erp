@@ -48,7 +48,7 @@ export default function HRManagerLayout({ children }) {
 
             const { data: employeeData, error: employeeError } = await supabase
                 .from('employees')
-                .select('id, first_name, last_name, email, avatar_url, user_id')
+                .select('id, first_name, last_name, email, user_id')
                 .eq('user_id', authUser.id)
                 .single();
 

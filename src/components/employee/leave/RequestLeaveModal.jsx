@@ -87,7 +87,7 @@ const RequestLeaveModal = ({ isOpen, onClose, onSuccess }) => {
 
             const response = await apiService.requestLeave(leaveRequestData);
 
-            if (response && response.success) {
+            if (response) {
                 toast.success('Leave request submitted successfully!');
                 onSuccess();
                 onClose();
@@ -133,13 +133,10 @@ const RequestLeaveModal = ({ isOpen, onClose, onSuccess }) => {
                             required
                         >
                             <option value="">Select Leave Type</option>
-                            <option value="Annual Leave">Annual Leave</option>
-                            <option value="Sick Leave">Sick Leave</option>
-                            <option value="Maternity Leave">Maternity Leave</option>
-                            <option value="Paternity Leave">Paternity Leave</option>
-                            <option value="Bereavement Leave">Bereavement Leave</option>
-                            <option value="Unpaid Leave">Unpaid Leave</option>
-                            <option value="Other">Other</option>
+                            <option value="vacation">Vacation</option>
+                            <option value="sick">Sick Leave</option>
+                            <option value="personal">Personal Leave</option>
+                            <option value="unpaid">Unpaid Leave</option>
                         </select>
                         {validationErrors.leaveType && (
                             <p className="text-red-500 text-xs mt-1">{validationErrors.leaveType}</p>

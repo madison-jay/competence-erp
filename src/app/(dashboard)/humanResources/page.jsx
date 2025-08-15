@@ -1,4 +1,4 @@
-"use client";
+'use client';
 
 import React, { useState, useEffect } from 'react';
 import DashboardCard from '@/components/hr/DashboardCard';
@@ -21,10 +21,10 @@ export default function HRManagerDashboardPage() {
     const [prevTotalEmployees, setPrevTotalEmployees] = useState(0);
     const [loadingEmployees, setLoadingEmployees] = useState(true);
 
-    // State for Total Salaries Paid (remains static as no API for it)
-    const [totalSalariesPaid, setTotalSalariesPaid] = useState(5200000); // Static value for now
-    const [prevTotalSalariesPaid, setPrevTotalSalariesPaid] = useState(5600000); // Static value for comparison
-    const [loadingSalaries, setLoadingSalaries] = useState(false); // No API call, so not loading
+    // State for Total Tasks Issued
+    const [totalTasksIssued, setTotalTasksIssued] = useState(0);
+    const [prevTotalTasksIssued, setPrevTotalTasksIssued] = useState(0);
+    const [loadingTasks, setLoadingTasks] = useState(true);
 
     // States for Shift Management data
     const [assignedShiftsDashboard, setAssignedShiftsDashboard] = useState([]);
@@ -42,7 +42,7 @@ export default function HRManagerDashboardPage() {
                 hour: '2-digit',
                 minute: '2-digit',
                 second: '2-digit',
-                hour12: true
+                hour12: true,
             };
             setCurrentDateTime(now.toLocaleString('en-US', options));
         };
@@ -70,9 +70,8 @@ export default function HRManagerDashboardPage() {
                 const employees = await apiService.getEmployees(router);
                 setTotalEmployees(employees.length);
 
-                // Filter employees hired in the current month vs last month
                 const employeesCurrentMonth = employees.filter(emp => {
-                    const hireDate = new Date(emp.created_at); // Assuming 'created_at' exists for employees
+                    const hireDate = new Date(emp.created_at);
                     return hireDate.getMonth() === currentMonth && hireDate.getFullYear() === currentYear;
                 });
                 const employeesLastMonth = employees.filter(emp => {
@@ -80,16 +79,10 @@ export default function HRManagerDashboardPage() {
                     return hireDate.getMonth() === lastMonth && hireDate.getFullYear() === lastMonthYear;
                 });
 
-                // For 'change' and 'changedetails', we'll use the count of *new hires* or *active employees*
-                // For simplicity, let's assume 'change' refers to the total employee count vs. last month's total.
-                // If your backend tracks historical total employees, use that. Otherwise, this is an approximation.
-                // For a more accurate "change", you'd need a snapshot of total employees from last month.
-                // Here, we'll just use the total count for the previous period.
-                // A more robust solution would involve a dedicated API endpoint for historical counts.
-                setPrevTotalEmployees(employees.length - employeesCurrentMonth.length + employeesLastMonth.length); // Very basic simulation
+                setPrevTotalEmployees(employees.length - employeesCurrentMonth.length + employeesLastMonth.length);
 
             } catch (error) {
-                console.error("Failed to fetch employees data:", error);
+                console.error('Failed to fetch employees data:', error);
             } finally {
                 setLoadingEmployees(false);
             }
@@ -100,21 +93,42 @@ export default function HRManagerDashboardPage() {
                 const allLeaves = await apiService.getLeaves(router);
                 setTotalLeaveRequests(allLeaves.length);
 
-                // Filter leave requests created in the current month vs last month
                 const leavesCurrentMonth = allLeaves.filter(leave => {
-                    const leaveDate = new Date(leave.created_at); // Assuming 'created_at' for leave requests
+                    const leaveDate = new Date(leave.created_at);
                     return leaveDate.getMonth() === currentMonth && leaveDate.getFullYear() === currentYear;
                 });
                 const leavesLastMonth = allLeaves.filter(leave => {
                     const leaveDate = new Date(leave.created_at);
                     return leaveDate.getMonth() === lastMonth && leaveDate.getFullYear() === lastMonthYear;
                 });
-                setPrevTotalLeaveRequests(allLeaves.length - leavesCurrentMonth.length + leavesLastMonth.length); // Basic simulation
+                setPrevTotalLeaveRequests(allLeaves.length - leavesCurrentMonth.length + leavesLastMonth.length);
 
             } catch (error) {
-                console.error("Failed to fetch leave requests data:", error);
+                console.error('Failed to fetch leave requests data:', error);
             } finally {
                 setLoadingLeaves(false);
+            }
+
+            // Fetch Total Tasks Issued & calculate change
+            setLoadingTasks(true);
+            try {
+                const allTasks = await apiService.getTasks(router);
+                setTotalTasksIssued(allTasks.length);
+
+                const tasksCurrentMonth = allTasks.filter(task => {
+                    const taskDate = new Date(task.created_at);
+                    return taskDate.getMonth() === currentMonth && taskDate.getFullYear() === currentYear;
+                });
+                const tasksLastMonth = allTasks.filter(task => {
+                    const taskDate = new Date(task.created_at);
+                    return taskDate.getMonth() === lastMonth && taskDate.getFullYear() === lastMonthYear;
+                });
+                setPrevTotalTasksIssued(allTasks.length - tasksCurrentMonth.length + tasksLastMonth.length);
+
+            } catch (error) {
+                console.error('Failed to fetch tasks data:', error);
+            } finally {
+                setLoadingTasks(false);
             }
 
             // Fetch Assigned Shifts for Dashboard
@@ -144,8 +158,8 @@ export default function HRManagerDashboardPage() {
 
                 setAssignedShiftsDashboard(transformedAssignedShifts);
             } catch (err) {
-                console.error("Failed to fetch assigned shifts for dashboard:", err);
-                setErrorShiftsDashboard(err.message || "Failed to load shift data.");
+                console.error('Failed to fetch assigned shifts for dashboard:', err);
+                setErrorShiftsDashboard(err.message || 'Failed to load shift data.');
             } finally {
                 setLoadingShiftsDashboard(false);
             }
@@ -160,10 +174,10 @@ export default function HRManagerDashboardPage() {
     const employeeChangeType = employeeChangeRaw >= 0 ? 'increase' : 'decrease';
     const employeeChangeDetails = employeeChangeRaw >= 0 ? `+${employeeChangeRaw} since last month` : `${employeeChangeRaw} since last month`;
 
-    const salariesChangeRaw = totalSalariesPaid - prevTotalSalariesPaid;
-    const salariesChangePercentage = prevTotalSalariesPaid !== 0 ? ((salariesChangeRaw / prevTotalSalariesPaid) * 100).toFixed(2) : 0;
-    const salariesChangeType = salariesChangeRaw <= 0 ? 'decrease' : 'increase';
-    const salariesChangeDetails = salariesChangeRaw <= 0 ? `-N${Math.abs(salariesChangeRaw).toLocaleString()} since last month` : `+N${salariesChangeRaw.toLocaleString()} since last month`;
+    const taskChangeRaw = totalTasksIssued - prevTotalTasksIssued;
+    const taskChangePercentage = prevTotalTasksIssued !== 0 ? ((taskChangeRaw / prevTotalTasksIssued) * 100).toFixed(2) : 0;
+    const taskChangeType = taskChangeRaw >= 0 ? 'increase' : 'decrease';
+    const taskChangeDetails = taskChangeRaw >= 0 ? `+${taskChangeRaw} since last month` : `${taskChangeRaw} since last month`;
 
     const leaveRequestChangeRaw = totalLeaveRequests - prevTotalLeaveRequests;
     const leaveRequestChangePercentage = prevTotalLeaveRequests !== 0 ? ((leaveRequestChangeRaw / prevTotalLeaveRequests) * 100).toFixed(2) : 0;
@@ -185,29 +199,29 @@ export default function HRManagerDashboardPage() {
             <div className="flex justify-between flex-wrap gap-6 p-4 rounded-lg border border-gray-200 shadow-sm">
                 <DashboardCard
                     title="Total Employee"
-                    value={loadingEmployees ? "-" : totalEmployees.toString()}
-                    change={loadingEmployees ? "..." : `${employeeChangeType === 'increase' ? '+' : ''}${employeeChangePercentage}%`}
+                    value={loadingEmployees ? '-' : totalEmployees.toString()}
+                    change={loadingEmployees ? '...' : `${employeeChangeType === 'increase' ? '+' : ''}${employeeChangePercentage}%`}
                     changeType={employeeChangeType}
                     link="/employees"
-                    changedetails={loadingEmployees ? "..." : employeeChangeDetails}
+                    changedetails={loadingEmployees ? '...' : employeeChangeDetails}
                 />
 
                 <DashboardCard
-                    title="Total Salaries Paid"
-                    value={loadingSalaries ? "-" : `N ${totalSalariesPaid.toLocaleString()}`}
-                    change={loadingSalaries ? "..." : `${salariesChangeType === 'increase' ? '+' : ''}${salariesChangePercentage}%`}
-                    changeType={salariesChangeType}
-                    link="/salaries"
-                    changedetails={loadingSalaries ? "..." : salariesChangeDetails}
+                    title="Total Tasks Issued"
+                    value={loadingTasks ? '-' : totalTasksIssued.toString()}
+                    change={loadingTasks ? '...' : `${taskChangeType === 'increase' ? '+' : ''}${taskChangePercentage}%`}
+                    changeType={taskChangeType}
+                    link="/tasks"
+                    changedetails={loadingTasks ? '...' : taskChangeDetails}
                 />
 
                 <DashboardCard
                     title="Total Leave Request"
-                    value={loadingLeaves ? "-" : totalLeaveRequests.toString()}
-                    change={loadingLeaves ? "..." : `${leaveRequestChangeType === 'increase' ? '+' : ''}${leaveRequestChangePercentage}%`}
+                    value={loadingLeaves ? '-' : totalLeaveRequests.toString()}
+                    change={loadingLeaves ? '...' : `${leaveRequestChangeType === 'increase' ? '+' : ''}${leaveRequestChangePercentage}%`}
                     changeType={leaveRequestChangeType}
                     link="/leave"
-                    changedetails={loadingLeaves ? "..." : leaveRequestChangeDetails}
+                    changedetails={loadingLeaves ? '...' : leaveRequestChangeDetails}
                 />
             </div>
             <div className="flex flex-wrap lg:flex-nowrap gap-6 w-full">
@@ -219,10 +233,7 @@ export default function HRManagerDashboardPage() {
                         shifts={assignedShiftsDashboard}
                         loading={loadingShiftsDashboard}
                         error={errorShiftsDashboard}
-                        searchTerm=""
-                        onViewShift={() => { }}
-                        onOpenUpdateShiftModal={() => { }}
-                        onDeleteShift={() => { }}
+
                     />
                 </div>
             </div>
