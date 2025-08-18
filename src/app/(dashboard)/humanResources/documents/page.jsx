@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import apiService from '@/app/lib/apiService';
 import DocumentsSummary from '@/components/employee/documents/DocumentsSummary';
 import DocumentsTable from '@/components/employee/documents/DocumentsTable';
@@ -7,6 +7,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faUpload, faMagnifyingGlass } from '@fortawesome/free-solid-svg-icons';
 import { useRouter } from 'next/navigation';
 import AddDocumentModal from '@/components/employee/documents/AddDocumentModal';
+import { createClient } from '@/app/lib/supabase/client';
 
 const DocumentsPage = () => {
   const [employees, setEmployees] = useState([]);
@@ -17,9 +18,10 @@ const DocumentsPage = () => {
   const [filter, setFilter] = useState('all');
   const [currentDateTime, setCurrentDateTime] = useState('');
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+  const [documentsWithSizes, setDocumentsWithSizes] = useState([]);
   const router = useRouter();
+  const supabase = createClient();
 
-  // Get user ID from localStorage (same as MyProfile)
   useEffect(() => {
     const storedAuthUserId = localStorage.getItem("user_id");
     if (storedAuthUserId) {
@@ -29,24 +31,70 @@ const DocumentsPage = () => {
     }
   }, [router]);
 
-  // Fetch current employee and all employees
+  const getFileSizeFromUrl = async (url) => {
+    if (!url || url === '#') return null;
+
+    try {
+      const urlObj = new URL(url);
+      const filePath = urlObj.pathname.replace('/storage/v1/object/public/', '');
+      const [bucket, ...pathParts] = filePath.split('/');
+      const fileName = pathParts.pop();
+      const folderPath = pathParts.join('/');
+
+      const { data, error } = await supabase
+        .storage
+        .from(bucket)
+        .list(folderPath, {
+          limit: 1,
+          search: fileName
+        });
+
+      if (error) throw error;
+      return data?.[0]?.metadata?.size || null;
+    } catch (error) {
+      console.error('Error fetching file size:', error);
+      return null;
+    }
+  };
+
+  const enhanceDocumentsWithSizes = async (docs) => {
+    return await Promise.all(docs.map(async (doc) => {
+      const size = await getFileSizeFromUrl(doc.url);
+      return {
+        ...doc,
+        fileSize: size || 'N/A'
+      };
+    }));
+  };
+
   useEffect(() => {
     const fetchData = async () => {
       if (!authUserId) return;
 
       setLoading(true);
       try {
-        // Fetch all employees first
         const allEmployees = await apiService.getEmployees(router);
-        setEmployees(allEmployees);
+        
+        const validEmployees = Array.isArray(allEmployees) ? allEmployees : [];
+        setEmployees(validEmployees);
 
-        // Find current employee from the list (same as MyProfile)
-        const foundEmployee = allEmployees.find(emp => emp.user_id === authUserId);
-        if (foundEmployee) {
-          setCurrentEmployee(foundEmployee);
-        } else {
-          console.error("Employee record not found for this user ID");
-        }
+        const foundEmployee = validEmployees.find(emp => emp.user_id === authUserId);
+        if (foundEmployee) setCurrentEmployee(foundEmployee);
+
+        const docs = validEmployees.flatMap(employee =>
+          (employee.employee_documents || []).map(doc => ({
+            ...doc,
+            employeeName: `${employee.first_name} ${employee.last_name}`,
+            employeeId: employee.id,
+            created_by: doc.created_by || employee.id,
+            name: doc.name || 'Unnamed Document',
+            type: doc.type || 'Unknown',
+            url: doc.url || '#'
+          }))
+        );
+
+        const docsWithSizes = await enhanceDocumentsWithSizes(docs);
+        setDocumentsWithSizes(docsWithSizes);
       } catch (error) {
         console.error("Error fetching data:", error);
       } finally {
@@ -57,11 +105,10 @@ const DocumentsPage = () => {
     fetchData();
   }, [authUserId, router]);
 
-  // Current date/time display (same as MyProfile)
   useEffect(() => {
     const updateDateTime = () => {
       const now = new Date();
-      const options = {
+      setCurrentDateTime(now.toLocaleString('en-US', {
         weekday: 'long',
         year: 'numeric',
         month: 'long',
@@ -69,8 +116,7 @@ const DocumentsPage = () => {
         hour: '2-digit',
         minute: '2-digit',
         hour12: true
-      };
-      setCurrentDateTime(now.toLocaleString('en-US', options));
+      }));
     };
 
     updateDateTime();
@@ -82,13 +128,26 @@ const DocumentsPage = () => {
     setLoading(true);
     try {
       const allEmployees = await apiService.getEmployees(router);
-      setEmployees(allEmployees);
+      const validEmployees = Array.isArray(allEmployees) ? allEmployees : [];
+      setEmployees(validEmployees);
 
-      // Refresh current employee data
-      const foundEmployee = allEmployees.find(emp => emp.user_id === authUserId);
-      if (foundEmployee) {
-        setCurrentEmployee(foundEmployee);
-      }
+      const foundEmployee = validEmployees.find(emp => emp.user_id === authUserId);
+      if (foundEmployee) setCurrentEmployee(foundEmployee);
+
+      const docs = validEmployees.flatMap(employee =>
+        (employee.employee_documents || []).map(doc => ({
+          ...doc,
+          employeeName: `${employee.first_name} ${employee.last_name}`,
+          employeeId: employee.id,
+          created_by: doc.created_by || employee.id,
+          name: doc.name || 'Unnamed Document',
+          type: doc.type || 'Unknown',
+          url: doc.url || '#'
+        }))
+      );
+
+      const docsWithSizes = await enhanceDocumentsWithSizes(docs);
+      setDocumentsWithSizes(docsWithSizes);
     } catch (error) {
       console.error("Error refreshing data:", error);
     } finally {
@@ -96,38 +155,43 @@ const DocumentsPage = () => {
     }
   };
 
-  const filteredDocuments = employees
-    .flatMap(employee => 
-      (employee.employee_documents || []).map(doc => ({
-        ...doc,
-        employeeName: `${employee.first_name} ${employee.last_name}`,
-        employeeId: employee.id
-      }))
-    )
-    .filter(doc => {
-      if (!doc.name || !doc.category) return false;
-      
-      const matchesSearch = 
+  const documentTypes = useMemo(() => [
+    "official documents",
+    "payslips",
+    "contracts",
+    "certificates",
+    "ids"
+  ], []);
+
+  const filteredDocuments = useMemo(() => {
+    if (!documentsWithSizes.length) return [];
+
+    return documentsWithSizes.filter(doc => {
+      const matchesSearch =
         doc.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        doc.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (doc.type && doc.type.toLowerCase().includes(searchTerm.toLowerCase())) ||
         doc.employeeName.toLowerCase().includes(searchTerm.toLowerCase());
-      
-      const matchesFilter = filter === 'all' || doc.category === filter;
+
+      const matchesFilter = filter === 'all' || doc.type === filter;
       return matchesSearch && matchesFilter;
     });
+  }, [documentsWithSizes, searchTerm, filter]);
 
-  const categories = [
-    { name: 'all', count: filteredDocuments.length },
-    { name: 'Official documents', count: filteredDocuments.filter(d => d.category === 'Official documents').length },
-    { name: 'Payslips', count: filteredDocuments.filter(d => d.category === 'Payslips').length },
-    { name: 'Contracts', count: filteredDocuments.filter(d => d.category === 'Contracts').length },
-    { name: 'Certificates', count: filteredDocuments.filter(d => d.category === 'Certificates').length },
-    { name: 'IDs', count: filteredDocuments.filter(d => d.category === 'IDs').length }
-  ];
+  const categories = useMemo(() => {
+    const totalDocuments = documentsWithSizes.length;
+    const typeCounts = documentTypes.map(type => ({
+      name: type,
+      count: documentsWithSizes.filter(d => d.type === type).length
+    }));
 
-  if (loading) {
-    return <div className="flex justify-center items-center h-1/2 text-xl text-gray-600">Loading documents...</div>;
-  }
+    return [
+      { name: 'all', count: loading ? '-' : totalDocuments },
+      ...typeCounts.map(type => ({
+        name: type.name,
+        count: loading ? '-' : type.count
+      }))
+    ];
+  }, [documentsWithSizes, loading, documentTypes]);
 
   return (
     <div>
@@ -145,7 +209,9 @@ const DocumentsPage = () => {
         categories={categories}
         activeFilter={filter}
         onFilterChange={setFilter}
+        loading={loading}
       />
+
 
       <div className="mt-8">
         <div className="flex justify-between items-center mb-4">
@@ -163,10 +229,10 @@ const DocumentsPage = () => {
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
-            <button 
+            <button
               className="flex items-center gap-2 bg-[#b88b1b] text-white px-4 py-2 rounded-md hover:bg-[#8d6b14] transition-colors"
               onClick={() => setIsUploadModalOpen(true)}
-              disabled={!currentEmployee}
+              disabled={!currentEmployee || loading}
             >
               <FontAwesomeIcon icon={faUpload} />
               <span>Upload Document</span>
@@ -174,9 +240,10 @@ const DocumentsPage = () => {
           </div>
         </div>
 
-        <DocumentsTable 
-          documents={filteredDocuments} 
-          loading={loading} 
+        <DocumentsTable
+          documents={filteredDocuments}
+          loading={loading}
+          employees={employees}
         />
       </div>
 

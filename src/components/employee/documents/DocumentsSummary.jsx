@@ -10,15 +10,15 @@ import {
 
 const getCategoryIcon = (categoryName) => {
   switch(categoryName) {
-    case 'Official documents':
+    case 'official documents':
       return <FontAwesomeIcon icon={faFileAlt} className="text-[#969393] text-4xl mb-4" />;
-    case 'Payslips':
+    case 'payslips':
       return <FontAwesomeIcon icon={faFileInvoiceDollar} className="text-[#969393] text-4xl mb-4" />;
-    case 'Contracts':
+    case 'contracts':
       return <FontAwesomeIcon icon={faFileContract} className="text-[#969393] text-4xl mb-4" />;
-    case 'Certificates':
+    case 'certificates':
       return <FontAwesomeIcon icon={faCertificate} className="text-[#969393] text-4xl mb-4" />;
-    case 'IDs':
+    case 'ids':
       return <FontAwesomeIcon icon={faIdCard} className="text-[#969393] text-4xl mb-4" />;
     case 'Uploaded by me':
       return <FontAwesomeIcon icon={faUserCircle} className="text-[#969393] text-4xl mb-4" />;
@@ -27,7 +27,7 @@ const getCategoryIcon = (categoryName) => {
   }
 };
 
-const DocumentsSummary = ({ categories, activeFilter, onFilterChange }) => {
+const DocumentsSummary = ({ categories, activeFilter, onFilterChange, loading }) => {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 mb-6">
       {categories.map((category) => (
@@ -40,9 +40,11 @@ const DocumentsSummary = ({ categories, activeFilter, onFilterChange }) => {
         >
           <div className="flex items-start flex-col">
             {getCategoryIcon(category.name)}
-            <h3 className="font-medium text-lg text-[#070000]">{category.name}</h3>
+            <h3 className="font-medium text-lg text-[#070000] capitalize">{category.name}</h3>
           </div>
-          <p className="text-gray-500">{category.count} files</p>
+          <p className="text-gray-500">
+            {loading ? '-' : `${category.count} files`}
+          </p>
         </div>
       ))}
     </div>

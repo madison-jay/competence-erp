@@ -5,17 +5,17 @@ import toast from 'react-hot-toast';
 
 export default function UpdateShiftModal({ isOpen, onClose, onAssignShift, shiftTypes, employee }) {
     const [selectedShiftTypeId, setSelectedShiftTypeId] = useState('');
+    const [loading, setLoading] = useState(false);
 
     useEffect(() => {
         if (isOpen && employee) {
-            // Prefill with employee's current shift type or empty if unassigned
             setSelectedShiftTypeId(employee.shiftTypeId || '');
         } else {
             setSelectedShiftTypeId('');
         }
     }, [isOpen, employee]);
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
 
         if (!employee?.id) {
@@ -28,10 +28,18 @@ export default function UpdateShiftModal({ isOpen, onClose, onAssignShift, shift
             return;
         }
 
-        onAssignShift({
-            employeeId: employee.id,
-            shiftTypeId: selectedShiftTypeId
-        });
+        setLoading(true);
+        try {
+            await onAssignShift({
+                employeeId: employee.id,
+                shiftTypeId: selectedShiftTypeId
+            });
+            onClose();
+        } catch (error) {
+            console.error("Error updating shift:", error);
+        } finally {
+            setLoading(false);
+        }
     };
 
     if (!isOpen) return null;
@@ -48,6 +56,7 @@ export default function UpdateShiftModal({ isOpen, onClose, onAssignShift, shift
                 <button
                     onClick={onClose}
                     className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 text-2xl"
+                    disabled={loading}
                 >
                     &times;
                 </button>
@@ -77,6 +86,7 @@ export default function UpdateShiftModal({ isOpen, onClose, onAssignShift, shift
                             value={selectedShiftTypeId}
                             onChange={(e) => setSelectedShiftTypeId(e.target.value)}
                             required
+                            disabled={loading}
                         >
                             <option value="">Select a Shift Type</option>
                             {shiftTypes && shiftTypes.length > 0 ? (
@@ -97,14 +107,16 @@ export default function UpdateShiftModal({ isOpen, onClose, onAssignShift, shift
                             type="button"
                             onClick={onClose}
                             className="inline-flex justify-center py-2 px-4 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#b88b1b]"
+                            disabled={loading}
                         >
                             Cancel
                         </button>
                         <button
                             type="submit"
-                            className="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-[#b88b1b] hover:bg-[#a67c18] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#b88b1b]"
+                            className="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-[#b88b1b] hover:bg-[#a67c18] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#b88b1b] disabled:opacity-50 disabled:cursor-not-allowed"
+                            disabled={loading}
                         >
-                            {employee ? "Update Shift" : "Assign Shift"}
+                            {loading ? "Updating..." : (employee ? "Update Shift" : "Assign Shift")}
                         </button>
                     </div>
                 </form>

@@ -40,6 +40,29 @@ const ShiftPage = () => {
         fetchEmployeeShiftDetails();
     }, [router]);
 
+    const formatTime = (timeString) => {
+        if (!timeString) {
+            return 'N/A';
+        }
+
+        try {
+            const [hours, minutes] = timeString.split(':').map(Number);
+            const date = new Date();
+            date.setHours(hours, minutes, 0);
+
+            const options = {
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: true,
+            };
+
+            return date.toLocaleTimeString('en-US', options);
+        } catch (e) {
+            console.error("Invalid time format:", timeString, e);
+            return 'N/A';
+        }
+    };
+
     if (loading) {
         return (
             <div className="flex justify-center items-center h-full min-h-[200px] text-gray-800 font-semibold bg-white rounded-lg shadow-md p-6">
@@ -70,13 +93,13 @@ const ShiftPage = () => {
                         <div className="flex justify-between items-center py-2 border-b border-gray-200">
                             <span className="text-gray-600 font-medium">Start Time:</span>
                             <span className="text-gray-900 font-semibold">
-                                {shiftData.start_time ? shiftData.start_time.substring(0, 5) : 'N/A'}
+                                {formatTime(shiftData.start_time)}
                             </span>
                         </div>
                         <div className="flex justify-between items-center py-2">
                             <span className="text-gray-600 font-medium">End Time:</span>
                             <span className="text-gray-900 font-semibold">
-                                {shiftData.end_time ? shiftData.end_time.substring(0, 5) : 'N/A'}
+                                {formatTime(shiftData.end_time)}
                             </span>
                         </div>
                     </div>

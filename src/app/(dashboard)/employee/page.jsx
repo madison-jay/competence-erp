@@ -1,4 +1,4 @@
-"use client"
+"use client";
 
 import React, { useState, useEffect } from "react";
 import apiService from "@/app/lib/apiService";
@@ -58,15 +58,17 @@ export default function EmployeeDashboard() {
     useEffect(() => {
         const fetchData = async () => {
             try {
-                const leaves = await apiService.getLeaves(router);
+                const leaves = (await apiService.getLeaves(router)) || [];
                 const approvedCount = leaves.filter(leave => leave.status === 'Approved').length;
                 setApprovedLeaves(approvedCount);
-                
-                const tasks = await apiService.getTasks(router);
+
+                const tasks = (await apiService.getTasks(router)) || [];
                 setAllTasks(tasks);
-                
+
             } catch (error) {
                 console.error("Error fetching data:", error);
+                setAllTasks([]);
+                setApprovedLeaves(0);
             }
         };
 
@@ -101,7 +103,7 @@ export default function EmployeeDashboard() {
     }, [allTasks]);
 
     return (
-        <div className="max-w-[1400px] mx-auto p-4">
+        <div>
             <div className='flex justify-between items-center mt-5 mb-14 flex-wrap gap-4'>
                 <div>
                     <h1 className='text-2xl font-bold '>Overview</h1>

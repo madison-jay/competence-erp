@@ -17,8 +17,8 @@ const AddTaskModal = ({ isOpen, onClose, onAddTask }) => {
         description: '',
         start_date: '',
         end_date: '',
-        status: 'Pending',
-        priority: 'Medium',
+        status: 'pending',
+        priority: 'medium',
         documents: []
     });
 
@@ -284,9 +284,9 @@ const AddTaskModal = ({ isOpen, onClose, onAddTask }) => {
                                 onChange={handleChange}
                                 disabled={isSubmitting}
                             >
-                                <option value="Low">Low</option>
-                                <option value="Medium">Medium</option>
-                                <option value="High">High</option>
+                                <option value="low">Low</option>
+                                <option value="medium">Medium</option>
+                                <option value="high">High</option>
                             </select>
                         </div>
 

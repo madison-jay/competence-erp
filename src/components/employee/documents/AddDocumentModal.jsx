@@ -1,7 +1,7 @@
 "use client";
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faTimes } from '@fortawesome/free-solid-svg-icons';
+import { faTimes, faSearch } from '@fortawesome/free-solid-svg-icons';
 import { createClient } from '@/app/lib/supabase/client';
 import apiService from '@/app/lib/apiService';
 import toast from 'react-hot-toast';
@@ -23,7 +23,43 @@ const AddDocumentModal = ({
   });
   const [uploadMode, setUploadMode] = useState('me');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [employeeSearch, setEmployeeSearch] = useState('');
+  const [filteredEmployees, setFilteredEmployees] = useState([]);
+  const [showDropdown, setShowDropdown] = useState(false);
+  const dropdownRef = useRef(null);
   const router = useRouter();
+
+  const documentTypes = [
+    "official documents",
+    "payslips", 
+    "contracts",
+    "certificates",
+    "ids"
+  ];
+
+  useEffect(() => {
+    if (uploadMode === 'others') {
+      const filtered = employees.filter(emp => {
+        const matchesSearch = 
+          `${emp.first_name} ${emp.last_name}`.toLowerCase().includes(employeeSearch.toLowerCase());
+        const isNotCurrent = currentEmployeeId ? emp.id !== currentEmployeeId : true;
+        return matchesSearch && isNotCurrent;
+      });
+      setFilteredEmployees(filtered);
+    }
+  }, [employeeSearch, employees, uploadMode, currentEmployeeId]);
+
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setShowDropdown(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -34,12 +70,20 @@ const AddDocumentModal = ({
     setFormData(prev => ({ ...prev, file: e.target.files[0] }));
   };
 
-  const handleUploadModeChange = (mode) => {
+  const handleUploadModeChange = (e) => {
+    const mode = e.target.value;
     setUploadMode(mode);
     setFormData(prev => ({
       ...prev,
       targetEmployeeId: mode === 'me' ? currentEmployeeId : ''
     }));
+    setEmployeeSearch('');
+    setShowDropdown(false);
+  };
+
+  const handleEmployeeSelect = (employeeId) => {
+    setFormData(prev => ({ ...prev, targetEmployeeId: employeeId }));
+    setShowDropdown(false);
   };
 
   const uploadFileToSupabase = async (file, bucketName, folderPath) => {
@@ -77,21 +121,21 @@ const AddDocumentModal = ({
         throw new Error("Please select an employee");
       }
 
-      // 1. Upload file to Supabase
       const documentUrl = await uploadFileToSupabase(
         formData.file, 
         'documents', 
         'employee_documents'
       );
 
-      // 2. Create document record using apiService
-      await apiService.addEmployeeDocument(
+      const payload = [{
+        name: formData.name,
+        type: formData.type,
+        url: documentUrl
+      }];
+
+      await apiService.addEmployeeDocuments(
         formData.targetEmployeeId,
-        {
-          name: formData.name,
-          type: formData.type,
-          url: documentUrl
-        },
+        payload,
         router
       );
 
@@ -105,6 +149,7 @@ const AddDocumentModal = ({
         targetEmployeeId: currentEmployeeId || ''
       });
       setUploadMode('me');
+      setEmployeeSearch('');
     } catch (error) {
       console.error("Upload failed:", error);
       toast.error(error.message || "Document upload failed");
@@ -130,54 +175,88 @@ const AddDocumentModal = ({
         </div>
         
         <form onSubmit={handleSubmit}>
-          <div className="mb-4 flex gap-4">
-            <button
-              type="button"
-              className={`px-4 py-2 rounded-md transition-colors ${
-                uploadMode === 'me' 
-                  ? 'bg-[#b88b1b] text-white' 
-                  : 'bg-gray-200 hover:bg-gray-300'
-              }`}
-              onClick={() => handleUploadModeChange('me')}
-              disabled={!currentEmployeeId}
-            >
-              Upload to Me
-            </button>
-            <button
-              type="button"
-              className={`px-4 py-2 rounded-md transition-colors ${
-                uploadMode === 'others' 
-                  ? 'bg-[#b88b1b] text-white' 
-                  : 'bg-gray-200 hover:bg-gray-300'
-              }`}
-              onClick={() => handleUploadModeChange('others')}
-            >
-              Upload to Others
-            </button>
+          <div className="mb-4">
+            <label className="block text-sm font-medium mb-2 text-gray-700">
+              Upload To:
+            </label>
+            <div className="flex items-center gap-4">
+              <label className="inline-flex items-center">
+                <input
+                  type="radio"
+                  className="form-radio text-[#b88b1b] focus:ring-[#b88b1b]"
+                  name="uploadMode"
+                  value="me"
+                  checked={uploadMode === 'me'}
+                  onChange={handleUploadModeChange}
+                  disabled={!currentEmployeeId || isSubmitting}
+                />
+                <span className="ml-2">Upload to me</span>
+              </label>
+              <label className="inline-flex items-center">
+                <input
+                  type="radio"
+                  className="form-radio text-[#b88b1b] focus:ring-[#b88b1b]"
+                  name="uploadMode"
+                  value="others"
+                  checked={uploadMode === 'others'}
+                  onChange={handleUploadModeChange}
+                  disabled={isSubmitting}
+                />
+                <span className="ml-2">Upload to others</span>
+              </label>
+            </div>
           </div>
 
           {uploadMode === 'others' && (
-            <div className="mb-4">
+            <div className="mb-4 relative" ref={dropdownRef}>
               <label className="block text-sm font-medium mb-1 text-gray-700">
                 Employee
               </label>
-              <select
-                name="targetEmployeeId"
-                className="w-full p-2 border rounded focus:ring-[#b88b1b] focus:border-[#b88b1b]"
-                value={formData.targetEmployeeId}
-                onChange={handleChange}
-                required
-                disabled={isSubmitting}
+              <div 
+                className="w-full p-2 border rounded border-gray-400 focus:ring-[#b88b1b] focus:border-[#b88b1b] focus:ring-0 focus:outline-none cursor-pointer"
+                onClick={() => setShowDropdown(!showDropdown)}
               >
-                <option value="">Select Employee</option>
-                {employees
-                  .filter(emp => currentEmployeeId ? emp.id !== currentEmployeeId : true)
-                  .map(employee => (
-                    <option key={employee.id} value={employee.id}>
-                      {employee.first_name} {employee.last_name}
-                    </option>
-                  ))}
-              </select>
+                {formData.targetEmployeeId 
+                  ? employees.find(e => e.id === formData.targetEmployeeId)?.first_name + ' ' + 
+                    employees.find(e => e.id === formData.targetEmployeeId)?.last_name
+                  : 'Select Employee'}
+              </div>
+              
+              {showDropdown && (
+                <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg">
+                  <div className="p-2 border-b border-gray-300">
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <FontAwesomeIcon icon={faSearch} className="text-gray-400" />
+                      </div>
+                      <input
+                        type="text"
+                        placeholder="Search employees..."
+                        className="w-full pl-10 p-2 border rounded border-gray-300 focus:outline-none"
+                        value={employeeSearch}
+                        onChange={(e) => setEmployeeSearch(e.target.value)}
+                        onClick={(e) => e.stopPropagation()}
+                        autoFocus
+                      />
+                    </div>
+                  </div>
+                  <div className="max-h-60 overflow-y-auto">
+                    {filteredEmployees.length > 0 ? (
+                      filteredEmployees.map(employee => (
+                        <div
+                          key={employee.id}
+                          className={`p-2 hover:bg-gray-100 cursor-pointer ${formData.targetEmployeeId === employee.id ? 'bg-gray-200' : ''}`}
+                          onClick={() => handleEmployeeSelect(employee.id)}
+                        >
+                          {employee.first_name} {employee.last_name}
+                        </div>
+                      ))
+                    ) : (
+                      <div className="p-2 text-gray-500">No employees found</div>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           )}
           
@@ -188,7 +267,7 @@ const AddDocumentModal = ({
             <input
               type="text"
               name="name"
-              className="w-full p-2 border rounded focus:ring-[#b88b1b] focus:border-[#b88b1b]"
+              className="w-full p-2 border rounded border-gray-400 focus:ring-[#b88b1b] focus:border-[#b88b1b] focus:ring-0 focus:outline-none"
               value={formData.name}
               onChange={handleChange}
               required
@@ -202,28 +281,25 @@ const AddDocumentModal = ({
             </label>
             <select
               name="type"
-              className="w-full p-2 border rounded focus:ring-[#b88b1b] focus:border-[#b88b1b]"
+              className="w-full p-2 border rounded border-gray-400 focus:ring-[#b88b1b] focus:border-[#b88b1b] focus:ring-0 focus:outline-none"
               value={formData.type}
               onChange={handleChange}
               required
               disabled={isSubmitting}
             >
               <option value="">Select Type</option>
-              <option value="Official documents">Official documents</option>
-              <option value="Payslips">Payslips</option>
-              <option value="Contracts">Contracts</option>
-              <option value="Certificates">Certificates</option>
-              <option value="IDs">IDs</option>
+              {documentTypes.map(type => (
+                <option key={type} value={type}>
+                  {type.charAt(0).toUpperCase() + type.slice(1)}
+                </option>
+              ))}
             </select>
           </div>
           
           <div className="mb-4">
-            <label className="block text-sm font-medium mb-1 text-gray-700">
-              File
-            </label>
             <input
               type="file"
-              className="w-full p-2 border rounded file:mr-4 file:py-2 file:px-4
+              className="w-full p-2 file:mr-4 file:py-2 file:px-4
                 file:rounded file:border-0
                 file:text-sm file:font-semibold
                 file:bg-[#b88b1b] file:text-white
@@ -237,7 +313,7 @@ const AddDocumentModal = ({
           <div className="flex justify-end gap-2">
             <button
               type="button"
-              className="px-4 py-2 border rounded hover:bg-gray-100 transition-colors"
+              className="px-4 py-2 border rounded border-gray-400 hover:bg-gray-100 transition-colors"
               onClick={onClose}
               disabled={isSubmitting}
             >

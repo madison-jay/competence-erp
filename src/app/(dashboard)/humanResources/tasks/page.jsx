@@ -18,9 +18,10 @@ export default function TaskPage() {
     const [isViewModalOpen, setIsViewModalOpen] = useState(false);
     const [selectedTask, setSelectedTask] = useState(null);
     const [allTasks, setAllTasks] = useState([]);
+    const [employeeDetails, setEmployeeDetails] = useState({});
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
-    const [refreshKey, setRefreshKey] = useState(0); // For force refresh
+    const [refreshKey, setRefreshKey] = useState(0);
 
     const router = useRouter();
 
@@ -40,61 +41,102 @@ export default function TaskPage() {
         };
 
         updateDateTime();
-        const intervalId = setInterval(updateDateTime, 60000); // Update every minute
-
+        const intervalId = setInterval(updateDateTime, 60000);
         return () => clearInterval(intervalId);
     }, []);
+
+    const fetchEmployeeDetails = async (employeeId) => {
+        try {
+            if (!employeeId || employeeDetails[employeeId]) return;
+
+            const employee = await apiService.getEmployeeById(employeeId, router);
+            setEmployeeDetails(prev => ({
+                ...prev,
+                [employeeId]: employee
+            }));
+        } catch (err) {
+            console.error(`Failed to fetch employee ${employeeId}:`, err);
+            setEmployeeDetails(prev => ({
+                ...prev,
+                [employeeId]: {
+                    first_name: 'Unknown',
+                    last_name: 'Employee',
+                    email: 'unknown@example.com',
+                    avatar: null
+                }
+            }));
+        }
+    };
 
     const fetchTasks = async () => {
         setLoading(true);
         setError(null);
         try {
             const tasks = await apiService.getTasks(router);
-            
-            // Process tasks with assignments and documents
-            const processedTasks = Array.isArray(tasks)
-                ? tasks.map(task => {
-                    const dueDate = task.end_date ? new Date(task.end_date) : null;
-                    const now = new Date();
-                    const isOverdue = dueDate && !isNaN(dueDate) && dueDate < now && task.status !== 'Completed';
-                    
-                    // Get assigned employees from task_assignments if available
-                    const assignedEmployees = task.task_assignments?.map(assignment => ({
-                        id: assignment.employee_id,
-                        name: assignment.employees 
-                            ? `${assignment.employees.first_name} ${assignment.employees.last_name}`
-                            : 'Unknown'
-                    })) || [];
 
-                    // Get documents if available
-                    const documents = task.task_documents || [];
+            const employeeIds = new Set();
+            tasks.forEach(task => {
+                if (task.assigned_to) employeeIds.add(task.assigned_to);
+                if (task.created_by) employeeIds.add(task.created_by);
+                task.task_assignments?.forEach(assignment => {
+                    if (assignment.employee_id) employeeIds.add(assignment.employee_id);
+                });
+            });
 
-                    return { 
-                        ...task, 
-                        isOverdue,
-                        assignedEmployees,
-                        documents
+            await Promise.all(
+                Array.from(employeeIds).map(id => fetchEmployeeDetails(id))
+            );
+
+            const processedTasks = tasks.map(task => {
+                const dueDate = task.end_date ? new Date(task.end_date) : null;
+                const now = new Date();
+                const isOverdue = dueDate && !isNaN(dueDate) && dueDate < now && task.status !== 'Completed';
+
+                const assignedEmployees = task.task_assignments?.map(assignment => {
+                    const employee = employeeDetails[assignment.employee_id] || {
+                        first_name: 'Unknown',
+                        last_name: 'Employee',
+                        email: 'unknown@example.com'
                     };
-                }).sort((a, b) => {
-                    // Sort by priority then by due date
-                    const priorityOrder = { 'Urgent': 0, 'High': 1, 'Medium': 2, 'Low': 3 };
-                    const aPriority = priorityOrder[a.priority] || 3;
-                    const bPriority = priorityOrder[b.priority] || 3;
-                    
-                    if (aPriority !== bPriority) {
-                        return aPriority - bPriority;
+                    return {
+                        id: assignment.employee_id,
+                        name: `${employee.first_name} ${employee.last_name}`,
+                        ...employee
+                    };
+                }) || [];
+
+                const documents = task.task_documents || [];
+
+                return {
+                    ...task,
+                    isOverdue,
+                    assignedEmployees,
+                    documents,
+                    assigned_to_details: employeeDetails[task.assigned_to] || {
+                        first_name: 'Unknown',
+                        last_name: 'Assignee',
+                        email: 'unknown@example.com'
+                    },
+                    created_by_details: employeeDetails[task.created_by] || {
+                        first_name: 'Unknown',
+                        last_name: 'Creator',
+                        email: 'unknown@example.com'
                     }
-                    
-                    const aDate = a.end_date ? new Date(a.end_date) : null;
-                    const bDate = b.end_date ? new Date(b.end_date) : null;
-                    
-                    if (aDate && bDate) {
-                        return aDate - bDate;
-                    }
-                    return 0;
-                })
-                : [];
-                
+                };
+            }).sort((a, b) => {
+                const priorityOrder = { 'Urgent': 0, 'High': 1, 'Medium': 2, 'Low': 3 };
+                const aPriority = priorityOrder[a.priority] || 3;
+                const bPriority = priorityOrder[b.priority] || 3;
+
+                if (aPriority !== bPriority) return aPriority - bPriority;
+
+                const aDate = a.end_date ? new Date(a.end_date) : null;
+                const bDate = b.end_date ? new Date(b.end_date) : null;
+
+                if (aDate && bDate) return aDate - bDate;
+                return 0;
+            });
+
             setAllTasks(processedTasks);
         } catch (err) {
             console.error("Failed to fetch tasks:", err);
@@ -107,7 +149,7 @@ export default function TaskPage() {
 
     useEffect(() => {
         fetchTasks();
-    }, [router, refreshKey]); // Added refreshKey as dependency
+    }, [router, refreshKey]);
 
     const handleSearchChange = (e) => {
         setSearchTerm(e.target.value);
@@ -125,14 +167,14 @@ export default function TaskPage() {
 
     const handleAddTask = async () => {
         setIsAddTaskModalOpen(false);
-        setRefreshKey(prev => prev + 1); // Trigger refresh
+        setRefreshKey(prev => prev + 1);
         toast.success("Task created successfully!");
     };
 
     const handleUpdateTask = async (updatedTask) => {
         try {
             await apiService.updateTask(updatedTask.id, updatedTask, router);
-            setRefreshKey(prev => prev + 1); // Trigger refresh
+            setRefreshKey(prev => prev + 1);
             toast.success("Task updated successfully!");
         } catch (err) {
             console.error("Failed to update task:", err);
@@ -143,7 +185,7 @@ export default function TaskPage() {
     const handleDeleteTask = async (taskId) => {
         try {
             await apiService.deleteTask(taskId, router);
-            setRefreshKey(prev => prev + 1); // Trigger refresh
+            setRefreshKey(prev => prev + 1);
             toast.success("Task deleted successfully!");
         } catch (err) {
             console.error("Failed to delete task:", err);
@@ -170,13 +212,17 @@ export default function TaskPage() {
         );
     };
 
-    // Filter tasks based on search term
+
     const filteredTasks = allTasks.filter(task => {
-        const searchLower = searchTerm.toLowerCase();
+        if (task.status === "Cancelled") return false;
+
+        const searchLower = (searchTerm || "").toLowerCase();
         return (
-            task.title.toLowerCase().includes(searchLower) ||
-            task.description?.toLowerCase().includes(searchLower) ||
-            task.assignedEmployees?.some(e => e.name.toLowerCase().includes(searchLower))
+            (task.title || "").toLowerCase().includes(searchLower) ||
+            (task.description || "").toLowerCase().includes(searchLower) ||
+            (task.assignedEmployees || []).some(e =>
+                (e?.name || "").toLowerCase().includes(searchLower)
+            )
         );
     });
 
@@ -198,11 +244,26 @@ export default function TaskPage() {
             {!loading && !error && (
                 <>
                     <div className="flex flex-wrap gap-5 items-center justify-between mb-14">
-                        <TaskCard title="All tasks" count={allTasks.length} />
-                        <TaskCard title="Pending" count={allTasks.filter(t => t.status === 'Pending').length} />
-                        <TaskCard title="In progress" count={allTasks.filter(t => t.status === 'In Progress').length} />
-                        <TaskCard title="Completed" count={allTasks.filter(t => t.status === 'Completed').length} />
-                        <TaskCard title="Overdue" count={allTasks.filter(t => t.isOverdue).length} />
+                        <TaskCard
+                            title="All tasks"
+                            count={allTasks.filter(t => t.status !== "Cancelled").length}
+                        />
+                        <TaskCard
+                            title="Pending"
+                            count={allTasks.filter(t => t.status === 'Pending').length}
+                        />
+                        <TaskCard
+                            title="In progress"
+                            count={allTasks.filter(t => t.status === 'In Progress').length}
+                        />
+                        <TaskCard
+                            title="Completed"
+                            count={allTasks.filter(t => t.status === 'Completed').length}
+                        />
+                        <TaskCard
+                            title="Overdue"
+                            count={allTasks.filter(t => t.isOverdue).length}
+                        />
                     </div>
 
                     <div className="flex items-center justify-between p-4 md:p-6 bg-white border-b border-gray-200">

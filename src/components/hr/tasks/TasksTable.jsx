@@ -13,7 +13,6 @@ const TaskTable = ({ tasks, searchTerm, onViewTask, loading, error, onUpdateTask
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [taskToDeleteId, setTaskToDeleteId] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
-
   const [showUpdateModal, setShowUpdateModal] = useState(false);
   const [taskToUpdate, setTaskToUpdate] = useState(null);
 
@@ -63,8 +62,8 @@ const TaskTable = ({ tasks, searchTerm, onViewTask, loading, error, onUpdateTask
       <button
         onClick={onClick}
         className={`px-3 py-1 rounded-md text-sm font-medium ${isActive
-            ? 'bg-[#b88b1b] text-white'
-            : 'text-gray-700 hover:bg-gray-100'
+          ? 'bg-[#b88b1b] text-white'
+          : 'text-gray-700 hover:bg-gray-100'
           }`}
       >
         {page}
@@ -154,15 +153,20 @@ const TaskTable = ({ tasks, searchTerm, onViewTask, loading, error, onUpdateTask
     );
   };
 
-  const filteredTasks = tasks.filter(task =>
-    (task.assigned_to?.first_name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (task.assigned_to?.last_name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (task.assigned_to?.email || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (task.title || '').toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredTasks = tasks.filter(task => {
+    if (task.status === "Cancelled") return false;
+    
+    const searchLower = (searchTerm || "").toLowerCase();
+    return (
+      (task.title || "").toLowerCase().includes(searchLower) ||
+      (task.description || "").toLowerCase().includes(searchLower) ||
+      (task.assignedEmployees || []).some(e =>
+        (e?.name || "").toLowerCase().includes(searchLower)
+      )
+    );
+  });
 
   const totalPages = Math.ceil(filteredTasks.length / itemsPerPage);
-
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
   const currentTasks = filteredTasks.slice(indexOfFirstItem, indexOfLastItem);
@@ -250,8 +254,11 @@ const TaskTable = ({ tasks, searchTerm, onViewTask, loading, error, onUpdateTask
             <tbody className="bg-white divide-y divide-gray-200">
               {currentTasks.length > 0 ? (
                 currentTasks.map((task) => {
-                  const avatarSrc = task.assigned_to?.avatar;
-                  const placeholderText = `${task.assigned_to?.first_name?.charAt(0) || ''}${task.assigned_to?.last_name?.charAt(0) || ''}`;
+                  const assignedTo = task.assigned_to_details || {};
+                  const createdBy = task.created_by_details || {};
+                  
+                  const avatarSrc = assignedTo.avatar;
+                  const placeholderText = `${assignedTo.first_name?.charAt(0) || ''}${assignedTo.last_name?.charAt(0) || ''}`;
                   const placeholderUrl = `https://placehold.co/32x32/F0F0F0/000000?text=${placeholderText}`;
 
                   return (
@@ -263,7 +270,7 @@ const TaskTable = ({ tasks, searchTerm, onViewTask, loading, error, onUpdateTask
                               <Image
                                 className="h-10 w-10 rounded-full object-cover"
                                 src={avatarSrc}
-                                alt={`${task.assigned_to?.first_name || ''} ${task.assigned_to?.last_name || ''}`}
+                                alt={`${assignedTo.first_name || ''} ${assignedTo.last_name || ''}`}
                                 width={40}
                                 height={40}
                               />
@@ -271,44 +278,59 @@ const TaskTable = ({ tasks, searchTerm, onViewTask, loading, error, onUpdateTask
                               <img
                                 className="h-10 w-10 rounded-full object-cover"
                                 src={placeholderUrl}
-                                alt={`${task.assigned_to?.first_name || ''} ${task.assigned_to?.last_name || ''}`}
+                                alt={`${assignedTo.first_name || ''} ${assignedTo.last_name || ''}`}
                               />
                             )}
                           </div>
                           <div className="ml-4">
-                            <div className="text-sm font-medium text-gray-900">{`${task.assigned_to?.first_name || ''} ${task.assigned_to?.last_name || ''}`}</div>
-                            <div className="text-sm text-gray-500">{task.assigned_to?.email || ''}</div>
+                            <div className="text-sm font-medium text-gray-900">
+                              {`${assignedTo.first_name || 'Unknown'} ${assignedTo.last_name || 'Assignee'}`}
+                            </div>
+                            <div className="text-sm text-gray-500">{assignedTo.email || 'No email'}</div>
                           </div>
                         </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{task.start_date}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{task.end_date}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{task.title}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{task.created_by?.first_name} {task.created_by?.last_name || "N/A"}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-left">{renderBadge(task.status)}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {task.start_date || 'N/A'}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {task.end_date || 'N/A'}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {task.title || 'Untitled Task'}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {`${createdBy.first_name || 'Unknown'} ${createdBy.last_name || 'Creator'}`}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-left">
+                        {renderBadge(task.status || 'Pending')}
+                      </td>
                       <td className="px-3 py-4 whitespace-nowrap text-center text-sm">
-                          {task.isOverdue ? (
-                              <FontAwesomeIcon icon={faCircleCheck} className="text-red-500 h-5 w-5" />
-                          ) : (
-                              <FontAwesomeIcon icon={faCircleXmark} className="text-gray-400 h-5 w-5" />
-                          )}
+                        {task.isOverdue ? (
+                          <FontAwesomeIcon icon={faCircleCheck} className="text-red-500 h-5 w-5" />
+                        ) : (
+                          <FontAwesomeIcon icon={faCircleXmark} className="text-gray-400 h-5 w-5" />
+                        )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-center text-sm font-medium">
                         <button
                           onClick={() => onViewTask(task)}
                           className="text-gray-500 hover:text-gray-900 p-2 rounded-full hover:bg-gray-100"
+                          title="View task"
                         >
                           <FontAwesomeIcon icon={faEye} className="h-5 w-5" aria-hidden="true" />
                         </button>
                         <button
                           onClick={() => handleUpdateClick(task)}
                           className="text-gray-500 hover:text-gray-900 p-2 rounded-full hover:bg-gray-100 ml-2"
+                          title="Edit task"
                         >
                           <FontAwesomeIcon icon={faEdit} className="h-5 w-5" aria-hidden="true" />
                         </button>
                         <button
                           onClick={() => handleDeleteClick(task.id)}
                           className="text-red-500 hover:text-red-700 p-2 rounded-full hover:bg-red-100 ml-2"
+                          title="Delete task"
                         >
                           <FontAwesomeIcon icon={faTrashAlt} className="h-5 w-5" aria-hidden="true" />
                         </button>
@@ -327,9 +349,8 @@ const TaskTable = ({ tasks, searchTerm, onViewTask, loading, error, onUpdateTask
           </table>
         </div>
       </div>
-      {renderPagination(currentPage, totalPages, handlePageChange)}
+      {totalPages > 1 && renderPagination(currentPage, totalPages, handlePageChange)}
 
-      {/* Delete Confirmation Modal */}
       <DeleteConfirmationModal
         show={showDeleteModal}
         onConfirm={handleConfirmDelete}
@@ -337,7 +358,6 @@ const TaskTable = ({ tasks, searchTerm, onViewTask, loading, error, onUpdateTask
         isDeleting={isDeleting}
       />
 
-      {/* Update Task Modal */}
       <UpdateTaskModal
         show={showUpdateModal}
         task={taskToUpdate}

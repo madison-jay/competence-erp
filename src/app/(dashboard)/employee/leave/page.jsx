@@ -11,11 +11,13 @@ const LeaveRequests = () => {
     const [currentPage, setCurrentPage] = useState(1);
     const employeesPerPage = 5;
     const [currentDateTime, setCurrentDateTime] = useState('');
-
+    const [greeting, setGreeting] = useState('');
     const [leavesData, setLeavesData] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
+
+    const first_name = localStorage.getItem('first_name');
 
     const fetchLeaves = async () => {
         try {
@@ -64,11 +66,16 @@ const LeaveRequests = () => {
     };
 
     const filteredLeaves = useMemo(() => {
+        const nonCancelledLeaves = leavesData.filter(
+            leave => leave.status.toLowerCase() !== 'cancelled'
+        );
+
         if (!searchTerm) {
-            return leavesData;
+            return nonCancelledLeaves;
         }
+
         const lowercasedSearchTerm = searchTerm.toLowerCase();
-        return leavesData.filter(leave =>
+        return nonCancelledLeaves.filter(leave =>
             (leave.employee?.first_name && leave.employee.first_name.toLowerCase().includes(lowercasedSearchTerm)) ||
             (leave.employee?.last_name && leave.employee.last_name.toLowerCase().includes(lowercasedSearchTerm)) ||
             (leave.employee?.email && leave.employee.email.toLowerCase().includes(lowercasedSearchTerm)) ||
@@ -125,8 +132,18 @@ const LeaveRequests = () => {
     };
 
     useEffect(() => {
-        const updateDateTime = () => {
+        const updateDateTimeAndGreeting = () => {
             const now = new Date();
+            const hours = now.getHours();
+
+            if (hours >= 5 && hours < 12) {
+                setGreeting('Good Morning');
+            } else if (hours >= 12 && hours < 18) {
+                setGreeting('Good Afternoon');
+            } else {
+                setGreeting('Good Evening');
+            }
+
             const options = {
                 weekday: 'long',
                 year: 'numeric',
@@ -140,8 +157,8 @@ const LeaveRequests = () => {
             setCurrentDateTime(now.toLocaleString('en-US', options));
         };
 
-        updateDateTime();
-        const intervalId = setInterval(updateDateTime, 1000);
+        updateDateTimeAndGreeting();
+        const intervalId = setInterval(updateDateTimeAndGreeting, 1000);
 
         return () => clearInterval(intervalId);
     }, []);
@@ -152,7 +169,7 @@ const LeaveRequests = () => {
                 <div className='flex justify-between items-center mt-5 mb-14 flex-wrap gap-4'>
                     <div>
                         <h1 className='text-2xl font-bold '>Leave Requests</h1>
-                        <p className='text-[#A09D9D] font-medium mt-2'>View and manage your leave requests in the organization</p>
+                        <p className='text-[#A09D9D] font-medium mt-2'>{greeting}, {first_name}</p>
                     </div>
                     <span className='rounded-[20px] px-3 py-2 border-[0.5px] border-solid border-[#DDD9D9] text-[#A09D9D]'>
                         {currentDateTime}
@@ -208,11 +225,11 @@ const LeaveRequests = () => {
                             </thead>
                             <tbody className="divide-y divide-gray-200">
                                 {currentLeaves.map(leave => (
-                                    <LeaveRow 
-                                        key={leave.id} 
-                                        leaveRequest={leave} 
-                                        onUpdateStatus={handleUpdateLeaveStatus} 
-                                        onDeleteRequest={handleDeleteRequest} 
+                                    <LeaveRow
+                                        key={leave.id}
+                                        leaveRequest={leave}
+                                        onUpdateStatus={handleUpdateLeaveStatus}
+                                        onDeleteRequest={handleDeleteRequest}
                                     />
                                 ))}
                             </tbody>

@@ -217,8 +217,8 @@ const apiService = {
         return callApi(`/employee_payments/${employeeId}`, "POST", null, router);
     },
 
-    addEmployeeDocument: async (employeeId, documentData, router) => {
-        return callApi(`/employees/${employeeId}/documents`, 'POST', documentData, router);
+    addEmployeeDocuments: async (employeeId, documentsArray, router) => {
+        return callApi(`/employees/${employeeId}/documents`, 'POST', documentsArray, router);
     },
 
     updateEmployeeDocument: async (documentId, documentData, router) => {

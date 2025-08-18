@@ -1,14 +1,13 @@
-// @/components/hr/tasks/TasksTable.js
 import React, { useState } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faEye, faPenToSquare } from '@fortawesome/free-solid-svg-icons';
 // import ViewTaskModal from './ViewTaskModal';
 
-const TasksTable = ({ tasks, searchTerm, onViewTask, onUpdateTask,loading, error }) => {
+const TasksTable = ({ tasks, searchTerm, onViewTask, onUpdateTask, loading, error }) => {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState(null);
 
-  const filteredTasks = tasks.filter(task =>
+  const filteredTasks = (tasks ?? []).filter(task =>
     task.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
     task.assigned_to?.first_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     task.assigned_to?.last_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
