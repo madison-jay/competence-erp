@@ -45,7 +45,7 @@ export default function TaskPage() {
         return () => clearInterval(intervalId);
     }, []);
 
-    const fetchEmployeeDetails = async (employeeId) => {
+    const _fetchEmployeeDetails = async (employeeId) => {
         try {
             if (!employeeId || employeeDetails[employeeId]) return;
 
@@ -62,7 +62,7 @@ export default function TaskPage() {
                     first_name: 'Unknown',
                     last_name: 'Employee',
                     email: 'unknown@example.com',
-                    avatar: null
+                    avatar_url: null
                 }
             }));
         }
@@ -74,29 +74,19 @@ export default function TaskPage() {
         try {
             const tasks = await apiService.getTasks(router);
 
-            const employeeIds = new Set();
-            tasks.forEach(task => {
-                if (task.assigned_to) employeeIds.add(task.assigned_to);
-                if (task.created_by) employeeIds.add(task.created_by);
-                task.task_assignments?.forEach(assignment => {
-                    if (assignment.employee_id) employeeIds.add(assignment.employee_id);
-                });
-            });
-
-            await Promise.all(
-                Array.from(employeeIds).map(id => fetchEmployeeDetails(id))
-            );
-
+            // Process tasks with the actual data structure
             const processedTasks = tasks.map(task => {
                 const dueDate = task.end_date ? new Date(task.end_date) : null;
                 const now = new Date();
                 const isOverdue = dueDate && !isNaN(dueDate) && dueDate < now && task.status !== 'Completed';
 
+                // Get assigned employees from task_assignments
                 const assignedEmployees = task.task_assignments?.map(assignment => {
-                    const employee = employeeDetails[assignment.employee_id] || {
+                    const employee = assignment.employees || {
                         first_name: 'Unknown',
                         last_name: 'Employee',
-                        email: 'unknown@example.com'
+                        email: 'unknown@example.com',
+                        avatar_url: null
                     };
                     return {
                         id: assignment.employee_id,
@@ -105,22 +95,25 @@ export default function TaskPage() {
                     };
                 }) || [];
 
-                const documents = task.task_documents || [];
+                // Get the primary assigned employee (first one if multiple)
+                const primaryAssigned = assignedEmployees.length > 0 ? assignedEmployees[0] : null;
 
                 return {
                     ...task,
                     isOverdue,
                     assignedEmployees,
-                    documents,
-                    assigned_to_details: employeeDetails[task.assigned_to] || {
-                        first_name: 'Unknown',
-                        last_name: 'Assignee',
-                        email: 'unknown@example.com'
+                    assigned_to: primaryAssigned?.id || null,
+                    assigned_to_details: primaryAssigned || {
+                        first_name: 'Unassigned',
+                        last_name: '',
+                        email: 'N/A',
+                        avatar_url: null
                     },
                     created_by_details: employeeDetails[task.created_by] || {
                         first_name: 'Unknown',
                         last_name: 'Creator',
-                        email: 'unknown@example.com'
+                        email: 'unknown@example.com',
+                        avatar_url: null
                     }
                 };
             }).sort((a, b) => {
@@ -149,7 +142,7 @@ export default function TaskPage() {
 
     useEffect(() => {
         fetchTasks();
-    }, [router, refreshKey]);
+    }, [router, refreshKey, employeeDetails]);
 
     const handleSearchChange = (e) => {
         setSearchTerm(e.target.value);
@@ -211,7 +204,6 @@ export default function TaskPage() {
             </div>
         );
     };
-
 
     const filteredTasks = allTasks.filter(task => {
         if (task.status === "Cancelled") return false;
@@ -281,9 +273,12 @@ export default function TaskPage() {
 
                     <TaskTable
                         tasks={filteredTasks}
+                        searchTerm={searchTerm}
                         onViewTask={handleViewTask}
                         onUpdateTask={handleUpdateTask}
                         onDeleteTask={handleDeleteTask}
+                        loading={loading}
+                        error={error}
                     />
                 </>
             )}

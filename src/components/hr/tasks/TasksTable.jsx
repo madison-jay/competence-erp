@@ -254,40 +254,50 @@ const TaskTable = ({ tasks, searchTerm, onViewTask, loading, error, onUpdateTask
             <tbody className="bg-white divide-y divide-gray-200">
               {currentTasks.length > 0 ? (
                 currentTasks.map((task) => {
-                  const assignedTo = task.assigned_to_details || {};
                   const createdBy = task.created_by_details || {};
                   
-                  const avatarSrc = assignedTo.avatar;
-                  const placeholderText = `${assignedTo.first_name?.charAt(0) || ''}${assignedTo.last_name?.charAt(0) || ''}`;
-                  const placeholderUrl = `https://placehold.co/32x32/F0F0F0/000000?text=${placeholderText}`;
-
                   return (
                     <tr key={task.id} className="hover:bg-gray-50">
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center">
-                          <div className="flex-shrink-0 h-10 w-10">
-                            {avatarSrc ? (
-                              <Image
-                                className="h-10 w-10 rounded-full object-cover"
-                                src={avatarSrc}
-                                alt={`${assignedTo.first_name || ''} ${assignedTo.last_name || ''}`}
-                                width={40}
-                                height={40}
-                              />
-                            ) : (
-                              <img
-                                className="h-10 w-10 rounded-full object-cover"
-                                src={placeholderUrl}
-                                alt={`${assignedTo.first_name || ''} ${assignedTo.last_name || ''}`}
-                              />
-                            )}
-                          </div>
-                          <div className="ml-4">
-                            <div className="text-sm font-medium text-gray-900">
-                              {`${assignedTo.first_name || 'Unknown'} ${assignedTo.last_name || 'Assignee'}`}
-                            </div>
-                            <div className="text-sm text-gray-500">{assignedTo.email || 'No email'}</div>
-                          </div>
+                          {task.assignedEmployees.length > 0 ? (
+                            task.assignedEmployees.map((employee, index) => (
+                              <div key={employee.id} className={`flex items-center ${index > 0 ? 'ml-2' : ''}`}>
+                                <div className="flex-shrink-0 h-10 w-10">
+                                  {employee.avatar_url ? (
+                                    <Image
+                                      className="h-10 w-10 rounded-full object-cover"
+                                      src={employee.avatar_url}
+                                      alt={`${employee.first_name} ${employee.last_name}`}
+                                      width={40}
+                                      height={40}
+                                    />
+                                  ) : (
+                                    <div className="h-10 w-10 rounded-full bg-gray-300 flex items-center justify-center">
+                                      <span className="text-sm font-medium text-gray-700">
+                                        {employee.first_name?.charAt(0) || ''}{employee.last_name?.charAt(0) || ''}
+                                      </span>
+                                    </div>
+                                  )}
+                                </div>
+                                {index === 0 && (
+                                  <div className="ml-4">
+                                    <div className="text-sm font-medium text-gray-900">
+                                      {`${employee.first_name || 'Unknown'} ${employee.last_name || 'Assignee'}`}
+                                    </div>
+                                    <div className="text-sm text-gray-500">{employee.email || 'No email'}</div>
+                                  </div>
+                                )}
+                              </div>
+                            ))
+                          ) : (
+                            <div className="text-sm text-gray-500">Unassigned</div>
+                          )}
+                          {task.assignedEmployees.length > 1 && (
+                            <span className="text-xs text-gray-500 ml-2">
+                              +{task.assignedEmployees.length - 1} more
+                            </span>
+                          )}
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">

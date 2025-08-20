@@ -3,14 +3,17 @@
 import React from 'react';
 import Image from 'next/image';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faTimes, faPaperclip, faFileAlt } from '@fortawesome/free-solid-svg-icons';
+import { faTimes, faFileAlt } from '@fortawesome/free-solid-svg-icons';
 
 const ViewTaskModal = ({ isOpen, onClose, task }) => {
     if (!isOpen || !task) return null;
 
-    const employeeName = task.assigned_to ? `${task.assigned_to.first_name} ${task.assigned_to.last_name}` : 'N/A';
-    const employeeEmail = task.assigned_to ? task.assigned_to.email : 'N/A';
-    const employeeProfilePic = task.assigned_to?.profile_picture_url || '/default-profile.png';
+    const assignedEmployees = task.assignedEmployees || [];
+    const primaryEmployee = assignedEmployees.length > 0 ? assignedEmployees[0] : null;
+
+    const employeeName = primaryEmployee ? `${primaryEmployee.first_name} ${primaryEmployee.last_name}` : 'Unassigned';
+    const employeeEmail = primaryEmployee ? primaryEmployee.email : 'N/A';
+    const employeeProfilePic = primaryEmployee?.avatar_url || '/default-profile.png';
 
     const renderBadge = (status) => {
         let bgColorClass = '';
@@ -74,16 +77,27 @@ const ViewTaskModal = ({ isOpen, onClose, task }) => {
                     <div>
                         <p className="text-sm font-medium text-[#b88b1b]">Assigned To:</p>
                         <div className="flex items-center mt-1">
-                            <Image
-                                className="h-8 w-8 rounded-full object-cover mr-2"
-                                src={employeeProfilePic}
-                                alt={`${employeeName}'s profile`}
-                                width={32}
-                                height={32}
-                                unoptimized={employeeProfilePic.startsWith('http')}
-                            />
-                            <p className="text-base text-black font-semibold">{employeeName} {employeeEmail !== 'N/A' && `(${employeeEmail})`}</p>
+                            {primaryEmployee ? (
+                                <>
+                                    <Image
+                                        className="h-8 w-8 rounded-full object-cover mr-2"
+                                        src={employeeProfilePic}
+                                        alt={`${employeeName}'s profile`}
+                                        width={32}
+                                        height={32}
+                                        unoptimized={employeeProfilePic.startsWith('http')}
+                                    />
+                                    <p className="text-base text-black font-semibold">{employeeName} {employeeEmail !== 'N/A' && `(${employeeEmail})`}</p>
+                                </>
+                            ) : (
+                                <p className="text-base text-black font-semibold">Unassigned</p>
+                            )}
                         </div>
+                        {assignedEmployees.length > 1 && (
+                            <p className="text-sm text-gray-500 mt-1">
+                                +{assignedEmployees.length - 1} more assigned
+                            </p>
+                        )}
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
@@ -102,31 +116,29 @@ const ViewTaskModal = ({ isOpen, onClose, task }) => {
                         {renderBadge(task.status)}
                     </div>
 
-                    {task.attachment_urls && typeof task.attachment_urls === 'string' && (
+                    {task.isOverdue && (
+                        <div className="bg-red-50 border border-red-200 rounded-md p-3">
+                            <p className="text-red-700 font-medium">This task is overdue</p>
+                        </div>
+                    )}
+
+                    {task.task_documents && task.task_documents.length > 0 && (
                         <div>
-                            <p className="text-sm font-medium text-[#b88b1b] mt-4">Attachment:</p>
-                            <div className="flex items-center mt-1">
-                                {task.attachment_urls.match(/\.(jpeg|jpg|gif|png|webp)$/i) ? (
-                                    <Image
-                                        src={task.attachment_urls}
-                                        alt="Task Attachment"
-                                        width={100}
-                                        height={100}
-                                        className="rounded-md object-cover mr-2"
-                                        unoptimized
-                                    />
-                                ) : (
-                                    <FontAwesomeIcon icon={faFileAlt} className="h-6 w-6 mr-2 text-gray-500" />
-                                )}
-                                <a
-                                    href={task.attachment_urls}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="text-blue-600 hover:underline break-all"
-                                >
-                                    {task.attachment_urls.substring(task.attachment_urls.lastIndexOf('/') + 1)}
-                                    <FontAwesomeIcon icon={faPaperclip} className="h-4 w-4 ml-2" />
-                                </a>
+                            <p className="text-sm font-medium text-[#b88b1b] mt-4">Attachments:</p>
+                            <div className="mt-2 space-y-2">
+                                {task.task_documents.map((doc, index) => (
+                                    <div key={index} className="flex items-center p-2 bg-gray-50 rounded-md">
+                                        <FontAwesomeIcon icon={faFileAlt} className="h-5 w-5 mr-2 text-gray-500" />
+                                        <a
+                                            href={doc.document_url}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="text-blue-600 hover:underline break-all text-sm"
+                                        >
+                                            {doc.document_name || 'Document'}
+                                        </a>
+                                    </div>
+                                ))}
                             </div>
                         </div>
                     )}

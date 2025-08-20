@@ -17,13 +17,12 @@ const AddTaskModal = ({ isOpen, onClose, onAddTask }) => {
         description: '',
         start_date: '',
         end_date: '',
-        status: 'pending',
+        status: 'Pending',
         priority: 'medium',
         documents: []
     });
 
     const [selectedEmployees, setSelectedEmployees] = useState([]);
-    const [attachmentPreviews, setAttachmentPreviews] = useState([]);
     const [allEmployees, setAllEmployees] = useState([]);
     const [filteredEmployees, setFilteredEmployees] = useState([]);
     const [loadingData, setLoadingData] = useState(true);
@@ -53,10 +52,6 @@ const AddTaskModal = ({ isOpen, onClose, onAddTask }) => {
         if (isOpen) {
             fetchData();
         }
-
-        return () => {
-            attachmentPreviews.forEach(preview => URL.revokeObjectURL(preview.url));
-        };
     }, [isOpen, router]);
 
     useEffect(() => {
@@ -114,13 +109,14 @@ const AddTaskModal = ({ isOpen, onClose, onAddTask }) => {
 
     const handleRemoveAttachment = (indexToRemove) => {
         setFormData(prevData => {
-            const removedDoc = prevData.documents[indexToRemove];
+            const updatedDocs = [...prevData.documents];
+            const removedDoc = updatedDocs[indexToRemove];
             if (removedDoc.preview) {
                 URL.revokeObjectURL(removedDoc.preview);
             }
             return {
                 ...prevData,
-                documents: prevData.documents.filter((_, index) => index !== indexToRemove)
+                documents: updatedDocs.filter((_, index) => index !== indexToRemove)
             };
         });
     };
@@ -142,33 +138,36 @@ const AddTaskModal = ({ isOpen, onClose, onAddTask }) => {
         setIsSubmitting(true);
 
         try {
-            const taskResponse = await apiService.createTask({
+            // 1. Create the task first (without created_by and assigned_to)
+            const taskData = {
                 title: formData.title,
                 description: formData.description,
                 start_date: formData.start_date,
                 end_date: formData.end_date,
                 priority: formData.priority,
-                status: 'Pending',
-                assigned_to: selectedEmployees.map(employee => employee.id)
-            }, router);
+                status: 'Pending'
+                // DO NOT include created_by or assigned_to here
+            };
+
+            const taskResponse = await apiService.createTask(taskData, router);
+
+            if (!taskResponse || !taskResponse.id) {
+                throw new Error("Failed to create task: Invalid response from server");
+            }
 
             const taskId = taskResponse.id;
 
-            await Promise.all(
-                selectedEmployees.map(employee =>
-                    apiService.addEmployeeToTask(taskId, employee.id, router)
-                )
-            );
+            // 2. Assign employees to the task (only send employee_id)
+            if (selectedEmployees.length > 0) {
+                await Promise.all(
+                    selectedEmployees.map(employee =>
+                        apiService.addEmployeeToTask(taskId, employee.id, router)
+                    )
+                );
+            }
 
+            // 3. Handle document uploads (without created_by)
             if (formData.documents.length > 0) {
-                const creatorResponse = await supabase
-                    .from('employees')
-                    .select('id')
-                    .eq('user_id', (await supabase.auth.getSession()).data.session?.user.id)
-                    .single();
-
-                const creatorId = creatorResponse.data?.id;
-
                 await Promise.all(
                     formData.documents.map(async (doc) => {
                         const filePath = `task_documents/${Date.now()}_${doc.name.replace(/[^a-zA-Z0-9.]/g, '_')}`;
@@ -182,13 +181,17 @@ const AddTaskModal = ({ isOpen, onClose, onAddTask }) => {
                             .from('taskattachments')
                             .getPublicUrl(filePath);
 
-                        await apiService.addTaskDocument(taskId, {
+                        // Create task document data (without created_by)
+                        const documentData = {
                             name: doc.name,
                             url: publicUrl,
                             type: doc.type,
-                            category: doc.category || 'General',
-                            created_by: creatorId
-                        }, router);
+                            category: doc.category || 'general'
+                            // DO NOT include created_by here
+                        };
+
+                        // Use the task document API
+                        await apiService.addTaskDocument(taskId, documentData, router);
                     })
                 );
             }
@@ -200,7 +203,8 @@ const AddTaskModal = ({ isOpen, onClose, onAddTask }) => {
 
         } catch (error) {
             console.error("Task creation failed:", error);
-            toast.error(error.message || "Task creation failed");
+            const errorMessage = error.message || "Task creation failed";
+            toast.error(errorMessage);
         } finally {
             setIsSubmitting(false);
         }
@@ -213,11 +217,10 @@ const AddTaskModal = ({ isOpen, onClose, onAddTask }) => {
             start_date: '',
             end_date: '',
             status: 'Pending',
-            priority: 'Medium',
+            priority: 'medium',
             documents: []
         });
         setSelectedEmployees([]);
-        setAttachmentPreviews([]);
         setSearchTerm('');
     };
 
@@ -295,7 +298,6 @@ const AddTaskModal = ({ isOpen, onClose, onAddTask }) => {
                                 Assign to
                             </label>
 
-                            {/* Selected employees chips */}
                             {selectedEmployees.length > 0 && (
                                 <div className="flex flex-wrap gap-2 mb-2">
                                     {selectedEmployees.map(employee => (
@@ -307,6 +309,7 @@ const AddTaskModal = ({ isOpen, onClose, onAddTask }) => {
                                                 type="button"
                                                 onClick={() => handleRemoveEmployee(employee.id)}
                                                 className="ml-2 text-gray-500 hover:text-red-500"
+                                                disabled={isSubmitting}
                                             >
                                                 <FontAwesomeIcon icon={faTimes} className="h-3 w-3" />
                                             </button>
@@ -470,7 +473,7 @@ const AddTaskModal = ({ isOpen, onClose, onAddTask }) => {
                             <button
                                 type="submit"
                                 className="inline-flex justify-center rounded-md border border-transparent bg-[#b88b1b] px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-[#a67c18] focus:outline-none focus:ring-2 focus:ring-[#b88b1b] focus:ring-offset-2"
-                                disabled={isSubmitting || selectedEmployees.length === 0}
+                                disabled={isSubmitting}
                             >
                                 {isSubmitting ? 'Creating task...' : 'Create task'}
                             </button>
