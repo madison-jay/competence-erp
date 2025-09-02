@@ -152,8 +152,8 @@ const apiService = {
         return callApi(`/tasks/${taskId}/documents/${documentId}`, "DELETE", null, router);
     },
 
-    addEmployeesToTask: async (taskId, employeeId, router) => {
-        return callApi(`/tasks/${taskId}/assignments`, "POST", { assigned_to: employeeId }, router);
+    addEmployeeToTask: async (taskId, employeeId, router) => {
+        return callApi(`/tasks/${taskId}/assignments`, "POST", { employee_id: employeeId }, router);
     },
 
     removeEmployeeFromTask: async (taskId, employeeId, router) => {

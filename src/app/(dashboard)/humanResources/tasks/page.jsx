@@ -50,13 +50,17 @@ export default function TaskPage() {
         try {
             const tasks = await apiService.getTasks(router);
 
-            // Process tasks with the actual data structure
+            if (!tasks || tasks.length === 0) {
+                setAllTasks([]);
+                setLoading(false);
+                return;
+            }
+
             const processedTasks = tasks.map(task => {
                 const dueDate = task.end_date ? new Date(task.end_date) : null;
                 const now = new Date();
                 const isOverdue = dueDate && !isNaN(dueDate) && dueDate < now && task.status !== 'Completed';
 
-                // Get assigned employees from task_assignments
                 const assignedEmployees = task.task_assignments?.map(assignment => {
                     const employee = assignment.employees || {
                         first_name: 'Unknown',
@@ -71,7 +75,6 @@ export default function TaskPage() {
                     };
                 }) || [];
 
-                // Get the primary assigned employee (first one if multiple)
                 const primaryAssigned = assignedEmployees.length > 0 ? assignedEmployees[0] : null;
 
                 return {
@@ -119,7 +122,6 @@ export default function TaskPage() {
     };
 
     const handleViewTask = async (task) => {
-        // Fetch creator details for the selected task
         try {
             const creator = await apiService.getEmployeeById(task.created_by, router);
             setSelectedTask({

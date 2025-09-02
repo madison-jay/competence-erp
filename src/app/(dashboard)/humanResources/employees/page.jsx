@@ -12,39 +12,39 @@ import { useRouter } from 'next/navigation';
 
 // Skeleton Loading Component
 const SkeletonRow = () => (
-  <tr className="animate-pulse">
-    <td className="px-6 py-4 whitespace-nowrap">
-      <div className="flex items-center">
-        <div className="h-8 w-8 bg-gray-200 rounded-full"></div>
-        <div className="ml-4">
-          <div className="h-4 bg-gray-200 rounded w-24"></div>
-          <div className="mt-2 h-3 bg-gray-200 rounded w-32"></div>
-        </div>
-      </div>
-    </td>
-    <td className="px-6 py-4 whitespace-nowrap">
-      <div className="h-4 bg-gray-200 rounded w-20"></div>
-    </td>
-    <td className="px-6 py-4 whitespace-nowrap">
-      <div className="h-4 bg-gray-200 rounded w-28"></div>
-    </td>
-    <td className="px-6 py-4 whitespace-nowrap">
-      <div className="h-4 bg-gray-200 rounded w-24"></div>
-    </td>
-    <td className="px-6 py-4 whitespace-nowrap">
-      <div className="h-4 bg-gray-200 rounded w-24"></div>
-    </td>
-    <td className="px-6 py-4 whitespace-nowrap">
-      <div className="h-6 bg-gray-200 rounded-full w-16"></div>
-    </td>
-    <td className="px-6 py-4 whitespace-nowrap">
-      <div className="flex space-x-2">
-        <div className="h-8 w-8 bg-gray-200 rounded"></div>
-        <div className="h-8 w-8 bg-gray-200 rounded"></div>
-        <div className="h-8 w-8 bg-gray-200 rounded"></div>
-      </div>
-    </td>
-  </tr>
+    <tr className="animate-pulse">
+        <td className="px-6 py-4 whitespace-nowrap">
+            <div className="flex items-center">
+                <div className="h-8 w-8 bg-gray-200 rounded-full"></div>
+                <div className="ml-4">
+                    <div className="h-4 bg-gray-200 rounded w-24"></div>
+                    <div className="mt-2 h-3 bg-gray-200 rounded w-32"></div>
+                </div>
+            </div>
+        </td>
+        <td className="px-6 py-4 whitespace-nowrap">
+            <div className="h-4 bg-gray-200 rounded w-20"></div>
+        </td>
+        <td className="px-6 py-4 whitespace-nowrap">
+            <div className="h-4 bg-gray-200 rounded w-28"></div>
+        </td>
+        <td className="px-6 py-4 whitespace-nowrap">
+            <div className="h-4 bg-gray-200 rounded w-24"></div>
+        </td>
+        <td className="px-6 py-4 whitespace-nowrap">
+            <div className="h-4 bg-gray-200 rounded w-24"></div>
+        </td>
+        <td className="px-6 py-4 whitespace-nowrap">
+            <div className="h-6 bg-gray-200 rounded-full w-16"></div>
+        </td>
+        <td className="px-6 py-4 whitespace-nowrap">
+            <div className="flex space-x-2">
+                <div className="h-8 w-8 bg-gray-200 rounded"></div>
+                <div className="h-8 w-8 bg-gray-200 rounded"></div>
+                <div className="h-8 w-8 bg-gray-200 rounded"></div>
+            </div>
+        </td>
+    </tr>
 );
 
 const EmployeeListTable = () => {
@@ -121,9 +121,13 @@ const EmployeeListTable = () => {
     const sortedAndFilteredEmployees = useMemo(() => {
         let filtered = employees;
 
+        filtered = filtered.filter(employee =>
+            employee.employment_status?.toLowerCase() !== 'terminated'
+        );
+
         if (searchTerm) {
             const lowercasedSearchTerm = searchTerm.toLowerCase();
-            filtered = employees.filter(employee =>
+            filtered = filtered.filter(employee =>
                 employee.first_name?.toLowerCase().includes(lowercasedSearchTerm) ||
                 employee.last_name?.toLowerCase().includes(lowercasedSearchTerm) ||
                 employee.email?.toLowerCase().includes(lowercasedSearchTerm) ||

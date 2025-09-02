@@ -58,10 +58,26 @@ export default function EmployeeDashboard() {
     useEffect(() => {
         const fetchData = async () => {
             try {
-                const leaves = (await apiService.getLeaves(router)) || [];
+                // Fetch leaves - handle "No leave requests found" as success
+                let leaves = [];
+                try {
+                    leaves = (await apiService.getLeaves(router)) || [];
+                } catch (error) {
+                    // Check if the error is specifically "No leave requests found"
+                    if (error.message?.includes("No leave requests found") || 
+                        error.response?.data?.message === "No leave requests found") {
+                        // This is actually a success case - no leaves means 0 approved
+                        leaves = [];
+                    } else {
+                        // Re-throw other errors
+                        throw error;
+                    }
+                }
+                
                 const approvedCount = leaves.filter(leave => leave.status === 'Approved').length;
                 setApprovedLeaves(approvedCount);
 
+                // Fetch tasks
                 const tasks = (await apiService.getTasks(router)) || [];
                 setAllTasks(tasks);
 

@@ -5,7 +5,7 @@ import toast from 'react-hot-toast';
 import apiService from "@/app/lib/apiService";
 import { useRouter } from "next/navigation";
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSearch, faTimes, faPlus, faTrash, faUpload, faFileAlt } from '@fortawesome/free-solid-svg-icons';
+import { faSearch, faTimes, faTrash, faUpload, faFileAlt } from '@fortawesome/free-solid-svg-icons';
 import { createClient } from "@/app/lib/supabase/client";
 
 const formatDateForInput = (dateString) => {
@@ -27,7 +27,6 @@ const UpdateTaskModal = ({ show, task, onSave, onCancel }) => {
         start_date: '',
         end_date: '',
         priority: 'medium',
-        assigned_to: [],
         id: '',
     });
     const [isSaving, setIsSaving] = useState(false);
@@ -35,24 +34,28 @@ const UpdateTaskModal = ({ show, task, onSave, onCancel }) => {
     const [employeeSearchTerm, setEmployeeSearchTerm] = useState('');
     const [filteredEmployees, setFilteredEmployees] = useState([]);
     const [dropdownOpen, setDropdownOpen] = useState(false);
-    const [selectedEmployees, setSelectedEmployees] = useState([]);
+    const [assignedEmployees, setAssignedEmployees] = useState([]);
     const [newDocuments, setNewDocuments] = useState([]);
     const [employeesToAdd, setEmployeesToAdd] = useState([]);
     const [employeesToRemove, setEmployeesToRemove] = useState([]);
 
     useEffect(() => {
         if (show && task) {
+            console.log('Task data:', task);
+
+            // Get all assigned employees from task_assignments
+            const currentAssignedEmployees = task.task_assignments?.map(assignment => assignment.employees) || [];
+
             setFormData({
                 title: task.title || '',
                 description: task.description || '',
                 start_date: formatDateForInput(task.start_date),
                 end_date: formatDateForInput(task.end_date),
                 priority: task.priority || 'medium',
-                assigned_to: task.assigned_to || [],
                 id: task.id,
             });
 
-            setSelectedEmployees(task.assignedEmployees || []);
+            setAssignedEmployees(currentAssignedEmployees);
             setEmployeeSearchTerm('');
             setEmployeesToAdd([]);
             setEmployeesToRemove([]);
@@ -112,19 +115,39 @@ const UpdateTaskModal = ({ show, task, onSave, onCancel }) => {
     };
 
     const handleEmployeeSelect = (employee) => {
-        if (!employeesToAdd.includes(employee.id) && !formData.assigned_to.includes(employee.id)) {
-            setEmployeesToAdd(prev => [...prev, employee.id]);
-            setEmployeesToRemove(prev => prev.filter(id => id !== employee.id));
+        // Check if employee is already assigned or pending addition
+        const isAlreadyAssigned = assignedEmployees.some(emp => emp.id === employee.id);
+        const isPendingAddition = employeesToAdd.some(item => item.id === employee.id);
+
+        if (!isAlreadyAssigned && !isPendingAddition) {
+            setEmployeesToAdd(prev => [...prev, { ...employee, pending: true }]);
+            setEmployeeSearchTerm('');
+            setDropdownOpen(false);
+            toast.success(`${employee.first_name} ${employee.last_name} will be added to the task`);
+        } else if (isPendingAddition) {
+            toast.error("Employee is already pending addition");
+        } else {
+            toast.error("Employee is already assigned to this task");
         }
-        setEmployeeSearchTerm('');
-        setDropdownOpen(false);
     };
 
-    const handleRemoveEmployee = (employeeId) => {
-        if (formData.assigned_to.includes(employeeId)) {
+    const handleRemoveEmployee = (employeeId, isPendingAddition = false) => {
+        if (isPendingAddition) {
+            // Remove from pending additions
+            setEmployeesToAdd(prev => prev.filter(item => item.id !== employeeId));
+            toast.success("Pending addition cancelled");
+        } else {
+            // Mark for removal from actual assignments
             setEmployeesToRemove(prev => [...prev, employeeId]);
-            setEmployeesToAdd(prev => prev.filter(id => id !== employeeId));
+            toast.success("Employee will be removed from the task");
         }
+    };
+
+    const handleCancel = () => {
+        // Clear all pending changes
+        setEmployeesToAdd([]);
+        setEmployeesToRemove([]);
+        onCancel();
     };
 
     const handleFileChange = (e) => {
@@ -180,21 +203,21 @@ const UpdateTaskModal = ({ show, task, onSave, onCancel }) => {
                     end_date: formData.end_date,
                     priority: formData.priority,
                 };
-                
+
                 await apiService.updateTask(task.id, updatedTaskPayload, router);
                 toast.success("Task updated successfully!");
             }
 
-            // Handle employee assignments
+            // Handle employee assignment
             if (activeSection === 'employees') {
-                // Add new employees
-                if (employeesToAdd.length > 0) {
-                    await apiService.addEmployeesToTask(task.id, employeesToAdd, router);
-                }
-
                 // Remove employees
                 for (const employeeId of employeesToRemove) {
                     await apiService.removeEmployeeFromTask(task.id, employeeId, router);
+                }
+
+                // Add new employees
+                for (const employee of employeesToAdd) {
+                    await apiService.addEmployeeToTask(task.id, employee.id, router);
                 }
 
                 if (employeesToAdd.length > 0 || employeesToRemove.length > 0) {
@@ -227,10 +250,10 @@ const UpdateTaskModal = ({ show, task, onSave, onCancel }) => {
                 }
 
                 // Update task with new documents
-                const currentDocuments = task.documents || [];
+                const currentDocuments = task.task_documents || [];
                 const updatedDocuments = [...currentDocuments, ...documentObjects];
-                
-                await apiService.updateTask(task.id, { documents: updatedDocuments }, router);
+
+                await apiService.updateTask(task.id, { task_documents: updatedDocuments }, router);
                 toast.success("Documents added successfully!");
             }
 
@@ -239,13 +262,8 @@ const UpdateTaskModal = ({ show, task, onSave, onCancel }) => {
         } catch (error) {
             console.error("Error updating task:", error);
             toast.error("Failed to update task. Try again");
-        } finally {
             setIsSaving(false);
         }
-    };
-
-    const getEmployeesToShow = () => {
-        return selectedEmployees.filter(emp => !employeesToRemove.includes(emp.id));
     };
 
     if (!show) {
@@ -322,14 +340,14 @@ const UpdateTaskModal = ({ show, task, onSave, onCancel }) => {
         <div className="space-y-4">
             <div className="mb-4 relative" ref={dropdownRef}>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Add Employees to Task
+                    Assign Employees to Task
                 </label>
 
                 <div className="relative">
                     <input
                         type="text"
                         className="block w-full rounded-md border border-gray-300 focus:border-[#b88b1b] focus:ring-[#b88b1b] sm:text-sm p-2 pr-10"
-                        placeholder="Search employees to add"
+                        placeholder="Search employee to assign"
                         value={employeeSearchTerm}
                         onChange={handleEmployeeSearchChange}
                         onFocus={() => setDropdownOpen(true)}
@@ -344,17 +362,24 @@ const UpdateTaskModal = ({ show, task, onSave, onCancel }) => {
                 {dropdownOpen && (
                     <ul className="absolute z-10 w-full bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-y-auto mt-1">
                         {filteredEmployees.length > 0 ? (
-                            filteredEmployees.map(employee => (
-                                <li
-                                    key={employee.id}
-                                    className={`px-4 py-2 cursor-pointer hover:bg-gray-100 ${
-                                        employeesToAdd.includes(employee.id) ? 'bg-green-100' : ''
-                                    }`}
-                                    onClick={() => handleEmployeeSelect(employee)}
-                                >
-                                    {employee.first_name} {employee.last_name} ({employee.email})
-                                </li>
-                            ))
+                            filteredEmployees.map(employee => {
+                                const isAssigned = assignedEmployees.some(emp => emp.id === employee.id);
+                                const isPendingAddition = employeesToAdd.some(item => item.id === employee.id);
+                                
+                                return (
+                                    <li
+                                        key={employee.id}
+                                        className={`px-4 py-2 cursor-pointer hover:bg-gray-100 ${
+                                            isAssigned || isPendingAddition ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'hover:bg-gray-100'
+                                        }`}
+                                        onClick={() => !isAssigned && !isPendingAddition && handleEmployeeSelect(employee)}
+                                    >
+                                        {employee.first_name} {employee.last_name} ({employee.email})
+                                        {isAssigned && <span className="ml-2 text-xs text-gray-500">(Already assigned)</span>}
+                                        {isPendingAddition && <span className="ml-2 text-xs text-blue-500">(Pending addition)</span>}
+                                    </li>
+                                );
+                            })
                         ) : (
                             <li className="px-4 py-2 text-gray-500">
                                 {employeeSearchTerm ? 'No employees found' : 'No employees available'}
@@ -368,18 +393,41 @@ const UpdateTaskModal = ({ show, task, onSave, onCancel }) => {
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                     Current Assignments
                 </label>
-                {getEmployeesToShow().length > 0 ? (
+                {assignedEmployees.length > 0 || employeesToAdd.length > 0 ? (
                     <div className="space-y-2">
-                        {getEmployeesToShow().map(employee => (
+                        {/* Currently assigned employees */}
+                        {assignedEmployees.map(employee => (
                             <div key={employee.id} className="flex items-center justify-between bg-gray-50 rounded-md p-3">
                                 <span className="text-sm">
-                                    {employee.first_name} {employee.last_name} ({employee.email})
+                                    {employee.first_name} {employee.last_name}
+                                    {employee.email && ` (${employee.email})`}
+                                    {employeesToRemove.includes(employee.id) && (
+                                        <span className="ml-2 text-xs text-red-500">(Will be removed)</span>
+                                    )}
                                 </span>
                                 <button
                                     type="button"
-                                    onClick={() => handleRemoveEmployee(employee.id)}
+                                    onClick={() => handleRemoveEmployee(employee.id, false)}
                                     className="text-red-500 hover:text-red-700 ml-2"
                                     disabled={isSaving || employeesToRemove.includes(employee.id)}
+                                >
+                                    <FontAwesomeIcon icon={faTimes} className="h-4 w-4" />
+                                </button>
+                            </div>
+                        ))}
+
+                        {/* Pending additions */}
+                        {employeesToAdd.map(employee => (
+                            <div key={employee.id} className="flex items-center justify-between bg-blue-50 rounded-md p-3">
+                                <span className="text-sm text-blue-700">
+                                    {employee.first_name} {employee.last_name}
+                                    {employee.email && ` (${employee.email})`}
+                                    <span className="ml-2 text-xs">(Will be added)</span>
+                                </span>
+                                <button
+                                    type="button"
+                                    onClick={() => handleRemoveEmployee(employee.id, true)}
+                                    className="text-red-500 hover:text-red-700 ml-2"
                                 >
                                     <FontAwesomeIcon icon={faTimes} className="h-4 w-4" />
                                 </button>
@@ -395,14 +443,14 @@ const UpdateTaskModal = ({ show, task, onSave, onCancel }) => {
                 <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-md">
                     <h4 className="text-sm font-medium text-yellow-800 mb-2">Pending Changes:</h4>
                     {employeesToAdd.length > 0 && (
-                        <p className="text-sm text-green-600">
+                        <div className="text-sm text-green-600">
                             + {employeesToAdd.length} employee(s) to be added
-                        </p>
+                        </div>
                     )}
                     {employeesToRemove.length > 0 && (
-                        <p className="text-sm text-red-600">
+                        <div className="text-sm text-red-600">
                             - {employeesToRemove.length} employee(s) to be removed
-                        </p>
+                        </div>
                     )}
                 </div>
             )}
@@ -458,13 +506,13 @@ const UpdateTaskModal = ({ show, task, onSave, onCancel }) => {
                 )}
             </div>
 
-            {task.documents && task.documents.length > 0 && (
+            {task.task_documents && task.task_documents.length > 0 && (
                 <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                         Existing Documents
                     </label>
                     <div className="space-y-2">
-                        {task.documents.map((doc, index) => (
+                        {task.task_documents.map((doc, index) => (
                             <div key={index} className="flex items-center justify-between bg-gray-50 rounded-md p-3">
                                 <div className="flex items-center">
                                     <FontAwesomeIcon icon={faFileAlt} className="text-gray-400 mr-2" />
@@ -509,7 +557,7 @@ const UpdateTaskModal = ({ show, task, onSave, onCancel }) => {
                                 <h3 className="text-lg leading-6 font-medium text-gray-900">
                                     Update Task
                                 </h3>
-                                
+
                                 {/* Navigation Tabs */}
                                 <div className="mt-4 border-b border-gray-200">
                                     <nav className="-mb-px flex space-x-8">
@@ -518,11 +566,10 @@ const UpdateTaskModal = ({ show, task, onSave, onCancel }) => {
                                                 key={section}
                                                 type="button"
                                                 onClick={() => setActiveSection(section)}
-                                                className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                                                    activeSection === section
-                                                        ? 'border-[#b88b1b] text-[#b88b1b]'
-                                                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                                                }`}
+                                                className={`py-2 px-1 border-b-2 font-medium text-sm ${activeSection === section
+                                                    ? 'border-[#b88b1b] text-[#b88b1b]'
+                                                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                                                    }`}
                                             >
                                                 {section === 'basic' && 'Basic Info'}
                                                 {section === 'employees' && 'Employees'}
@@ -557,13 +604,13 @@ const UpdateTaskModal = ({ show, task, onSave, onCancel }) => {
                                     Updating...
                                 </>
                             ) : (
-                                `Update ${activeSection === 'basic' ? 'Task' : activeSection === 'employees' ? 'Assignments' : 'Documents'}`
+                                `Update ${activeSection === 'basic' ? 'Task' : activeSection === 'employees' ? 'Assignment' : 'Documents'}`
                             )}
                         </button>
                         <button
                             type="button"
                             className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
-                            onClick={onCancel}
+                            onClick={handleCancel}
                             disabled={isSaving}
                         >
                             Cancel
