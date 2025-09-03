@@ -144,6 +144,10 @@ const apiService = {
     },
 
     // Task Document APIs
+    addTaskDocument: async (taskId, documentData, router) => {
+        return callApi(`/tasks/${taskId}/documents`, "POST", documentData, router);
+    },
+
     updateTaskDocument: async (taskId, documentId, documentData, router) => {
         return callApi(`/tasks/${taskId}/documents/${documentId}`, "PUT", documentData, router);
     },

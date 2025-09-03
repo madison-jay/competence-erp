@@ -15,7 +15,7 @@ const formatDateForInput = (dateString) => {
     return date.toISOString().split('T')[0];
 };
 
-const UpdateTaskModal = ({ show, task, onSave, onCancel }) => {
+const UpdateTaskModal = ({ show, task, onCancel }) => {
     const supabase = createClient();
     const router = useRouter();
     const dropdownRef = useRef(null);
@@ -180,7 +180,8 @@ const UpdateTaskModal = ({ show, task, onSave, onCancel }) => {
             setIsSaving(true);
             await apiService.deleteTaskDocument(task.id, documentId, router);
             toast.success("Document removed successfully!");
-            onSave(); // Refresh the task data
+            // Refresh the page after successful removal
+            window.location.reload();
         } catch (error) {
             console.error("Error removing document:", error);
             toast.error("Failed to remove document.");
@@ -213,36 +214,41 @@ const UpdateTaskModal = ({ show, task, onSave, onCancel }) => {
                     end_date: formData.end_date,
                     priority: formData.priority,
                 }),
-                ...(activeSection === 'documents' && newDocuments.length > 0 && {
-                    task_documents: [
-                        ...(task.task_documents || []),
-                        ...(await Promise.all(
-                            newDocuments.map(async (doc) => {
-                                const filePath = `task_documents/${Date.now()}_${doc.name.replace(/[^a-zA-Z0-9.]/g, '_')}`;
-                                const { error: uploadError } = await supabase.storage
-                                    .from('taskattachments')
-                                    .upload(filePath, doc.file);
-                                if (uploadError) throw uploadError;
-
-                                const { data: { publicUrl } } = supabase.storage
-                                    .from('taskattachments')
-                                    .getPublicUrl(filePath);
-
-                                return {
-                                    name: doc.name,
-                                    type: doc.type,
-                                    category: doc.category,
-                                    url: publicUrl,
-                                };
-                            })
-                        )),
-                    ],
-                }),
             };
 
-            // Update task with basic info and/or documents
-            if (activeSection === 'basic' || (activeSection === 'documents' && newDocuments.length > 0)) {
+            // Update task with basic info
+            if (activeSection === 'basic') {
                 await apiService.updateTask(task.id, updatedTaskPayload, router);
+            }
+
+            // Handle documents separately - upload and add to task
+            if (activeSection === 'documents' && newDocuments.length > 0) {
+                // Upload each document and get the document object
+                const uploadedDocuments = await Promise.all(
+                    newDocuments.map(async (doc) => {
+                        const filePath = `task_documents/${Date.now()}_${doc.name.replace(/[^a-zA-Z0-9.]/g, '_')}`;
+                        const { error: uploadError } = await supabase.storage
+                            .from('taskattachments')
+                            .upload(filePath, doc.file);
+                        if (uploadError) throw uploadError;
+
+                        const { data: { publicUrl } } = supabase.storage
+                            .from('taskattachments')
+                            .getPublicUrl(filePath);
+
+                        return {
+                            category: doc.category,
+                            name: doc.name,
+                            type: doc.type,
+                            url: publicUrl,
+                        };
+                    })
+                );
+
+                // Add each document to the task individually
+                for (const document of uploadedDocuments) {
+                    await apiService.addTaskDocument(task.id, document, router);
+                }
             }
 
             // Handle employee assignments
@@ -271,14 +277,16 @@ const UpdateTaskModal = ({ show, task, onSave, onCancel }) => {
                         : "Documents added successfully!"
             );
 
-            // Clean up and refresh
+            // Clean up and refresh the page
             newDocuments.forEach(doc => {
                 if (doc.preview) URL.revokeObjectURL(doc.preview);
             });
             setNewDocuments([]);
             setEmployeesToAdd([]);
             setEmployeesToRemove([]);
-            onCancel();
+            
+            // Refresh the page after successful update
+            window.location.reload();
         } catch (error) {
             console.error("Error updating task:", error);
             toast.error(error.message || "Failed to update task. Please try again.");
