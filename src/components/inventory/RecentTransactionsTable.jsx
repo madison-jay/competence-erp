@@ -1,18 +1,20 @@
 import React, { useState, useEffect } from 'react';
+import { faEye, faFileInvoice, faCalendarAlt, faCheckCircle, faSpinner, faTimesCircle, faDollarSign, faShoppingBag, faTimes } from "@fortawesome/free-solid-svg-icons";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 
 const initialTransactions = [
-    { invoice: '#AB1301', date: '12/08/2025', item: 'Chair A', quantity: 100, status: 'Delivered', price: '₦300,000' },
-    { invoice: '#AB1302', date: '12/08/2025', item: 'Chair B', quantity: 50, status: 'In progress', price: '₦150,000' },
-    { invoice: '#AB1303', date: '12/08/2025', item: 'Table A', quantity: 25, status: 'Delivered', price: '₦200,000' },
-    { invoice: '#AB1304', date: '12/08/2025', item: 'Table B', quantity: 30, status: 'In progress', price: '₦250,000' },
-    { invoice: '#AB1305', date: '12/08/2025', item: 'Sofa A', quantity: 10, status: 'Delivered', price: '₦500,000' },
-    { invoice: '#AB1306', date: '12/08/2025', item: 'Sofa B', quantity: 15, status: 'Failed', price: '₦600,000' },
-    { invoice: '#AB1307', date: '13/08/2025', item: 'Chair C', quantity: 75, status: 'Delivered', price: '₦225,000' },
-    { invoice: '#AB1308', date: '13/08/2025', item: 'Table C', quantity: 20, status: 'In progress', price: '₦180,000' },
-    { invoice: '#AB1309', date: '13/08/2025', item: 'Sofa C', quantity: 12, status: 'Delivered', price: '₦480,000' },
-    { invoice: '#AB1310', date: '14/08/2025', item: 'Chair D', quantity: 60, status: 'Failed', price: '₦180,000' },
-    { invoice: '#AB1311', date: '14/08/2025', item: 'Table D', quantity: 18, status: 'Delivered', price: '₦162,000' },
-    { invoice: '#AB1312', date: '14/08/2025', item: 'Sofa D', quantity: 8, status: 'In progress', price: '₦320,000' },
+    { invoice: '#AB1301', date: '12/08/2025', items: [{ name: 'Chair A', quantity: 100 }], status: 'Delivered', price: '₦300,000' },
+    { invoice: '#AB1302', date: '12/08/2025', items: [{ name: 'Chair B', quantity: 50 }], status: 'In progress', price: '₦150,000' },
+    { invoice: '#AB1303', date: '12/08/2025', items: [{ name: 'Table A', quantity: 25 }, { name: 'Chair C', quantity: 10 }, { name: 'Sofa A', quantity: 5 }], status: 'Delivered', price: '₦200,000' },
+    { invoice: '#AB1304', date: '12/08/2025', items: [{ name: 'Table B', quantity: 30 }], status: 'In progress', price: '₦250,000' },
+    { invoice: '#AB1305', date: '12/08/2025', items: [{ name: 'Sofa A', quantity: 10 }], status: 'Delivered', price: '₦500,000' },
+    { invoice: '#AB1306', date: '12/08/2025', items: [{ name: 'Sofa B', quantity: 15 }, { name: 'Table C', quantity: 8 }], status: 'Failed', price: '₦600,000' },
+    { invoice: '#AB1307', date: '13/08/2025', items: [{ name: 'Chair C', quantity: 75 }], status: 'Delivered', price: '₦225,000' },
+    { invoice: '#AB1308', date: '13/08/2025', items: [{ name: 'Table C', quantity: 20 }], status: 'In progress', price: '₦180,000' },
+    { invoice: '#AB1309', date: '13/08/2025', items: [{ name: 'Sofa C', quantity: 12 }, { name: 'Chair D', quantity: 15 }, { name: 'Table D', quantity: 7 }], status: 'Delivered', price: '₦480,000' },
+    { invoice: '#AB1310', date: '14/08/2025', items: [{ name: 'Chair D', quantity: 60 }], status: 'Failed', price: '₦180,000' },
+    { invoice: '#AB1311', date: '14/08/2025', items: [{ name: 'Table D', quantity: 18 }], status: 'Delivered', price: '₦162,000' },
+    { invoice: '#AB1312', date: '14/08/2025', items: [{ name: 'Sofa D', quantity: 8 }], status: 'In progress', price: '₦320,000' },
 ];
 
 export function RecentTransactionsTable() {
@@ -20,73 +22,69 @@ export function RecentTransactionsTable() {
     const [filteredTransactions, setFilteredTransactions] = useState(initialTransactions);
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage] = useState(5);
+    const [selectedTransaction, setSelectedTransaction] = useState(null);
     const goldColor = '#b88b1b';
 
     useEffect(() => {
         const results = initialTransactions.filter(transaction =>
-            Object.values(transaction).some(value =>
-                value.toString().toLowerCase().includes(searchTerm.toLowerCase())
+            [
+                transaction.invoice,
+                transaction.date,
+                transaction.status,
+                transaction.price,
+                ...transaction.items.map(item => item.name),
+                ...transaction.items.map(item => item.quantity.toString())
+            ].some(value =>
+                value.toLowerCase().includes(searchTerm.toLowerCase())
             )
         );
         setFilteredTransactions(results);
-        setCurrentPage(1); // Reset to first page when search changes
+        setCurrentPage(1);
     }, [searchTerm]);
 
-    // Get current transactions
     const indexOfLastItem = currentPage * itemsPerPage;
     const indexOfFirstItem = indexOfLastItem - itemsPerPage;
     const currentTransactions = filteredTransactions.slice(indexOfFirstItem, indexOfLastItem);
-    
-    // Calculate total pages
+
     const totalPages = Math.ceil(filteredTransactions.length / itemsPerPage);
-    
-    // Generate page numbers to show
+
     const getPageNumbers = () => {
         const pageNumbers = [];
         const maxVisiblePages = 7;
-        
+
         if (totalPages <= maxVisiblePages) {
-            // Show all pages if total pages is less than max visible
             for (let i = 1; i <= totalPages; i++) {
                 pageNumbers.push(i);
             }
         } else {
-            // Always show first page
             pageNumbers.push(1);
-            
-            // Calculate start and end of visible page range
+
             let startPage = Math.max(2, currentPage - 2);
             let endPage = Math.min(totalPages - 1, currentPage + 2);
-            
-            // Adjust if we're near the beginning
+
             if (currentPage <= 3) {
                 endPage = 5;
             }
-            
-            // Adjust if we're near the end
+
             if (currentPage >= totalPages - 2) {
                 startPage = totalPages - 4;
             }
-            
-            // Add ellipsis after first page if needed
+
             if (startPage > 2) {
                 pageNumbers.push('...');
             }
-            
-            // Add middle pages
+
             for (let i = startPage; i <= endPage; i++) {
                 pageNumbers.push(i);
             }
-            
-            // Add ellipsis before last page if needed
+
             if (endPage < totalPages - 1) {
                 pageNumbers.push('...');
             }
-            
-            // Always show last page
+
             pageNumbers.push(totalPages);
         }
-        
+
         return pageNumbers;
     };
 
@@ -113,6 +111,19 @@ export function RecentTransactionsTable() {
                 return 'text-red-500';
             default:
                 return 'text-gray-500';
+        }
+    };
+
+    const getStatusIcon = (status) => {
+        switch (status) {
+            case 'Delivered':
+                return faCheckCircle;
+            case 'In progress':
+                return faSpinner;
+            case 'Failed':
+                return faTimesCircle;
+            default:
+                return faInfoCircle;
         }
     };
 
@@ -154,6 +165,7 @@ export function RecentTransactionsTable() {
                             <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Quantity</th>
                             <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                             <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Price</th>
+                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Action</th>
                         </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
@@ -161,14 +173,27 @@ export function RecentTransactionsTable() {
                             <tr key={index}>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{transaction.invoice}</td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{transaction.date}</td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{transaction.item}</td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{transaction.quantity}</td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                    {transaction.items.length === 1
+                                        ? transaction.items[0].name
+                                        : `${transaction.items[0].name} +${transaction.items.length - 1}`}
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                    {transaction.items.reduce((sum, item) => sum + item.quantity, 0)}
+                                </td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm">
                                     <span className={getStatusStyles(transaction.status)}>
                                         {transaction.status}
                                     </span>
                                 </td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{transaction.price}</td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                    <FontAwesomeIcon
+                                        icon={faEye}
+                                        className="cursor-pointer transition-all ml-4 text-[#b88b1b] hover:text-[#533f0c]"
+                                        onClick={() => setSelectedTransaction(transaction)}
+                                    />
+                                </td>
                             </tr>
                         ))}
                     </tbody>
@@ -187,7 +212,7 @@ export function RecentTransactionsTable() {
                         <path fillRule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clipRule="evenodd" />
                     </svg>
                 </button>
-                
+
                 <div className="flex gap-2 text-sm font-medium">
                     {getPageNumbers().map((pageNumber, index) => (
                         <span
@@ -200,7 +225,7 @@ export function RecentTransactionsTable() {
                         </span>
                     ))}
                 </div>
-                
+
                 <button
                     onClick={goToNextPage}
                     disabled={currentPage === totalPages}
@@ -212,6 +237,45 @@ export function RecentTransactionsTable() {
                     </svg>
                 </button>
             </div>
+
+            {/* Modal for transaction details */}
+            {selectedTransaction && (
+                <div className="fixed inset-0 bg-[#000000aa] bg-opacity-50 flex items-center justify-center z-50">
+                    <div className="bg-white p-6 rounded-lg shadow-xl max-w-md w-full transform transition-all duration-300 ease-in-out scale-100">
+                        <h3 className="text-xl font-bold mb-4 flex items-center">
+                            <FontAwesomeIcon icon={faFileInvoice} className="mr-2 text-[#b88b1b]" />
+                            Transaction Details: {selectedTransaction.invoice}
+                        </h3>
+                        <p className="flex items-center mb-2">
+                            <FontAwesomeIcon icon={faCalendarAlt} className="mr-2 text-gray-500" />
+                            <strong className='mr-2'>Date:</strong> {selectedTransaction.date}
+                        </p>
+                        <p className="flex items-center mb-2">
+                            <FontAwesomeIcon icon={getStatusIcon(selectedTransaction.status)} className={`${getStatusStyles(selectedTransaction.status)} mr-2`} />
+                            <strong className='mr-2'>Status:</strong> <span className={getStatusStyles(selectedTransaction.status)}>{selectedTransaction.status}</span>
+                        </p>
+                        <p className="flex items-center mb-2">
+                            <FontAwesomeIcon icon={faDollarSign} className="mr-2 text-green-500" />
+                            <strong className='mr-2'>Total Price:</strong> {selectedTransaction.price}
+                        </p>
+                        <h4 className="font-semibold mt-4 mb-2 flex items-center">
+                            <FontAwesomeIcon icon={faShoppingBag} className="mr-2 text-purple-500" />
+                            Items Purchased:
+                        </h4>
+                        <ul className="list-disc pl-5 space-y-1">
+                            {selectedTransaction.items.map((item, idx) => (
+                                <li key={idx} className="text-gray-700">{item.name} - Quantity: {item.quantity}</li>
+                            ))}
+                        </ul>
+                        <button
+                            onClick={() => setSelectedTransaction(null)}
+                            className="mt-4 px-4 py-2 bg-[#b88b1b] text-white rounded hover:bg-[#755912] flex items-center justify-center float-right transition-colors duration-200"
+                        >
+                            Close
+                        </button>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

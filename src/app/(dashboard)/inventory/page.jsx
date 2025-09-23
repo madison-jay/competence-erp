@@ -5,6 +5,7 @@ import { InventoryCard } from "@/components/inventory/DashboardCard";
 import { NewOrdersTable } from "@/components/inventory/NewOrdersTable";
 import { TopSellingProducts } from "@/components/inventory/TopSellingProducts";
 import { RecentTransactionsTable } from "@/components/inventory/RecentTransactionsTable";
+import { faBoxOpen, faExclamationTriangle, faBan, faList } from "@fortawesome/free-solid-svg-icons";
 
 export default function InventoryDashboard() {
     const [currentDateTime, setCurrentDateTime] = useState('');
@@ -13,10 +14,10 @@ export default function InventoryDashboard() {
     const first_name = localStorage.getItem('first_name');
 
     const inventoryData = [
-        { title: "Total Products", count: "1,240", borderColor: "border-4 border-solid border-blue-100", textColor: "text-blue-800" },
-        { title: "Low Stock", count: "27", borderColor: "border-4 border-solid border-yellow-100", textColor: "text-yellow-800" },
-        { title: "Out of Stock", count: "50", borderColor: "border-4 border-solid border-red-100", textColor: "text-red-800" },
-        { title: "Categories", count: "12", borderColor: "border-4 border-solid border-green-100", textColor: "text-green-800" }
+        { title: "Total Products", count: "1,240", borderColor: "border-4 border-solid border-blue-100", textColor: "text-blue-800", icon: faBoxOpen },
+        { title: "Low Stock", count: "27", borderColor: "border-4 border-solid border-yellow-100", textColor: "text-yellow-800", icon: faExclamationTriangle },
+        { title: "Out of Stock", count: "50", borderColor: "border-4 border-solid border-red-100", textColor: "text-red-800", icon: faBan },
+        { title: "Categories", count: "12", borderColor: "border-4 border-solid border-green-100", textColor: "text-green-800", icon: faList }
     ];
 
     useEffect(() => {
@@ -71,6 +72,7 @@ export default function InventoryDashboard() {
                         count={item.count}
                         borderColor={item.borderColor}
                         textColor={item.textColor}
+                        icon={item.icon}
                     />
                 ))}
             </div>
