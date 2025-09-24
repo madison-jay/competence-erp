@@ -31,13 +31,14 @@ export default function SideNavBar({ isMobileMenuOpen, onCloseMobileMenu, isDesk
     }, [isMobileMenuOpen]);
 
     const navItems = [
-        { name: "Dashboard", icon: faThLarge, path: "/employee" },
-        { name: "Attendance", icon: faCheckSquare, path: "/employee/attendance" },
-        { name: "Task", icon: faClipboardList, path: "/employee/tasks" },
-        { name: "Leave", icon: faPlaneDeparture, path: "/employee/leave" },
-        { name: "Payroll", icon: faMoneyBillAlt, path: "/employee/payroll" },
-        { name: "Documents", icon: faFileAlt, path: "/employee/documents" }
-        // { name: "Message", icon: faEnvelope, path: "/employee/chat" }
+        { name: "Dashboard", icon: faThLarge, path: "/sales" },
+        { name: "Customers", icon: faCheckSquare, path: "/sales/customers" },
+        { name: "Orders", icon: faClipboardList, path: "/sales/orders" },
+        { name: "Report", icon: faPlaneDeparture, path: "/sales/report" },
+        { name: "Payroll", icon: faMoneyBillAlt, path: "/sales/payroll" },
+        { name: "Documents", icon: faFileAlt, path: "/sales/documents" },
+        { name: "Settings", icon: faFileAlt, path: "/sales/settings" }
+        // { name: "Message", icon: faEnvelope, path: "/sales/chat" }
     ];
 
     const handleLogout = async () => {
