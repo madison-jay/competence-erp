@@ -52,6 +52,8 @@ export default function LoginPage() {
           } else {
             if (employeeData.department_id === "10d06661-6324-41e8-84d4-41917293e448") {
               router.push('/inventory')
+            } else if (employeeData.department_id === "0bb5e550-b36b-4249-9608-b0463cd884c0") {
+              router.push('/sales')
             } else {
               toast.error("Could not retrieve manager information");
               await supabase.auth.signOut();
