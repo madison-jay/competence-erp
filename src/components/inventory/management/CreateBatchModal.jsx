@@ -8,7 +8,7 @@ const CreateBatchModal = ({ onClose, onSuccess }) => {
         batch_number: '',
         received_date: '',
         expected_date: '',
-        status: 'pending',
+        status: 'in-transit',
         notes: ''
     });
     const [loading, setLoading] = useState(false);
@@ -274,8 +274,8 @@ const CreateBatchModal = ({ onClose, onSuccess }) => {
                             onChange={handleChange}
                             className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#b88b1b]"
                         >
-                            <option value="pending">Pending</option>
-                            <option value="in_progress">In Progress</option>
+                            <option value="in-transit">In Transit</option>
+                            <option value="processing">Processing</option>
                             <option value="completed">Completed</option>
                         </select>
                     </div>

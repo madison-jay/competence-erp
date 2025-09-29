@@ -149,15 +149,12 @@ export default function SideNavBar({ isMobileMenuOpen, onCloseMobileMenu, isDesk
                             </div>
                         </Link>
                     ))}
-                    <Link href="/" passHref>
-                        <div
-                            onClick={onCloseMobileMenu}
-                            className="flex items-center py-3 px-2 rounded-md text-red-400 hover:bg-gray-700 hover:text-red-300 transition-colors duration-200 mt-4"
-                        >
+                    <button onClick={() => handleLogout()} className="w-full">
+                        <div className="flex items-center py-3 px-2 rounded-md text-red-400 hover:bg-gray-700 hover:text-red-300 transition-colors duration-200 mt-4">
                             <FontAwesomeIcon icon={faArrowRightFromBracket} className="mr-3 text-xl" />
                             <span className="text-lg font-medium">Logout</span>
                         </div>
-                    </Link>
+                    </button>
                 </div>
             </div>
 
