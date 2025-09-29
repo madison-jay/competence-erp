@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faEye, faEdit, faTrash, faPlus } from "@fortawesome/free-solid-svg-icons";
 import apiService from "@/app/lib/apiService";
-import CreateBatchModal from "./CreatebatchModal";
+import CreateBatchModal from "./CreateBatchModal";
 import EditBatchModal from "./EditBatchModal";
 import ViewBatchModal from "./ViewBatchModal";
 import DeleteBatchModal from "./DeleteBatchModal";
