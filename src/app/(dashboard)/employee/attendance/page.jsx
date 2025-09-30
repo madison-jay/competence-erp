@@ -45,11 +45,11 @@ const AttendancePage = () => {
     };
 
     const cards = [
-        { label: 'Total working days', value: attendanceData.totalWorkingDays, icon: faCalendarDays, color: 'text-blue-500' },
-        { label: 'Days present', value: attendanceData.daysPresent, icon: faCheck, color: 'text-green-500' },
-        { label: 'Days absent', value: attendanceData.daysAbsent, icon: faTimes, color: 'text-red-500' },
-        { label: 'Leaves taken', value: attendanceData.leavesTaken, icon: faCalendarMinus, color: 'text-yellow-500' },
-        { label: 'Late arrivals', value: attendanceData.lateArrivals, icon: faClock, color: 'text-purple-500' }
+        { label: 'Total working days', value: attendanceData.totalWorkingDays, icon: faCalendarDays, color: 'text-blue-600', backgroundColor: 'bg-blue-50', borderClass: 'border-blue-400' },
+        { label: 'Days present', value: attendanceData.daysPresent, icon: faCheck, color: 'text-green-400', backgroundColor: 'bg-green-50', borderClass: 'border-green-400' },
+        { label: 'Days absent', value: attendanceData.daysAbsent, icon: faTimes, color: 'text-red-400', backgroundColor: 'bg-red-50', borderClass: 'border-red-400' },
+        { label: 'Leaves taken', value: attendanceData.leavesTaken, icon: faCalendarMinus, color: 'text-yellow-400', backgroundColor: 'bg-yellow-50', borderClass: 'border-yellow-400' },
+        { label: 'Late arrivals', value: attendanceData.lateArrivals, icon: faClock, color: 'text-purple-400', backgroundColor: 'bg-purple-50', borderClass: 'border-purple-400' }
     ];
 
     const [currentMonthIndex, setCurrentMonthIndex] = useState(6);
@@ -143,6 +143,8 @@ const AttendancePage = () => {
                         value={card.value}
                         icon={card.icon}
                         color={card.color}
+                        backgroundColor={card.backgroundColor}
+                        borderClass={card.borderClass}
                     />
                 ))}
             </div>

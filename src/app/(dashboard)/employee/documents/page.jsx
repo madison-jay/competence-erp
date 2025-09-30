@@ -9,8 +9,6 @@ import { useRouter } from 'next/navigation';
 import AddEmployeeDocumentModal from '@/components/employee/documents/AddEmployeeDocumentModal';
 
 const DocumentsPage = () => {
-  const [employees, setEmployees] = useState([]);
-  const [authUserId, setAuthUserId] = useState(null);
   const [currentEmployee, setCurrentEmployee] = useState(null);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -23,39 +21,47 @@ const DocumentsPage = () => {
 
   const first_name = typeof window !== 'undefined' ? localStorage.getItem('first_name') : '';
 
+  const documentCategories = useMemo(() => [
+    "official documents",
+    "contracts",
+    "certificates",
+    "ids"
+  ], []);
+
+  // Fetch current employee data
   useEffect(() => {
-    const fetchData = async () => {
+    const fetchEmployeeData = async () => {
       setLoading(true);
       try {
-        const allEmployees = await apiService.getEmployees(router);
-        const validEmployees = Array.isArray(allEmployees) ? allEmployees : [];
-        setEmployees(validEmployees);
+        const employeeData = await apiService.getEmployees(router);
 
-        const foundEmployee = validEmployees.find(emp => emp.user_id === authUserId);
-        if (foundEmployee) setCurrentEmployee(foundEmployee);
+        if (employeeData && typeof employeeData === 'object') {
+          setCurrentEmployee(employeeData);
 
-        const docs = validEmployees.flatMap(employee =>
-          (employee.employee_documents || []).map(doc => ({
+          const employeeDocs = (employeeData.employee_documents || []).map(doc => ({
             ...doc,
-            employeeName: `${employee.first_name} ${employee.last_name}`,
-            employeeId: employee.id,
-            created_by: doc.created_by || employee.id,
+            employeeName: `${employeeData.first_name} ${employeeData.last_name}`,
+            employeeId: employeeData.id,
+            created_by: doc.created_by || employeeData.id,
             name: doc.name || 'Unnamed Document',
             type: doc.type || 'Unknown',
+            category: doc.category || 'official documents', // Make sure category is included
             url: doc.url || '#'
-          }))
-        );
+          }));
 
-        setDocuments(docs);
+          setDocuments(employeeDocs);
+        } else {
+          console.warn('Unexpected employee data format:', employeeData);
+        }
       } catch (error) {
-        console.error("Error fetching data:", error);
+        console.error("Error fetching employee data:", error);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchData();
-  }, [authUserId, router]);
+    fetchEmployeeData();
+  }, [router]);
 
   useEffect(() => {
     const updateDateTimeAndGreeting = () => {
@@ -89,42 +95,33 @@ const DocumentsPage = () => {
     return () => clearInterval(intervalId);
   }, []);
 
-  const handleDocumentAdded = async () => {
+  const refreshDocuments = async () => {
     setLoading(true);
     try {
-      const allEmployees = await apiService.getEmployees(router);
-      const validEmployees = Array.isArray(allEmployees) ? allEmployees : [];
-      setEmployees(validEmployees);
+      const employeeData = await apiService.getEmployees(router);
+      
+      if (employeeData && typeof employeeData === 'object') {
+        setCurrentEmployee(employeeData);
 
-      const foundEmployee = validEmployees.find(emp => emp.user_id === authUserId);
-      if (foundEmployee) setCurrentEmployee(foundEmployee);
-
-      const docs = validEmployees.flatMap(employee =>
-        (employee.employee_documents || []).map(doc => ({
+        const employeeDocs = (employeeData.employee_documents || []).map(doc => ({
           ...doc,
-          employeeName: `${employee.first_name} ${employee.last_name}`,
-          employeeId: employee.id,
-          created_by: doc.created_by || employee.id,
+          employeeName: `${employeeData.first_name} ${employeeData.last_name}`,
+          employeeId: employeeData.id,
+          created_by: doc.created_by || employeeData.id,
           name: doc.name || 'Unnamed Document',
           type: doc.type || 'Unknown',
+          category: doc.category || 'official documents',
           url: doc.url || '#'
-        }))
-      );
+        }));
 
-      setDocuments(docs);
+        setDocuments(employeeDocs);
+      }
     } catch (error) {
       console.error("Error refreshing data:", error);
     } finally {
       setLoading(false);
     }
   };
-
-  const documentTypes = useMemo(() => [
-    "official documents",
-    "contracts",
-    "certificates",
-    "ids"
-  ], []);
 
   const filteredDocuments = useMemo(() => {
     if (!documents.length) return [];
@@ -133,28 +130,41 @@ const DocumentsPage = () => {
       const matchesSearch =
         doc.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         (doc.type && doc.type.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (doc.category && doc.category.toLowerCase().includes(searchTerm.toLowerCase())) ||
         doc.employeeName.toLowerCase().includes(searchTerm.toLowerCase());
 
-      const matchesFilter = filter === 'all' || doc.type === filter;
+      const matchesFilter = filter === 'all' ||
+        doc.category === filter ||
+        doc.type === filter;
+
       return matchesSearch && matchesFilter;
     });
   }, [documents, searchTerm, filter]);
 
   const categories = useMemo(() => {
     const totalDocuments = documents.length;
-    const typeCounts = documentTypes.map(type => ({
-      name: type,
-      count: documents.filter(d => d.type === type).length
+
+    const categoryCounts = documentCategories.map(category => ({
+      name: category,
+      count: documents.filter(d => d.category === category).length
     }));
 
     return [
       { name: 'all', count: loading ? '-' : totalDocuments },
-      ...typeCounts.map(type => ({
-        name: type.name,
-        count: loading ? '-' : type.count
+      ...categoryCounts.map(category => ({
+        name: category.name,
+        count: loading ? '-' : category.count
       }))
     ];
-  }, [documents, loading, documentTypes]);
+  }, [documents, loading, documentCategories]);
+
+  const handleOpenUploadModal = () => {
+    setIsUploadModalOpen(true);
+  };
+
+  const handleDocumentAdded = async () => {
+    await refreshDocuments();
+  };
 
   return (
     <div>
@@ -177,7 +187,9 @@ const DocumentsPage = () => {
 
       <div className="mt-8">
         <div className="flex justify-between items-center mb-4">
-          <h3 className="text-lg font-semibold">Recently Added</h3>
+          <h3 className="text-lg font-semibold">
+            {currentEmployee ? `${currentEmployee.first_name}'s Documents` : 'Documents'}
+          </h3>
           <div className="flex items-center gap-4">
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -192,9 +204,10 @@ const DocumentsPage = () => {
               />
             </div>
             <button
-              className="flex items-center gap-2 bg-[#b88b1b] text-white px-4 py-2 rounded-md hover:bg-[#8d6b14] transition-colors"
-              onClick={() => setIsUploadModalOpen(true)}
-              disabled={loading}
+              className="flex items-center gap-2 bg-[#b88b1b] text-white px-4 py-2 rounded-md hover:bg-[#8d6b14] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              onClick={handleOpenUploadModal}
+              disabled={loading || !currentEmployee}
+              title={!currentEmployee ? "Cannot upload - employee data not loaded" : "Upload document"}
             >
               <FontAwesomeIcon icon={faUpload} />
               <span>Upload Document</span>
@@ -205,14 +218,15 @@ const DocumentsPage = () => {
         <DocumentsTable
           documents={filteredDocuments}
           loading={loading}
-          employees={employees}
+          employees={[currentEmployee].filter(Boolean)}
+          onDocumentUpdated={refreshDocuments}
         />
       </div>
 
       <AddEmployeeDocumentModal
         isOpen={isUploadModalOpen}
         onClose={() => setIsUploadModalOpen(false)}
-        employees={employees}
+        employees={[currentEmployee].filter(Boolean)}
         currentEmployeeId={currentEmployee?.id}
         onDocumentAdded={handleDocumentAdded}
       />

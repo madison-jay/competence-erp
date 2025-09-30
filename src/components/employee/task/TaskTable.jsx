@@ -7,25 +7,44 @@ const TasksTable = ({ tasks, searchTerm, onViewTask, onUpdateTask, loading, erro
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState(null);
 
-  const filteredTasks = (tasks ?? []).filter(task =>
-    task.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    task.assigned_to?.first_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    task.assigned_to?.last_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    task.status.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // Safe filtering with null checks
+  const filteredTasks = (tasks ?? []).filter(task => {
+    if (!task) return false;
+    
+    const searchLower = searchTerm.toLowerCase();
+    
+    const titleMatch = task.title?.toLowerCase().includes(searchLower) || false;
+    const assignedFirstNameMatch = task.assigned_to?.first_name?.toLowerCase().includes(searchLower) || false;
+    const assignedLastNameMatch = task.assigned_to?.last_name?.toLowerCase().includes(searchLower) || false;
+    const statusMatch = task.status?.toLowerCase().includes(searchLower) || false;
+    
+    return titleMatch || assignedFirstNameMatch || assignedLastNameMatch || statusMatch;
+  });
 
   const formatDate = (dateString) => {
     if (!dateString) return 'N/A';
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    try {
+      const date = new Date(dateString);
+      return isNaN(date.getTime()) ? 'N/A' : date.toLocaleDateString('en-US', { 
+        month: 'short', 
+        day: 'numeric', 
+        year: 'numeric' 
+      });
+    } catch {
+      return 'N/A';
+    }
   };
 
   const getStatusColor = (status, isOverdue) => {
     if (isOverdue) return 'text-red-500 bg-red-100';
-    switch (status) {
+    
+    const safeStatus = status || 'Unknown';
+    
+    switch (safeStatus) {
       case 'Completed':
         return 'text-green-500 bg-green-100';
       case 'In Progress':
+      case 'In-progress':
         return 'text-yellow-500 bg-yellow-100';
       case 'Pending':
         return 'text-blue-500 bg-blue-100';
@@ -116,10 +135,18 @@ const TasksTable = ({ tasks, searchTerm, onViewTask, onUpdateTask, loading, erro
             {filteredTasks.length > 0 ? (
               filteredTasks.map((task) => (
                 <tr key={task.id}>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{task.title}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{task.created_by?.first_name || 'N/A'}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{formatDate(task.start_date)}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{formatDate(task.end_date)}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                    {task.title || 'Untitled Task'}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {task.created_by?.first_name || 'N/A'}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {formatDate(task.start_date)}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {formatDate(task.end_date)}
+                  </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm">
                     <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(task.priority, false)}`}>
                       {task.priority || 'N/A'}
@@ -127,15 +154,23 @@ const TasksTable = ({ tasks, searchTerm, onViewTask, onUpdateTask, loading, erro
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm">
                     <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(task.status, task.isOverdue)}`}>
-                      {task.isOverdue ? 'Overdue' : task.status}
+                      {task.isOverdue ? 'Overdue' : (task.status || 'Unknown')}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                     <div className="flex items-center space-x-2">
-                      <button onClick={() => onViewTask(task)} className="text-gray-500 hover:text-indigo-900">
+                      <button 
+                        onClick={() => onViewTask(task)} 
+                        className="text-gray-500 hover:text-indigo-900"
+                        title="View task"
+                      >
                         <FontAwesomeIcon icon={faEye} />
                       </button>
-                      <button onClick={() => handleEditClick(task)} className="text-gray-500 hover:text-indigo-900">
+                      <button 
+                        onClick={() => handleEditClick(task)} 
+                        className="text-gray-500 hover:text-indigo-900"
+                        title="Edit task"
+                      >
                         <FontAwesomeIcon icon={faPenToSquare} />
                       </button>
                       {task.status === 'Completed' && (
@@ -154,7 +189,9 @@ const TasksTable = ({ tasks, searchTerm, onViewTask, onUpdateTask, loading, erro
               ))
             ) : (
               <tr>
-                <td colSpan="7" className="px-6 py-4 text-center text-sm text-gray-500">No tasks found.</td>
+                <td colSpan="7" className="px-6 py-4 text-center text-sm text-gray-500">
+                  {searchTerm ? 'No tasks match your search.' : 'No tasks found.'}
+                </td>
               </tr>
             )}
           </tbody>

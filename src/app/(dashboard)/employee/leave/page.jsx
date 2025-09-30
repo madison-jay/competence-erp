@@ -5,41 +5,43 @@ import { LeaveRow } from '@/components/employee/leave/LeaveRequestTable';
 import apiService from '@/app/lib/apiService';
 import toast from 'react-hot-toast';
 import RequestLeaveModal from '@/components/employee/leave/RequestLeaveModal';
+import LeaveSummaryCard from '@/components/employee/leave/LeaveSummaryCard';
+import { faCalendarAlt, faCheckCircle, faClock, faTimesCircle } from '@fortawesome/free-solid-svg-icons';
 
 // Skeleton Loading Components
 const SkeletonTableRow = () => (
-  <tr className="animate-pulse">
-    <td className="px-6 py-4 whitespace-nowrap">
-      <div className="h-4 bg-gray-200 rounded w-24"></div>
-    </td>
-    <td className="px-6 py-4 whitespace-nowrap">
-      <div className="h-4 bg-gray-200 rounded w-32"></div>
-    </td>
-    <td className="px-6 py-4 whitespace-nowrap">
-      <div className="h-4 bg-gray-200 rounded w-20"></div>
-    </td>
-    <td className="px-6 py-4 whitespace-nowrap">
-      <div className="h-4 bg-gray-200 rounded w-20"></div>
-    </td>
-    <td className="px-6 py-4 whitespace-nowrap">
-      <div className="h-4 bg-gray-200 rounded w-16"></div>
-    </td>
-    <td className="px-6 py-4 whitespace-nowrap">
-      <div className="h-6 bg-gray-200 rounded-full w-16"></div>
-    </td>
-    <td className="px-6 py-4 whitespace-nowrap">
-      <div className="h-4 bg-gray-200 rounded w-20"></div>
-    </td>
-    <td className="px-6 py-4 whitespace-nowrap">
-      <div className="h-4 bg-gray-200 rounded w-20"></div>
-    </td>
-    <td className="px-6 py-4 whitespace-nowrap">
-      <div className="flex space-x-2">
-        <div className="h-8 w-8 bg-gray-200 rounded"></div>
-        <div className="h-8 w-8 bg-gray-200 rounded"></div>
-      </div>
-    </td>
-  </tr>
+    <tr className="animate-pulse">
+        <td className="px-6 py-4 whitespace-nowrap">
+            <div className="h-4 bg-gray-200 rounded w-24"></div>
+        </td>
+        <td className="px-6 py-4 whitespace-nowrap">
+            <div className="h-4 bg-gray-200 rounded w-32"></div>
+        </td>
+        <td className="px-6 py-4 whitespace-nowrap">
+            <div className="h-4 bg-gray-200 rounded w-20"></div>
+        </td>
+        <td className="px-6 py-4 whitespace-nowrap">
+            <div className="h-4 bg-gray-200 rounded w-20"></div>
+        </td>
+        <td className="px-6 py-4 whitespace-nowrap">
+            <div className="h-4 bg-gray-200 rounded w-16"></div>
+        </td>
+        <td className="px-6 py-4 whitespace-nowrap">
+            <div className="h-6 bg-gray-200 rounded-full w-16"></div>
+        </td>
+        <td className="px-6 py-4 whitespace-nowrap">
+            <div className="h-4 bg-gray-200 rounded w-20"></div>
+        </td>
+        <td className="px-6 py-4 whitespace-nowrap">
+            <div className="h-4 bg-gray-200 rounded w-20"></div>
+        </td>
+        <td className="px-6 py-4 whitespace-nowrap">
+            <div className="flex space-x-2">
+                <div className="h-8 w-8 bg-gray-200 rounded"></div>
+                <div className="h-8 w-8 bg-gray-200 rounded"></div>
+            </div>
+        </td>
+    </tr>
 );
 
 const LeaveRequests = () => {
@@ -120,6 +122,29 @@ const LeaveRequests = () => {
             (leave.status && leave.status.toLowerCase().includes(lowercasedSearchTerm))
         );
     }, [searchTerm, leavesData]);
+
+    const leaveStats = useMemo(() => {
+        const stats = {
+            total: 0,
+            pending: 0,
+            approved: 0,
+            rejected: 0,
+        };
+
+        leavesData.forEach(leave => {
+            if (leave.status.toLowerCase() !== 'cancelled') {
+                stats.total++;
+                if (leave.status.toLowerCase() === 'pending') {
+                    stats.pending++;
+                } else if (leave.status.toLowerCase() === 'approved') {
+                    stats.approved++;
+                } else if (leave.status.toLowerCase() === 'rejected') {
+                    stats.rejected++;
+                }
+            }
+        });
+        return stats;
+    }, [leavesData]);
 
     const indexOfLastLeave = currentPage * employeesPerPage;
     const indexOfFirstLeave = indexOfLastLeave - employeesPerPage;
@@ -202,7 +227,7 @@ const LeaveRequests = () => {
     return (
         <div className="">
             <div className="">
-                <div className='flex justify-between items-center mt-5 mb-14 flex-wrap gap-4'>
+                <div className='flex justify-between items-center mt-5 mb-10 flex-wrap gap-4'>
                     <div>
                         <h1 className='text-2xl font-bold '>Leave Requests</h1>
                         {loading ? (
@@ -216,6 +241,37 @@ const LeaveRequests = () => {
                     <span className='rounded-[20px] px-3 py-2 border-[0.5px] border-solid border-[#DDD9D9] text-[#A09D9D]'>
                         {currentDateTime}
                     </span>
+                </div>
+
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-10">
+                    <LeaveSummaryCard
+                        title="Total Requests"
+                        count={leaveStats.total}
+                        icon={faCalendarAlt}
+                        iconColor="text-blue-600"
+                        backgroundColor="bg-blue-50"
+                    />
+                    <LeaveSummaryCard
+                        title="Approved"
+                        count={leaveStats.approved}
+                        icon={faCheckCircle}
+                        iconColor="text-green-600"
+                        backgroundColor="bg-green-50"
+                    />
+                    <LeaveSummaryCard
+                        title="Pending"
+                        count={leaveStats.pending}
+                        icon={faClock}
+                        iconColor="text-yellow-600"
+                        backgroundColor="bg-yellow-50"
+                    />
+                    <LeaveSummaryCard
+                        title="Rejected"
+                        count={leaveStats.rejected}
+                        icon={faTimesCircle}
+                        iconColor="text-red-600"
+                        backgroundColor="bg-red-50"
+                    />
                 </div>
 
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6">

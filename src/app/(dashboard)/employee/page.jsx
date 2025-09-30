@@ -58,18 +58,14 @@ export default function EmployeeDashboard() {
     useEffect(() => {
         const fetchData = async () => {
             try {
-                // Fetch leaves - handle "No leave requests found" as success
                 let leaves = [];
                 try {
                     leaves = (await apiService.getLeaves(router)) || [];
                 } catch (error) {
-                    // Check if the error is specifically "No leave requests found"
                     if (error.message?.includes("No leave requests found") || 
                         error.response?.data?.message === "No leave requests found") {
-                        // This is actually a success case - no leaves means 0 approved
                         leaves = [];
                     } else {
-                        // Re-throw other errors
                         throw error;
                     }
                 }
@@ -131,10 +127,34 @@ export default function EmployeeDashboard() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mt-8">
-                <TaskCard title="Task Assigned" value={taskData.assigned} icon={faTasks} iconColor="text-blue-500" />
-                <TaskCard title="Task Completed" value={taskData.completed} icon={faCheckCircle} iconColor="text-green-500" />
-                <TaskCard title="Days Present" value="23" icon={faSpinner} iconColor="text-orange-500" />
-                <TaskCard title="Approved Leaves" value={approvedLeaves} icon={faCalendarCheck} iconColor="text-purple-500" />
+                <TaskCard 
+                    title="Task Assigned" 
+                    value={taskData.assigned} 
+                    icon={faTasks} 
+                    iconColor="text-blue-600"
+                    backgroundColor="bg-blue-100"
+                />
+                <TaskCard 
+                    title="Task Completed" 
+                    value={taskData.completed} 
+                    icon={faCheckCircle} 
+                    iconColor="text-green-600" 
+                    backgroundColor="bg-green-100"
+                />
+                <TaskCard 
+                    title="Days Present" 
+                    value="23" 
+                    icon={faSpinner} 
+                    iconColor="text-orange-600" 
+                    backgroundColor="bg-orange-100"
+                />
+                <TaskCard 
+                    title="Approved Leaves" 
+                    value={approvedLeaves} 
+                    icon={faCalendarCheck} 
+                    iconColor="text-purple-600" 
+                    backgroundColor="bg-purple-100"
+                />
             </div>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-8">
                 <div className="w-full">

@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faTimes, faTrash } from '@fortawesome/free-solid-svg-icons';
 import { createClient } from '@/app/lib/supabase/client';
@@ -7,11 +7,12 @@ import apiService from '@/app/lib/apiService';
 import toast from 'react-hot-toast';
 import { useRouter } from 'next/navigation';
 
-const AddEmployeeDocumentModal = ({ 
-  isOpen, 
-  onClose, 
+const AddEmployeeDocumentModal = ({
+  isOpen,
+  onClose,
+  employees,
   currentEmployeeId,
-  onDocumentAdded 
+  onDocumentAdded
 }) => {
   const supabase = createClient();
   const [documents, setDocuments] = useState([
@@ -19,6 +20,12 @@ const AddEmployeeDocumentModal = ({
   ]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const router = useRouter();
+
+  const activeEmployees = useMemo(() => {
+    return employees.filter(
+      employee => employee.employment_status?.toLowerCase() !== 'terminated'
+    );
+  }, [employees]);
 
   const fileTypes = [
     "pdf",
@@ -39,23 +46,76 @@ const AddEmployeeDocumentModal = ({
     "ids",
   ];
 
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+  };
+
   const handleDocumentChange = (index, field, value) => {
     const updatedDocuments = [...documents];
     updatedDocuments[index][field] = value;
     setDocuments(updatedDocuments);
   };
 
+  const detectFileType = (file) => {
+    if (!file) return '';
+
+    // First try to detect from extension
+    const extension = file.name.split('.').pop().toLowerCase();
+    if (fileTypes.includes(extension)) {
+      return extension;
+    }
+
+    // If extension not in our list, try to detect from MIME type
+    const mimeType = file.type;
+    if (mimeType) {
+      const mimeParts = mimeType.split('/');
+      if (mimeParts.length > 1) {
+        const typeFromMime = mimeParts[1].toLowerCase();
+        if (fileTypes.includes(typeFromMime)) {
+          return typeFromMime;
+        }
+
+        // Handle specific MIME type mappings
+        const mimeMappings = {
+          'vnd.openxmlformats-officedocument.wordprocessingml.document': 'docx',
+          'vnd.openxmlformats-officedocument.spreadsheetml.sheet': 'xlsx',
+          'vnd.ms-excel': 'xls',
+          'vnd.ms-word': 'doc',
+          'jpeg': 'jpg',
+        };
+
+        if (mimeMappings[typeFromMime]) {
+          return mimeMappings[typeFromMime];
+        }
+      }
+    }
+
+    // Fallback to extension even if not in our list
+    return extension;
+  };
+
   const handleFileChange = (index, file) => {
     const updatedDocuments = [...documents];
     updatedDocuments[index].file = file;
-    
-    if (!updatedDocuments[index].type && file) {
-      const extension = file.name.split('.').pop().toLowerCase();
-      if (fileTypes.includes(extension)) {
-        updatedDocuments[index].type = extension;
+
+    // Auto-detect file type
+    if (file) {
+      const detectedType = detectFileType(file);
+      if (detectedType) {
+        updatedDocuments[index].type = detectedType;
+      } else {
+        // Clear type if no file is selected or type can't be detected
+        updatedDocuments[index].type = '';
+      }
+
+      // Auto-populate name if empty
+      if (!updatedDocuments[index].name) {
+        const fileNameWithoutExt = file.name.replace(/\.[^/.]+$/, "");
+        updatedDocuments[index].name = fileNameWithoutExt;
       }
     }
-    
+
     setDocuments(updatedDocuments);
   };
 
@@ -93,15 +153,32 @@ const AddEmployeeDocumentModal = ({
   };
 
   const validateDocuments = () => {
-    if (!currentEmployeeId) {
-      throw new Error("Employee ID is required");
-    }
-    
+    const typeCounts = {};
     for (const doc of documents) {
       if (!doc.name || !doc.type || !doc.category || !doc.file) {
-        throw new Error("Please fill in all fields for each document");
+        throw new Error("Please fill in all fields (Name, Category) and select a File for each document.");
+      }
+
+      // Check for duplicate types in this upload
+      const lowerType = doc.type.toLowerCase();
+      if (typeCounts[lowerType]) {
+        throw new Error(`Duplicate file type "${doc.type}" in this upload. Each document must have a unique file type.`);
+      }
+      typeCounts[lowerType] = true;
+
+      // Validate file type is supported
+      if (!fileTypes.includes(lowerType)) {
+        throw new Error(`File type "${doc.type}" is not supported. Supported types: ${fileTypes.join(', ')}`);
       }
     }
+
+    if (!currentEmployeeId) {
+      throw new Error("No employee selected");
+    }
+  };
+
+  const resetForm = () => {
+    setDocuments([{ name: '', type: '', category: '', file: null }]);
   };
 
   const handleSubmit = async (e) => {
@@ -111,11 +188,12 @@ const AddEmployeeDocumentModal = ({
     try {
       validateDocuments();
 
-      const uploadPromises = documents.map(doc => 
+      // Upload all files and create payload
+      const uploadPromises = documents.map(doc =>
         uploadFileToSupabase(doc.file, 'documents', 'employee_documents')
           .then(url => ({
             name: doc.name,
-            type: doc.type,
+            type: doc.type, // Uses the automatically detected type
             category: doc.category,
             url: url
           }))
@@ -130,13 +208,17 @@ const AddEmployeeDocumentModal = ({
       );
 
       toast.success(`${documents.length} document(s) uploaded successfully!`);
+      resetForm();
       onClose();
       onDocumentAdded();
-      
-      setDocuments([{ name: '', type: '', category: '', file: null }]);
+
     } catch (error) {
       console.error("Upload failed:", error);
-      toast.error(error.message || "Document upload failed");
+      if (error.message && error.message.includes('duplicate key value violates unique constraint')) {
+        toast.error('A document with this file type already exists for the selected employee. Please choose a different type or update the existing document.');
+      } else {
+        toast.error(error.message || "Document upload failed");
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -144,18 +226,30 @@ const AddEmployeeDocumentModal = ({
 
   if (!isOpen) return null;
 
+  // Helper function to find current employee details
+  const getCurrentEmployeeName = () => {
+    const emp = activeEmployees.find(e => e.id === currentEmployeeId);
+    return emp ? `${emp.first_name} ${emp.last_name}` : 'Current Employee';
+  };
+
   return (
     <div className="fixed inset-0 bg-[#000000aa] flex items-center justify-center z-50">
       <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-xl font-bold">Upload Document(s)</h2>
-          <button 
+          <button
             onClick={onClose}
             disabled={isSubmitting}
-            className="text-gray-500 hover:text-gray-700"
+            className="text-gray-500 hover:text-gray-700 disabled:opacity-50"
           >
             <FontAwesomeIcon icon={faTimes} />
           </button>
+        </div>
+
+        <div className="mb-4 p-3 bg-gray-50 rounded-lg">
+          <p className="text-sm font-medium text-gray-700">
+            Uploading to: <span className="font-semibold">{getCurrentEmployeeName()}</span>
+          </p>
         </div>
 
         <form onSubmit={handleSubmit}>
@@ -167,7 +261,7 @@ const AddEmployeeDocumentModal = ({
               <button
                 type="button"
                 onClick={addDocumentField}
-                className="text-sm text-[#b88b1b] hover:text-[#8d6b14] font-medium"
+                className="text-sm text-[#b88b1b] hover:text-[#8d6b14] font-medium disabled:opacity-50"
                 disabled={isSubmitting}
               >
                 + Add Another Document
@@ -180,20 +274,20 @@ const AddEmployeeDocumentModal = ({
                   <button
                     type="button"
                     onClick={() => removeDocumentField(index)}
-                    className="absolute top-2 right-2 text-red-500 hover:text-red-700"
+                    className="absolute top-2 right-2 text-red-500 hover:text-red-700 disabled:opacity-50"
                     disabled={isSubmitting}
                   >
                     <FontAwesomeIcon icon={faTrash} size="sm" />
                   </button>
                 )}
-                
+
                 <div className="mb-3">
                   <label className="block text-sm font-medium mb-1 text-gray-700">
                     Document Name
                   </label>
                   <input
                     type="text"
-                    className="w-full p-2 border rounded border-gray-400 focus:ring-[#b88b1b] focus:border-[#b88b1b] focus:ring-0 focus:outline-none"
+                    className="w-full p-2 border rounded border-gray-400 focus:ring-[#b88b1b] focus:border-[#b88b1b] focus:outline-none disabled:opacity-50"
                     value={doc.name}
                     onChange={(e) => handleDocumentChange(index, 'name', e.target.value)}
                     required
@@ -201,34 +295,26 @@ const AddEmployeeDocumentModal = ({
                     placeholder="Enter document name"
                   />
                 </div>
-                
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
                   <div>
                     <label className="block text-sm font-medium mb-1 text-gray-700">
-                      File Type
+                      File Type (Auto-detected)
                     </label>
-                    <select
-                      className="w-full p-2 border rounded border-gray-400 focus:ring-[#b88b1b] focus:border-[#b88b1b] focus:ring-0 focus:outline-none"
-                      value={doc.type}
-                      onChange={(e) => handleDocumentChange(index, 'type', e.target.value)}
-                      required
-                      disabled={isSubmitting}
-                    >
-                      <option value="">Select File Type</option>
-                      {fileTypes.map(type => (
-                        <option key={type} value={type}>
-                          {type.toUpperCase()}
-                        </option>
-                      ))}
-                    </select>
+                    <input
+                      type="text"
+                      className="w-full p-2 border rounded bg-gray-100 border-gray-400 focus:outline-none disabled:opacity-50"
+                      value={doc.type.toUpperCase() || 'Awaiting file upload...'}
+                      disabled
+                    />
                   </div>
-                  
+
                   <div>
                     <label className="block text-sm font-medium mb-1 text-gray-700">
                       Category
                     </label>
                     <select
-                      className="w-full p-2 border rounded border-gray-400 focus:ring-[#b88b1b] focus:border-[#b88b1b] focus:ring-0 focus:outline-none"
+                      className="w-full p-2 border rounded border-gray-400 focus:ring-[#b88b1b] focus:border-[#b88b1b] focus:outline-none disabled:opacity-50"
                       value={doc.category}
                       onChange={(e) => handleDocumentChange(index, 'category', e.target.value)}
                       required
@@ -243,7 +329,7 @@ const AddEmployeeDocumentModal = ({
                     </select>
                   </div>
                 </div>
-                
+
                 <div>
                   <label className="block text-sm font-medium mb-1 text-gray-700">
                     File
@@ -251,23 +337,34 @@ const AddEmployeeDocumentModal = ({
                   <input
                     type="file"
                     className="w-full p-2 file:mr-4 file:py-2 file:px-4
-                      file:rounded file:border-0
-                      file:text-sm file:font-semibold
-                      file:bg-[#b88b1b] file:text-white
-                      hover:file:bg-[#8d6b14]"
+  file:rounded file:border-0
+  file:text-sm file:font-semibold
+  file:bg-[#b88b1b] file:text-white
+  hover:file:bg-[#8d6b14] disabled:opacity-50"
                     onChange={(e) => handleFileChange(index, e.target.files[0])}
                     required
                     disabled={isSubmitting}
+                    accept={fileTypes.map(type => `.${type}`).join(',')}
                   />
+                  {doc.file && (
+                    <p className="text-sm text-gray-600 mt-1">
+                      Selected: {doc.file.name} (Detected Type: <span className='font-semibold'>{doc.type.toUpperCase()}</span>)
+                    </p>
+                  )}
+                  {!doc.type && doc.file && (
+                    <p className="text-red-500 text-xs mt-1">
+                      File type could not be automatically determined or is unsupported.
+                    </p>
+                  )}
                 </div>
               </div>
             ))}
           </div>
-          
+
           <div className="flex justify-end gap-2">
             <button
               type="button"
-              className="px-4 py-2 border rounded border-gray-400 hover:bg-gray-100 transition-colors"
+              className="px-4 py-2 border rounded border-gray-400 hover:bg-gray-100 transition-colors disabled:opacity-50"
               onClick={onClose}
               disabled={isSubmitting}
             >
@@ -275,7 +372,7 @@ const AddEmployeeDocumentModal = ({
             </button>
             <button
               type="submit"
-              className="px-4 py-2 bg-[#b88b1b] text-white rounded hover:bg-[#8d6b14] transition-colors"
+              className="px-4 py-2 bg-[#b88b1b] text-white rounded hover:bg-[#8d6b14] transition-colors disabled:opacity-50"
               disabled={isSubmitting}
             >
               {isSubmitting ? (

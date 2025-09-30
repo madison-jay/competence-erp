@@ -166,6 +166,8 @@ const apiService = {
         return callApi(`/tasks/${taskId}`, "DELETE", null, router);
     },
 
+    
+
     // Task Document APIs
     addTaskDocument: async (taskId, documentData, router) => {
         return callApi(`/tasks/${taskId}/documents`, "POST", documentData, router);
@@ -207,6 +209,10 @@ const apiService = {
 
     getEmployeePaymentById: async (employeeId, router) => {
         return callApi(`/employee_payments/${employeeId}`, "GET", null, router);
+    },
+
+    getEmployeePayroll: async (employeeId, router) => {
+        return callApi(`/employee_payments/payroll/${employeeId}`, "GET", null, router);
     },
 
     // deduction APIs
