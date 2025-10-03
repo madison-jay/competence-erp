@@ -29,7 +29,7 @@ const OrderListTable = () => {
     // Fetch customer details
     const fetchCustomerDetails = async (customerId) => {
         if (customers[customerId]) return customers[customerId];
-        
+
         try {
             const response = await apiService.getCustomerById(customerId, router);
             if (response.status === "success" && response.data) {
@@ -57,7 +57,7 @@ const OrderListTable = () => {
                 setOrders(ordersData);
 
                 // Fetch customer details for all orders
-                const customerPromises = ordersData.map(order => 
+                const customerPromises = ordersData.map(order =>
                     fetchCustomerDetails(order.customer_id)
                 );
                 await Promise.all(customerPromises);
@@ -97,7 +97,7 @@ const OrderListTable = () => {
 
     const formatOrderData = (order) => {
         const customer = customers[order.customer_id] || { name: 'Loading...', email: '', phone: '' };
-        
+
         return {
             id: order.order_id,
             order_number: order.order_number,

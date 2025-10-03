@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSearch, faEdit, faTrash, faAngleLeft, faAngleRight, faBox, faPuzzlePiece } from '@fortawesome/free-solid-svg-icons';
+import { faEdit, faTrash, faAngleLeft, faAngleRight, faBox, faPuzzlePiece } from '@fortawesome/free-solid-svg-icons';
 
 const ITEMS_PER_PAGE = 8;
 const goldColor = '#b88b1b';
@@ -203,7 +203,6 @@ export const StockLocationTable = ({ products = [], components = [] }) => {
                             <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stock Quantity</th>
                             <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                             <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Last Updated</th>
-                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                         </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
@@ -237,24 +236,6 @@ export const StockLocationTable = ({ products = [], components = [] }) => {
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                         {item.last_updated}
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                        <div className="flex items-center space-x-3">
-                                            <button
-                                                className="text-blue-500 hover:text-blue-700 transition-colors duration-200"
-                                                aria-label="Edit"
-                                                title="Edit Item"
-                                            >
-                                                <FontAwesomeIcon icon={faEdit} />
-                                            </button>
-                                            <button
-                                                className="text-red-500 hover:text-red-700 transition-colors duration-200"
-                                                aria-label="Delete"
-                                                title="Delete Item"
-                                            >
-                                                <FontAwesomeIcon icon={faTrash} />
-                                            </button>
-                                        </div>
                                     </td>
                                 </tr>
                             ))

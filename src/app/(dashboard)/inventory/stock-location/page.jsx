@@ -104,12 +104,6 @@ export default function StockLocationsPage() {
         const totalStockQuantity = products.reduce((sum, product) => sum + (product.stock_quantity || 0), 0) +
                                  components.reduce((sum, component) => sum + (component.stock_quantity || 0), 0);
 
-        const lowStockItems = products.filter(item => item.stock_quantity < 10).length +
-                            components.filter(item => item.stock_quantity < 10).length;
-
-        const selectedLocation = locations.find(loc => loc.id === selectedLocationId);
-        const locationName = selectedLocation ? selectedLocation.name : 'Unknown Location';
-
         return [
             {
                 title: 'Total Items',
@@ -143,7 +137,7 @@ export default function StockLocationsPage() {
     };
 
     const LocationCard = ({ title, value, icon, color, textColor }) => (
-        <div className={`rounded-lg shadow-lg px-5 py-7 ${color} ${textColor} transition-transform hover:scale-105`}>
+        <div className={`rounded-lg shadow-lg px-5 py-8 ${color} ${textColor} transition-transform hover:scale-105`}>
             <div className="flex items-center justify-between">
                 <div>
                     <h3 className="text-sm font-medium opacity-90">{title}</h3>
@@ -219,7 +213,7 @@ export default function StockLocationsPage() {
 
             {/* Stock Table */}
             {locationData && !loading && (
-                <div className="bg-white rounded-lg shadow-lg p-6">
+                <div className="">
                     <h2 className="text-xl font-bold mb-4">Stock Details</h2>
                     <StockLocationTable 
                         products={locationData.data?.products || []}

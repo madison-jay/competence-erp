@@ -252,7 +252,7 @@ export const SupplierTable = () => {
   return (
     <div>
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
-        <h2 className="text-xl font-bold flex-shrink-0">Supplier list table</h2>
+        <h2 className="text-xl font-bold flex-shrink-0">Suppliers Table</h2>
         <div className="flex flex-col sm:flex-row w-full sm:w-auto gap-3">
           <div className="relative">
             <input

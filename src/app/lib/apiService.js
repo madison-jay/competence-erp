@@ -84,6 +84,38 @@ const callApi = async (endpoint, method = "GET", data = null, router = null) => 
 };
 
 const apiService = {
+    sendInvoiceEmail: async (formData, router) => {
+        try {
+            const token = localStorage.getItem('access_token');
+
+            const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/invoice/send-email`, {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                },
+            });
+
+            if (response.status === 401) {
+                localStorage.removeItem('access_token');
+                localStorage.removeItem('first_name');
+                router.push('/login');
+                throw new Error('Authentication failed');
+            }
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(data.message || 'Failed to send invoice email');
+            }
+
+            return data;
+        } catch (error) {
+            console.error('Error in sendInvoiceEmail:', error);
+            throw error;
+        }
+    },
+
     getEmployees: async (router) => {
         return callApi("/employees", "GET", null, router);
     },
@@ -142,7 +174,7 @@ const apiService = {
         return callApi(`/tasks/${taskId}`, "DELETE", null, router);
     },
 
-    
+
 
     // Task Document APIs
     addTaskDocument: async (taskId, documentData, router) => {

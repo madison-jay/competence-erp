@@ -3,7 +3,6 @@
 import React, { useState, useEffect } from "react";
 import { useRouter } from 'next/navigation';
 import SupplierTable from "@/components/inventory/suppliers/SuppliersTable";
-import { SupplierCard } from "@/components/inventory/suppliers/SuppliersCard";
 import apiService from "@/app/lib/apiService";
 
 export default function InventoryOrders() {
@@ -75,33 +74,13 @@ export default function InventoryOrders() {
         <div>
             <div className='flex justify-between items-center mt-5 mb-14 flex-wrap gap-4'>
                 <div>
-                    <h1 className='text-2xl font-bold '>Supplier</h1>
+                    <h1 className='text-2xl font-bold '>Suppliers</h1>
                     <p className='text-[#A09D9D] font-medium mt-2'>{greeting}, {first_name}</p>
                 </div>
                 <span className='rounded-[20px] px-3 py-2 border-[0.5px] border-solid border-[#DDD9D9] text-[#A09D9D]'>
                     {currentDateTime}
                 </span>
             </div>
-
-            {/* {isLoading && (
-                <div className="text-center py-8 text-gray-500">
-                    Loading supplier data...
-                </div>
-            )}
-
-            {error && (
-                <div className="text-center py-8 text-red-500">
-                    {error}
-                </div>
-            )}
-
-            {!isLoading && !error && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 mb-14">
-                    {cardData.map((card, index) => (
-                        <SupplierCard key={index} title={card.title} value={card.value} />
-                    ))}
-                </div>
-            )} */}
 
             <div>
                 <SupplierTable />

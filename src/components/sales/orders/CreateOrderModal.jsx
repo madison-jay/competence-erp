@@ -1,7 +1,7 @@
 // CreateOrderModal.js
 import React, { useState, useEffect } from "react";
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faTimes, faSpinner, faSearch, faTrash } from '@fortawesome/free-solid-svg-icons';
+import { faTimes, faSpinner, faSearch, faTrash, faEnvelope } from '@fortawesome/free-solid-svg-icons';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import toast from "react-hot-toast";
@@ -20,7 +20,7 @@ const CreateOrderModal = ({ isOpen, onClose, onSubmit }) => {
         products: []
     });
     const [customers, setCustomers] = useState([]);
-    const [stockData, setStockData] = useState({ products: [], components: [] });
+    const [products, setProducts] = useState([]);
     const [filteredCustomers, setFilteredCustomers] = useState([]);
     const [selectedCustomer, setSelectedCustomer] = useState(null);
     const [customerQuery, setCustomerQuery] = useState("");
@@ -30,27 +30,25 @@ const CreateOrderModal = ({ isOpen, onClose, onSubmit }) => {
     const [searchResults, setSearchResults] = useState([]);
     const [isLoading, setIsLoading] = useState(false);
     const [loadingData, setLoadingData] = useState(true);
+    const [sendingEmail, setSendingEmail] = useState(false);
     const router = useRouter();
 
-    // Fetch customers and stock from backend
+    // Fetch customers and products from backend
     useEffect(() => {
         const fetchData = async () => {
             try {
                 setLoadingData(true);
-                const [customersResponse, stockResponse] = await Promise.all([
+                const [customersResponse, productsResponse] = await Promise.all([
                     apiService.getCustomers(router),
-                    apiService.getStocks(router)
+                    apiService.getProducts(router)
                 ]);
 
                 if (customersResponse.status === "success") {
                     setCustomers(customersResponse.data || []);
                 }
 
-                if (stockResponse.status === "success") {
-                    setStockData({
-                        products: stockResponse.data?.products || [],
-                        components: stockResponse.data?.components || []
-                    });
+                if (productsResponse.status === "success") {
+                    setProducts(productsResponse.data || []);
                 }
             } catch (error) {
                 console.error("Error fetching data:", error);
@@ -68,14 +66,14 @@ const CreateOrderModal = ({ isOpen, onClose, onSubmit }) => {
     // Update total amount when items or quantities change
     useEffect(() => {
         const totalAmount = selectedItems.reduce((sum, item) => {
-            const quantity = itemQuantities[item.id] || 1;
+            const quantity = itemQuantities[item.product_id] || 1;
             const price = item.price || 0;
             return sum + price * quantity;
         }, 0);
         setFormData(prev => ({ ...prev, total_amount: totalAmount }));
     }, [selectedItems, itemQuantities]);
 
-    // Search functionality for products and components
+    // Search functionality for products only
     useEffect(() => {
         if (searchTerm.trim() === "") {
             setSearchResults([]);
@@ -83,25 +81,25 @@ const CreateOrderModal = ({ isOpen, onClose, onSubmit }) => {
         }
 
         const searchLower = searchTerm.toLowerCase();
-        const allItems = [
-            ...stockData.products.map(p => ({ ...p, type: 'product', id: p.product_id, price: p.price || 0 })),
-            ...stockData.components.map(c => ({ ...c, type: 'component', id: c.component_id, price: c.price || 0 }))
-        ];
-
-        const filtered = allItems.filter(item =>
-            item.name?.toLowerCase().includes(searchLower) ||
-            item.sku?.toLowerCase().includes(searchLower)
+        const filtered = products.filter(product =>
+            product.name?.toLowerCase().includes(searchLower) ||
+            product.sku?.toLowerCase().includes(searchLower)
         );
 
         setSearchResults(filtered);
-    }, [searchTerm, stockData]);
+    }, [searchTerm, products]);
 
     const handleCustomerChange = (e) => {
         const value = e.target.value;
         setCustomerQuery(value);
         if (value.trim() === "") {
             setSelectedCustomer(null);
-            setFormData(prev => ({ ...prev, customer_id: "", phone_number: "", dispatch_address: "" }));
+            setFormData(prev => ({ 
+                ...prev, 
+                customer_id: "", 
+                phone_number: "", 
+                dispatch_address: "" 
+            }));
             setFilteredCustomers([]);
             return;
         }
@@ -119,7 +117,7 @@ const CreateOrderModal = ({ isOpen, onClose, onSubmit }) => {
             setFormData(prev => ({
                 ...prev,
                 customer_id: customerId,
-                phone_number: customer?.phone_number || '',
+                phone_number: customer.phone_number || '',
                 dispatch_address: ''
             }));
             setCustomerQuery(customer.name);
@@ -131,51 +129,32 @@ const CreateOrderModal = ({ isOpen, onClose, onSubmit }) => {
         setSearchTerm(e.target.value);
     };
 
-    const handleItemSelect = (item) => {
-        // Check if item is already selected
-        if (selectedItems.some(selected => selected.id === item.id && selected.type === item.type)) {
-            toast.error("Item already added to order");
+    const handleItemSelect = (product) => {
+        // Check if product is already selected using product_id
+        if (selectedItems.some(selected => selected.product_id === product.product_id)) {
+            toast.error("Product already added to order");
             return;
         }
 
-        // Check stock availability
-        if (item.stock_quantity < 1) {
-            toast.error("Item is out of stock");
-            return;
-        }
-
-        if (item.type === 'component') {
-            toast.error("Components cannot be added directly to orders. Please select products.");
-            return;
-        }
-
-        setSelectedItems(prev => [...prev, item]);
-        setItemQuantities(prev => ({ ...prev, [item.id]: 1 }));
+        setSelectedItems(prev => [...prev, product]);
+        setItemQuantities(prev => ({ ...prev, [product.product_id]: 1 }));
         setSearchTerm("");
         setSearchResults([]);
     };
 
-    const handleQuantityChange = (itemId, quantity) => {
-        const selectedItem = selectedItems.find(item => item.id === itemId);
-        if (!selectedItem) return;
-
+    const handleQuantityChange = (productId, quantity) => {
         const newQuantity = Math.max(1, quantity);
-        if (newQuantity > selectedItem.stock_quantity) {
-            toast.error("Quantity exceeds available stock");
-            return;
-        }
-
         setItemQuantities(prev => ({ 
             ...prev, 
-            [itemId]: newQuantity 
+            [productId]: newQuantity 
         }));
     };
 
-    const handleRemoveItem = (itemId) => {
-        setSelectedItems(prev => prev.filter(item => item.id !== itemId));
+    const handleRemoveItem = (productId) => {
+        setSelectedItems(prev => prev.filter(item => item.product_id !== productId));
         setItemQuantities(prev => {
             const newQuantities = { ...prev };
-            delete newQuantities[itemId];
+            delete newQuantities[productId];
             return newQuantities;
         });
     };
@@ -197,11 +176,11 @@ const CreateOrderModal = ({ isOpen, onClose, onSubmit }) => {
 
             <!-- Customer and Invoice Details -->
             <div style="display: flex; justify-content: space-between; margin-bottom: 30px; flex-wrap: wrap; gap: 20px;">
-                <div style="flex: 1; min-width: 250px;">
+                <div style="flex: 1; min-width: 250px; min-height: 180px;">
                     <div style="background: #b88b1b; color: white; padding: 10px 15px; border-radius: 5px 5px 0 0;">
                         <strong>Invoice To:</strong>
                     </div>
-                    <div style="border: 1px solid #ddd; border-top: none; padding: 15px; border-radius: 0 0 5px 5px;">
+                    <div style="border: 1px solid #ddd; border-top: none; padding: 15px; border-radius: 0 0 5px 5px; height: calc(100% - 42px);">
                         <p style="margin: 5px 0; font-weight: bold;">${customerData?.name || 'N/A'}</p>
                         <p style="margin: 5px 0;">${orderData.dispatch_address}</p>
                         <p style="margin: 5px 0;">Phone: ${orderData.phone_number}</p>
@@ -209,11 +188,11 @@ const CreateOrderModal = ({ isOpen, onClose, onSubmit }) => {
                     </div>
                 </div>
 
-                <div style="flex: 1; min-width: 250px;">
+                <div style="flex: 1; min-width: 250px; min-height: 180px;">
                     <div style="background: #b88b1b; color: white; padding: 10px 15px; border-radius: 5px 5px 0 0;">
                         <strong>Invoice Details:</strong>
                     </div>
-                    <div style="border: 1px solid #ddd; border-top: none; padding: 15px; border-radius: 0 0 5px 5px;">
+                    <div style="border: 1px solid #ddd; border-top: none; padding: 15px; border-radius: 0 0 5px 5px; height: calc(100% - 42px);">
                         <p style="margin: 5px 0;"><strong>Order No:</strong> ${orderData.order_number}</p>
                         <p style="margin: 5px 0;"><strong>Invoice Date:</strong> ${new Date().toLocaleDateString()}</p>
                         <p style="margin: 5px 0;"><strong>Delivery Date:</strong> ${orderData.delivery_date || 'Not set'}</p>
@@ -221,11 +200,11 @@ const CreateOrderModal = ({ isOpen, onClose, onSubmit }) => {
                     </div>
                 </div>
 
-                <div style="flex: 1; min-width: 200px;">
+                <div style="flex: 1; min-width: 200px; min-height: 180px;">
                     <div style="background: #b88b1b; color: white; padding: 10px 15px; border-radius: 5px 5px 0 0; text-align: center;">
                         <strong>TOTAL DUE</strong>
                     </div>
-                    <div style="border: 1px solid #ddd; border-top: none; padding: 15px; border-radius: 0 0 5px 5px; text-align: center;">
+                    <div style="border: 1px solid #ddd; border-top: none; padding: 15px; border-radius: 0 0 5px 5px; text-align: center; height: calc(100% - 42px); display: flex; align-items: center; justify-content: center;">
                         <p style="font-size: 24px; font-weight: bold; color: #b88b1b; margin: 0;">₦${orderData.total_amount.toLocaleString()}</p>
                     </div>
                 </div>
@@ -236,8 +215,7 @@ const CreateOrderModal = ({ isOpen, onClose, onSubmit }) => {
                 <table style="width: 100%; border-collapse: collapse; border: 1px solid #ddd;">
                     <thead>
                         <tr style="background: #b88b1b; color: white;">
-                            <th style="padding: 12px; text-align: left; border: 1px solid #ddd; font-weight: bold;">Item Description</th>
-                            <th style="padding: 12px; text-align: center; border: 1px solid #ddd; font-weight: bold; width: 100px;">Type</th>
+                            <th style="padding: 12px; text-align: left; border: 1px solid #ddd; font-weight: bold;">Product Description</th>
                             <th style="padding: 12px; text-align: center; border: 1px solid #ddd; font-weight: bold; width: 100px;">Price</th>
                             <th style="padding: 12px; text-align: center; border: 1px solid #ddd; font-weight: bold; width: 80px;">Qty</th>
                             <th style="padding: 12px; text-align: center; border: 1px solid #ddd; font-weight: bold; width: 120px;">Total</th>
@@ -248,11 +226,6 @@ const CreateOrderModal = ({ isOpen, onClose, onSubmit }) => {
                             <tr style="${index % 2 === 0 ? 'background: #f9f9f9;' : ''}">
                                 <td style="padding: 12px; border: 1px solid #ddd; vertical-align: top;">
                                     <strong>${item.name}</strong>
-                                    <br>
-                                    <small style="color: #666;">SKU: ${item.sku}</small>
-                                </td>
-                                <td style="padding: 12px; border: 1px solid #ddd; text-align: center; vertical-align: top; text-transform: capitalize;">
-                                    ${item.type}
                                 </td>
                                 <td style="padding: 12px; border: 1px solid #ddd; text-align: center; vertical-align: top;">₦${item.price.toLocaleString()}</td>
                                 <td style="padding: 12px; border: 1px solid #ddd; text-align: center; vertical-align: top;">${item.quantity}</td>
@@ -265,25 +238,22 @@ const CreateOrderModal = ({ isOpen, onClose, onSubmit }) => {
 
             <!-- Summary Section -->
             <div style="display: flex; justify-content: space-between; margin-bottom: 30px; flex-wrap: wrap; gap: 20px;">
-                <!-- Payment Information -->
-                <div style="flex: 1; min-width: 300px;">
+                <!-- Order Notes -->
+                <div style="flex: 1; min-width: 300px; min-height: 200px;">
                     <div style="background: #b88b1b; color: white; padding: 10px 15px; border-radius: 5px 5px 0 0;">
-                        <strong>PAYMENT INFORMATION</strong>
+                        <strong>ORDER NOTES</strong>
                     </div>
-                    <div style="border: 1px solid #ddd; border-top: none; padding: 15px; border-radius: 0 0 5px 5px;">
-                        <p style="margin: 8px 0;"><strong>Account No:</strong></p>
-                        <p style="margin: 8px 0;"><strong>Account Name:</strong></p>
-                        <p style="margin: 8px 0;"><strong>Bank Details:</strong></p>
-                        <p style="margin: 8px 0;"><strong>Sort Code:</strong></p>
+                    <div style="border: 1px solid #ddd; border-top: none; padding: 15px; border-radius: 0 0 5px 5px; height: calc(100% - 42px);">
+                        <p style="margin: 0; color: #666;">${orderData.notes || 'No additional notes provided.'}</p>
                     </div>
                 </div>
 
                 <!-- Total Calculation -->
-                <div style="flex: 1; min-width: 250px;">
+                <div style="flex: 1; min-width: 250px; min-height: 200px;">
                     <div style="background: #b88b1b; color: white; padding: 10px 15px; border-radius: 5px 5px 0 0; text-align: center;">
                         <strong>ORDER SUMMARY</strong>
                     </div>
-                    <div style="border: 1px solid #ddd; border-top: none; padding: 15px; border-radius: 0 0 5px 5px;">
+                    <div style="border: 1px solid #ddd; border-top: none; padding: 15px; border-radius: 0 0 5px 5px; height: calc(100% - 42px);">
                         <div style="display: flex; justify-content: space-between; margin: 10px 0;">
                             <span>Sub Total:</span>
                             <span>₦${orderData.total_amount.toLocaleString()}</span>
@@ -316,53 +286,71 @@ const CreateOrderModal = ({ isOpen, onClose, onSubmit }) => {
                     <div style="flex: 2; min-width: 300px;">
                         <p style="margin: 5px 0; font-weight: bold;">TERMS & CONDITIONS:</p>
                         <p style="margin: 5px 0; font-size: 12px; color: #666;">
-                            Madison Jay is an established Nigerian furniture company that has successfully proven itself over the years in the procurement of high standard ergonomic office chairs, tables, work stations, ancillary & home furniture.
+                            Payment is due within 30 days of invoice date. Late payments may be subject to fees. All orders are subject to availability. Delivery times are estimates and may vary.
                         </p>
                     </div>
 
                     <!-- Signature -->
                     <div style="flex: 1; min-width: 200px; text-align: center;">
-                        <p style="margin: 20px 0 5px 0; font-weight: bold;">TONY GREY</p>
-                        <p style="margin: 0; color: #666;">Account Manager</p>
+                        <p style="margin: 20px 0 5px 0; font-weight: bold;">MADISON JAY</p>
+                        <p style="margin: 0; color: #666;">Furniture Company</p>
                         <div style="margin-top: 40px; border-top: 1px solid #333; padding-top: 10px;">
-                            <p style="margin: 0; font-style: italic;">Signature</p>
+                            <p style="margin: 0; font-style: italic;">Authorized Signature</p>
                         </div>
                     </div>
                 </div>
 
                 <!-- Company Information -->
                 <div style="text-align: center; margin-top: 40px; padding: 20px; background: #f5f5f5; border-radius: 5px;">
-                    <p style="margin: 5px 0; font-weight: bold; color: #b88b1b;">COMPANY INFORMATION</p>
+                    <p style="margin: 5px 0; font-weight: bold; color: #b88b1b;">MADISON JAY FURNITURE</p>
                     <p style="margin: 3px 0; font-size: 12px;">13, Alhaij Kanike Close, off Awolowo Road, Ikoyi - Lagos</p>
                     <p style="margin: 3px 0; font-size: 12px;">Phone: +234-817-777-0017 | Email: sales@madisonjayng.com</p>
-                    <p style="margin: 3px 0; font-size: 12px;">Website: www.company.com</p>
+                    <p style="margin: 3px 0; font-size: 12px;">Website: www.madisonjayng.com</p>
                 </div>
             </div>
         </div>
         `;
     };
 
+    const sendInvoiceEmail = async (orderData, customerData, pdfBlob) => {
+        try {
+            setSendingEmail(true);
+            
+            const formData = new FormData();
+            formData.append('customer_email', customerData.email);
+            formData.append('customer_name', customerData.name);
+            formData.append('order_number', orderData.order_number);
+            formData.append('total_amount', orderData.total_amount);
+            formData.append('invoice_pdf', pdfBlob, `invoice_${orderData.order_number}.pdf`);
+
+            const response = await apiService.sendInvoiceEmail(formData, router);
+            
+            if (response.status === "success") {
+                toast.success("Invoice sent to customer's email successfully!");
+                return true;
+            } else {
+                toast.error("Failed to send invoice email");
+                return false;
+            }
+        } catch (error) {
+            console.error('Error sending invoice email:', error);
+            toast.error("Failed to send invoice email");
+            return false;
+        } finally {
+            setSendingEmail(false);
+        }
+    };
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         
         if (selectedItems.length === 0) {
-            toast.error("Please select at least one item");
+            toast.error("Please select at least one product");
             return;
         }
 
         if (!formData.customer_id) {
             toast.error("Please select a customer");
-            return;
-        }
-
-        // Additional check for stock quantities
-        const insufficientStock = selectedItems.some(item => {
-            const qty = itemQuantities[item.id] || 1;
-            return qty > item.stock_quantity;
-        });
-
-        if (insufficientStock) {
-            toast.error("One or more items exceed available stock");
             return;
         }
 
@@ -378,8 +366,8 @@ const CreateOrderModal = ({ isOpen, onClose, onSubmit }) => {
                 phone_number: formData.phone_number,
                 notes: formData.notes || "",
                 products: selectedItems.map(item => ({
-                    product_id: item.id,
-                    quantity: itemQuantities[item.id] || 1,
+                    product_id: item.product_id,
+                    quantity: itemQuantities[item.product_id] || 1,
                 }))
             };
 
@@ -387,15 +375,17 @@ const CreateOrderModal = ({ isOpen, onClose, onSubmit }) => {
             const response = await apiService.createOrder(orderData, router);
             
             if (response.status === "success") {
+                const createdOrder = response.data[0];
+                
                 // Generate invoice with the created order data
                 const itemsData = selectedItems.map(item => ({
                     ...item,
-                    quantity: itemQuantities[item.id] || 1
+                    quantity: itemQuantities[item.product_id] || 1
                 }));
 
                 const invoiceElement = document.createElement('div');
                 invoiceElement.innerHTML = generateInvoiceHTML(
-                    { ...response.data[0], order_number: response.data[0]?.order_number }, 
+                    { ...createdOrder, order_number: createdOrder?.order_number }, 
                     selectedCustomer, 
                     itemsData
                 );
@@ -423,8 +413,20 @@ const CreateOrderModal = ({ isOpen, onClose, onSubmit }) => {
                 const pdfHeight = pdf.internal.pageSize.getHeight();
 
                 pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
-                pdf.save(`invoice_${selectedCustomer?.name || 'customer'}_${response.data[0]?.order_number || 'order'}.pdf`);
+                
+                // Generate PDF blob for email
+                const pdfBlob = pdf.output('blob');
+                
+                // Save PDF locally
+                pdf.save(`invoice_${selectedCustomer?.name || 'customer'}_${createdOrder?.order_number || 'order'}.pdf`);
                 document.body.removeChild(invoiceElement);
+
+                // Send invoice email to customer
+                if (selectedCustomer?.email) {
+                    await sendInvoiceEmail(createdOrder, selectedCustomer, pdfBlob);
+                } else {
+                    toast.error("Customer email not found - invoice not sent");
+                }
 
                 onSubmit(response.data);
                 toast.success("Order created successfully!");
@@ -544,9 +546,9 @@ const CreateOrderModal = ({ isOpen, onClose, onSubmit }) => {
                             </div>
                         </div>
 
-                        {/* Search and Add Items Section */}
+                        {/* Search and Add Products Section */}
                         <div className="mb-4">
-                            <label className="block text-sm font-medium text-gray-700 mb-2">Add Items</label>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Add Products</label>
                             <div className="relative">
                                 <FontAwesomeIcon icon={faSearch} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
                                 <input
@@ -554,27 +556,27 @@ const CreateOrderModal = ({ isOpen, onClose, onSubmit }) => {
                                     value={searchTerm}
                                     onChange={handleSearchChange}
                                     className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#b88b1b]"
-                                    placeholder="Search products or components by name or SKU..."
+                                    placeholder="Search products by name or SKU..."
                                 />
                             </div>
                             
                             {searchResults.length > 0 && (
                                 <div className="border border-gray-300 mt-1 rounded-md max-h-40 overflow-y-auto bg-white">
-                                    {searchResults.map((item) => (
+                                    {searchResults.map((product) => (
                                         <div
-                                            key={`${item.type}-${item.id}`}
+                                            key={product.product_id}
                                             className="p-2 hover:bg-gray-100 cursor-pointer border-b border-gray-200 last:border-b-0"
-                                            onClick={() => handleItemSelect(item)}
+                                            onClick={() => handleItemSelect(product)}
                                         >
                                             <div className="flex justify-between items-center">
                                                 <div>
-                                                    <div className="font-medium">{item.name}</div>
+                                                    <div className="font-medium">{product.name}</div>
                                                     <div className="text-sm text-gray-500">
-                                                        SKU: {item.sku} • Type: {item.type} • Stock: {item.stock_quantity}
+                                                        SKU: {product.sku}
                                                     </div>
                                                 </div>
                                                 <div className="text-sm font-semibold">
-                                                    ₦{item.price?.toLocaleString() || 0}
+                                                    ₦{product.price?.toLocaleString() || 0}
                                                 </div>
                                             </div>
                                         </div>
@@ -583,30 +585,30 @@ const CreateOrderModal = ({ isOpen, onClose, onSubmit }) => {
                             )}
                         </div>
 
-                        {/* Selected Items List */}
+                        {/* Selected Products List */}
                         {selectedItems.length > 0 && (
                             <div className="mb-4">
-                                <label className="block text-sm font-medium text-gray-700 mb-2">Selected Items</label>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">Selected Products</label>
                                 <div className="space-y-2 max-h-40 overflow-y-auto">
-                                    {selectedItems.map((item) => (
-                                        <div key={item.id} className="flex items-center justify-between p-3 border border-gray-300 rounded-md">
+                                    {selectedItems.map((product) => (
+                                        <div key={product.product_id} className="flex items-center justify-between p-3 border border-gray-300 rounded-md">
                                             <div className="flex-1">
-                                                <div className="font-medium">{item.name}</div>
+                                                <div className="font-medium">{product.name}</div>
                                                 <div className="text-sm text-gray-500">
-                                                    SKU: {item.sku} • Type: {item.type}
+                                                    SKU: {product.sku}
                                                 </div>
                                             </div>
                                             <div className="flex items-center space-x-2">
                                                 <input
                                                     type="number"
                                                     min="1"
-                                                    value={itemQuantities[item.id] || 1}
-                                                    onChange={(e) => handleQuantityChange(item.id, parseInt(e.target.value) || 1)}
+                                                    value={itemQuantities[product.product_id] || 1}
+                                                    onChange={(e) => handleQuantityChange(product.product_id, parseInt(e.target.value) || 1)}
                                                     className="w-20 p-1 border border-gray-300 rounded-md text-center"
                                                 />
                                                 <button
                                                     type="button"
-                                                    onClick={() => handleRemoveItem(item.id)}
+                                                    onClick={() => handleRemoveItem(product.product_id)}
                                                     className="text-red-500 hover:text-red-700 p-1"
                                                 >
                                                     <FontAwesomeIcon icon={faTrash} />
@@ -632,10 +634,20 @@ const CreateOrderModal = ({ isOpen, onClose, onSubmit }) => {
                         <div className="flex justify-end space-x-2">
                             <button
                                 type="submit"
-                                className="px-4 py-2 bg-[#b88b1b] hover:bg-[#8b6a15] transition-all text-white rounded-md disabled:opacity-50"
+                                className="px-4 py-2 bg-[#b88b1b] hover:bg-[#8b6a15] transition-all text-white rounded-md disabled:opacity-50 flex items-center"
                                 disabled={isLoading || selectedItems.length === 0}
                             >
-                                {isLoading ? <FontAwesomeIcon icon={faSpinner} spin /> : "Create Order"}
+                                {isLoading ? (
+                                    <>
+                                        <FontAwesomeIcon icon={faSpinner} spin className="mr-2" />
+                                        {sendingEmail ? "Sending Email..." : "Creating Order..."}
+                                    </>
+                                ) : (
+                                    <>
+                                        <FontAwesomeIcon icon={faEnvelope} className="mr-2" />
+                                        Create Order & Send Invoice
+                                    </>
+                                )}
                             </button>
                             <button
                                 type="button"
