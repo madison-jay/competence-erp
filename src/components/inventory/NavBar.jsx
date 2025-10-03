@@ -11,12 +11,7 @@ import {
     faUsers, 
     faTruck, 
     faBoxes, 
-    faChartBar, 
-    faCog, 
-    faSignOutAlt, 
     faArrowRightFromBracket, 
-    faCalendarAlt, 
-    faFileInvoiceDollar, 
     faFile, 
     faTachometerAlt
 } from '@fortawesome/free-solid-svg-icons';
@@ -50,10 +45,9 @@ export default function SideNavBar({ isMobileMenuOpen, onCloseMobileMenu, isDesk
         { name: "Dashboard", icon: faTachometerAlt, path: "/inventory" },
         { name: "Orders", icon: faClipboardList, path: "/inventory/orders" },
         { name: "Inventory management", icon: faBoxes, path: "/inventory/management" },
-        { name: "Stock movement", icon: faTruck, path: "/inventory/stock-movement" },
+        { name: "Stock location", icon: faTruck, path: "/inventory/stock-location" },
         { name: "Suppliers", icon: faUsers, path: "/inventory/suppliers" },
-        { name: "Documents", icon: faFile, path: "/inventory/documents" },
-        { name: "Settings", icon: faCog, path: "/inventory/settings" },
+        { name: "Reports", icon: faFile, path: "/inventory/reports" },
     ];
 
     const handleLogout = async () => {

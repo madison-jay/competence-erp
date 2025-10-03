@@ -1,11 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import apiService from '@/app/lib/apiService';
 import toast from 'react-hot-toast';
+import { createClient } from "@/app/lib/supabase/client";
 
+/**
+ * StockEntryModal component for creating a new stock entry.
+ * @param {Object} props
+ * @param {Function} props.onClose - Callback to close the modal
+ * @param {Function} props.onSuccess - Callback to handle successful stock creation
+ * @param {Array} props.importBatches - List of import batches for selection
+ */
 const StockEntryModal = ({ onClose, onSuccess, importBatches = [] }) => {
     const [formData, setFormData] = useState({
         contents_type: 'product',
-        content_id: '',
+        contents_id: '',
         quantity_in_box: 1,
         status: 'in_stock',
         location_id: '',
@@ -17,15 +25,19 @@ const StockEntryModal = ({ onClose, onSuccess, importBatches = [] }) => {
     const [products, setProducts] = useState([]);
     const [components, setComponents] = useState([]);
     const [locations, setLocations] = useState([]);
+    const [suppliers, setSuppliers] = useState({});
     const [filteredItems, setFilteredItems] = useState([]);
     const [searchTerm, setSearchTerm] = useState('');
     const [showDropdown, setShowDropdown] = useState(false);
     const [itemsLoading, setItemsLoading] = useState(false);
 
+    const supabase = createClient();
+
     useEffect(() => {
         loadProducts();
         loadComponents();
         loadLocations();
+        loadSuppliers();
     }, []);
 
     useEffect(() => {
@@ -40,13 +52,22 @@ const StockEntryModal = ({ onClose, onSuccess, importBatches = [] }) => {
         }
     }, [searchTerm, formData.contents_type, products, components]);
 
+    /**
+     * Get the current items based on contents_type (products or components).
+     * @returns {Array} List of products or components
+     */
     const getCurrentItems = () => {
         return formData.contents_type === 'product' ? products : components;
     };
 
+    /**
+     * Load products from the API.
+     */
     const loadProducts = async () => {
         try {
+            setItemsLoading(true);
             const response = await apiService.getProducts();
+            console.log('Products Response:', response); // Debug
             if (response.status === 'success') {
                 setProducts(response.data || []);
             } else {
@@ -55,12 +76,19 @@ const StockEntryModal = ({ onClose, onSuccess, importBatches = [] }) => {
         } catch (error) {
             console.error('Error loading products:', error);
             toast.error('Failed to load products');
+        } finally {
+            setItemsLoading(false);
         }
     };
 
+    /**
+     * Load components from the API.
+     */
     const loadComponents = async () => {
         try {
+            setItemsLoading(true);
             const response = await apiService.getComponents();
+            console.log('Components Response:', response); // Debug
             if (response.status === 'success') {
                 setComponents(response.data || []);
             } else {
@@ -69,34 +97,61 @@ const StockEntryModal = ({ onClose, onSuccess, importBatches = [] }) => {
         } catch (error) {
             console.error('Error loading components:', error);
             toast.error('Failed to load components');
+        } finally {
+            setItemsLoading(false);
         }
     };
 
+    /**
+     * Load locations from Supabase.
+     */
     const loadLocations = async () => {
-        // You might want to create a locations API endpoint
-        // For now, using a mock or you can fetch from your locations table
         try {
-            // Example: const response = await apiService.getLocations();
-            // setLocations(response.data || []);
-            
-            // Mock locations for now - replace with actual API call
-            const mockLocations = [
-                { location_id: 'loc-1', name: 'Warehouse A' },
-                { location_id: 'loc-2', name: 'Warehouse B' },
-                { location_id: 'loc-3', name: 'Cold Storage' },
-            ];
-            setLocations(mockLocations);
+            const { data, error } = await supabase.from('locations').select('id, name');
+            console.log('Locations Response:', data, error); // Debug
+            if (error) {
+                console.error('Error loading locations:', error);
+                toast.error('Failed to load locations');
+                return;
+            }
+            setLocations(data || []);
         } catch (error) {
             console.error('Error loading locations:', error);
             toast.error('Failed to load locations');
         }
     };
 
+    /**
+     * Load suppliers from the API.
+     */
+    const loadSuppliers = async () => {
+        try {
+            const response = await apiService.getSuppliers();
+            console.log('Suppliers Response:', response); // Debug
+            if (response.status === 'success') {
+                const supMap = (response.data || []).reduce((acc, sup) => {
+                    acc[sup.id] = sup.name;
+                    return acc;
+                }, {});
+                setSuppliers(supMap);
+            } else {
+                console.error('Failed to load suppliers:', response.message);
+                toast.error('Failed to load suppliers');
+            }
+        } catch (error) {
+            console.error('Error loading suppliers:', error);
+            toast.error('Failed to load suppliers');
+        }
+    };
+
+    /**
+     * Handle form submission to create a new stock entry.
+     * @param {Event} e - Form submission event
+     */
     const handleSubmit = async (e) => {
         e.preventDefault();
 
-        // Validate required fields
-        if (!formData.content_id || !formData.batch_id || !formData.boxes_count) {
+        if (!formData.contents_id || !formData.batch_id || !formData.boxes_count) {
             toast.error('Item, batch, and boxes count are required');
             return;
         }
@@ -114,6 +169,7 @@ const StockEntryModal = ({ onClose, onSuccess, importBatches = [] }) => {
         setLoading(true);
 
         try {
+            console.log('Submitting formData:', formData); // Debug
             const response = await apiService.createStockEntry(formData);
             if (response.status === 'success') {
                 toast.success('Stock entry created successfully');
@@ -124,12 +180,17 @@ const StockEntryModal = ({ onClose, onSuccess, importBatches = [] }) => {
             }
         } catch (error) {
             const errorMessage = error.response?.data?.message || 'Failed to create stock entry';
+            console.error('Error creating stock entry:', error); // Debug
             toast.error(errorMessage);
         } finally {
             setLoading(false);
         }
     };
 
+    /**
+     * Handle form input changes.
+     * @param {Event} e - Input change event
+     */
     const handleChange = (e) => {
         const { name, value, type } = e.target;
         
@@ -138,61 +199,79 @@ const StockEntryModal = ({ onClose, onSuccess, importBatches = [] }) => {
             [name]: type === 'number' ? parseInt(value) || 0 : value
         }));
 
-        // Clear content selection when content type changes
         if (name === 'contents_type') {
             setFormData(prev => ({
                 ...prev,
-                content_id: '',
+                contents_id: '',
                 content_name: ''
             }));
             setSearchTerm('');
         }
     };
 
+    /**
+     * Handle item selection from the dropdown.
+     * @param {Object} item - Selected product or component
+     */
     const handleItemSelect = (item) => {
         const contentIdField = formData.contents_type === 'product' ? 'product_id' : 'component_id';
-        
+        console.log('Selected item:', item, 'contentIdField:', contentIdField); // Debug
         setFormData(prev => ({
             ...prev,
-            content_id: item[contentIdField],
+            contents_id: item[contentIdField],
             content_name: item.name
         }));
         setSearchTerm(item.name);
         setShowDropdown(false);
     };
 
+    /**
+     * Handle search input changes for products/components.
+     * @param {Event} e - Input change event
+     */
     const handleSearchChange = (e) => {
         setSearchTerm(e.target.value);
         setShowDropdown(true);
 
-        // Clear content_id if search term is empty or doesn't match selected item
         if (e.target.value.trim() === '' || 
-            (formData.content_id && !getCurrentItems().find(item => {
+            (formData.contents_id && !getCurrentItems().find(item => {
                 const idField = formData.contents_type === 'product' ? 'product_id' : 'component_id';
-                return item[idField] === formData.content_id && item.name.includes(e.target.value);
+                return item[idField] === formData.contents_id && item.name.includes(e.target.value);
             }))) {
             setFormData(prev => ({
                 ...prev,
-                content_id: ''
+                contents_id: ''
             }));
         }
     };
 
+    /**
+     * Handle dropdown blur to close it after a delay.
+     */
     const handleDropdownBlur = () => {
         setTimeout(() => {
             setShowDropdown(false);
         }, 200);
     };
 
+    /**
+     * Get the display name of the selected item.
+     * @returns {string} Selected item name or search term
+     */
     const getSelectedItemName = () => {
-        if (!formData.content_id) return searchTerm;
+        if (!formData.contents_id) return searchTerm;
         const selectedItem = getCurrentItems().find(item => {
             const idField = formData.contents_type === 'product' ? 'product_id' : 'component_id';
-            return item[idField] === formData.content_id;
+            return item[idField] === formData.contents_id;
         });
         return selectedItem ? selectedItem.name : searchTerm;
     };
 
+    /**
+     * Render item details for the dropdown.
+     * @param {Object} item - Product or component
+     * @returns {JSX.Element} Item display
+     */
     const getItemDisplay = (item) => {
         const idField = formData.contents_type === 'product' ? 'product_id' : 'component_id';
         return (
@@ -215,7 +294,6 @@ const StockEntryModal = ({ onClose, onSuccess, importBatches = [] }) => {
                     <h3 className="text-lg font-semibold">Add New Stock Entry</h3>
                 </div>
                 <form onSubmit={handleSubmit} className="p-6 space-y-4">
-                    {/* Content Type Selection */}
                     <div>
                         <label htmlFor="contents_type" className="block text-sm font-medium text-gray-700">
                             Content Type
@@ -232,7 +310,6 @@ const StockEntryModal = ({ onClose, onSuccess, importBatches = [] }) => {
                         </select>
                     </div>
 
-                    {/* Item Search Dropdown */}
                     <div className="relative">
                         <label htmlFor="item_search" className="block text-sm font-medium text-gray-700">
                             {formData.contents_type === 'product' ? 'Product' : 'Component'}
@@ -251,7 +328,6 @@ const StockEntryModal = ({ onClose, onSuccess, importBatches = [] }) => {
                             />
                         </div>
 
-                        {/* Dropdown List */}
                         {showDropdown && (
                             <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto">
                                 {itemsLoading ? (
@@ -264,7 +340,7 @@ const StockEntryModal = ({ onClose, onSuccess, importBatches = [] }) => {
                                             key={formData.contents_type === 'product' ? item.product_id : item.component_id}
                                             onClick={() => handleItemSelect(item)}
                                             className={`px-4 py-2 cursor-pointer hover:bg-blue-50 ${
-                                                formData.content_id === (formData.contents_type === 'product' ? item.product_id : item.component_id) 
+                                                formData.contents_id === (formData.contents_type === 'product' ? item.product_id : item.component_id) 
                                                     ? 'bg-blue-100' 
                                                     : ''
                                             }`}
@@ -276,17 +352,15 @@ const StockEntryModal = ({ onClose, onSuccess, importBatches = [] }) => {
                             </div>
                         )}
 
-                        {/* Hidden input for form submission */}
                         <input
                             type="hidden"
-                            name="content_id"
-                            value={formData.content_id}
+                            name="contents_id"
+                            value={formData.contents_id}
                             required
                         />
                     </div>
 
-                    {/* Selected Item Info */}
-                    {formData.content_id && (
+                    {formData.contents_id && (
                         <div className="bg-green-50 border border-green-200 rounded-md p-3">
                             <div className="text-sm text-green-800">
                                 <strong>Selected:</strong> {getSelectedItemName()}
@@ -294,7 +368,6 @@ const StockEntryModal = ({ onClose, onSuccess, importBatches = [] }) => {
                         </div>
                     )}
 
-                    {/* Import Batch Selection */}
                     <div>
                         <label htmlFor="batch_id" className="block text-sm font-medium text-gray-700">
                             Import Batch
@@ -308,15 +381,20 @@ const StockEntryModal = ({ onClose, onSuccess, importBatches = [] }) => {
                             required
                         >
                             <option value="">Select an import batch</option>
-                            {importBatches.map((batch) => (
-                                <option key={batch.batch_id} value={batch.batch_id}>
-                                    {batch.batch_number} - {batch.supplier_name || 'Unknown Supplier'}
-                                </option>
-                            ))}
+                            {importBatches.map((batch) => {
+                                const supplierName = suppliers[batch.supplier_id] || 'Unknown Supplier';
+                                if (!suppliers[batch.supplier_id]) {
+                                    console.warn(`No supplier found for supplier_id: ${batch.supplier_id}`);
+                                }
+                                return (
+                                    <option key={batch.batch_id} value={batch.batch_id}>
+                                        {batch.batch_number} - {supplierName}
+                                    </option>
+                                );
+                            })}
                         </select>
                     </div>
 
-                    {/* Quantity and Boxes */}
                     <div className="grid grid-cols-2 gap-4">
                         <div>
                             <label htmlFor="quantity_in_box" className="block text-sm font-medium text-gray-700">
@@ -351,7 +429,6 @@ const StockEntryModal = ({ onClose, onSuccess, importBatches = [] }) => {
                         </div>
                     </div>
 
-                    {/* Status */}
                     <div>
                         <label htmlFor="status" className="block text-sm font-medium text-gray-700">
                             Status
@@ -370,7 +447,6 @@ const StockEntryModal = ({ onClose, onSuccess, importBatches = [] }) => {
                         </select>
                     </div>
 
-                    {/* Location and Shelf */}
                     <div className="grid grid-cols-2 gap-4">
                         <div>
                             <label htmlFor="location_id" className="block text-sm font-medium text-gray-700">
@@ -385,7 +461,7 @@ const StockEntryModal = ({ onClose, onSuccess, importBatches = [] }) => {
                             >
                                 <option value="">Select location</option>
                                 {locations.map((location) => (
-                                    <option key={location.location_id} value={location.location_id}>
+                                    <option key={location.id} value={location.id}>
                                         {location.name}
                                     </option>
                                 ))}
@@ -408,7 +484,6 @@ const StockEntryModal = ({ onClose, onSuccess, importBatches = [] }) => {
                         </div>
                     </div>
 
-                    {/* Summary */}
                     {formData.boxes_count > 0 && formData.quantity_in_box > 0 && (
                         <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
                             <div className="text-sm text-blue-800">
@@ -429,7 +504,7 @@ const StockEntryModal = ({ onClose, onSuccess, importBatches = [] }) => {
                         </button>
                         <button
                             type="submit"
-                            disabled={loading || !formData.content_id || !formData.batch_id || !formData.boxes_count}
+                            disabled={loading || !formData.contents_id || !formData.batch_id || !formData.boxes_count}
                             className="px-4 py-2 bg-[#b88b1b] text-white rounded-md transition-all hover:bg-[#b88b1b] disabled:opacity-50"
                         >
                             {loading ? 'Creating...' : 'Create Stock Entry'}

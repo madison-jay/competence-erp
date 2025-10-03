@@ -350,6 +350,11 @@ const apiService = {
         return callApi(`/stocks/${stockId}`, "DELETE", null, router);
     },
 
+    // Stock Locations API
+    getStockByLocation: async (locationId, router) => {
+        return callApi(`/stocks/locations/${locationId}`, "GET", null, router);
+    },
+
     // Customer APIs
     getCustomers: async (router) => {
         return callApi("/customers", "GET", null, router);
