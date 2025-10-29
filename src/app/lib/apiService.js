@@ -206,8 +206,36 @@ const apiService = {
         return callApi(`/shift_types/${shiftId}`, "GET", null, router);
     },
 
+    createShift: async (shiftData, router) => {
+        return callApi("/shift_types", "POST", shiftData, router);
+    },
+
     updateShift: async (shiftId, shiftData, router) => {
         return callApi(`/shift_types/${shiftId}`, "PUT", shiftData, router);
+    },
+
+    deleteShift: async (shiftId, router) => {
+        return callApi(`/shift_types/${shiftId}`, "DELETE", null, router);
+    },
+
+    getEmployeeShiftSchedules: async (employeeId, router) => {
+        return callApi(`/shift_schedules/employees/${employeeId}`, "GET", null, router);
+    },
+
+    getCurrentShiftSchedules: async (router) => {
+        return callApi("/shift_schedules", "GET", null, router);
+    },
+
+    createShiftSchedule: async (scheduleData, router) => {
+        return callApi("/shift_schedules", "POST", scheduleData, router);
+    },
+
+    updateShiftSchedule: async (scheduleId, scheduleData, router) => {
+        return callApi(`/shift_schedules/${scheduleId}`, "PUT", scheduleData, router);
+    },
+
+    deleteShiftSchedule: async (scheduleId, router) => {
+        return callApi(`/shift_schedules/${scheduleId}`, "DELETE", null, router);
     },
 
     // payment APIs

@@ -9,17 +9,12 @@ const ViewShiftModal = ({ isOpen, onClose, shift }) => {
     if (!isOpen || !shift) return null;
 
     const formatTimeWithAmPm = (timeString) => {
-        if (!timeString || timeString === 'N/A' || timeString.includes('undefined')) return 'N/A';
+        if (!timeString || timeString === 'N/A') return 'N/A';
         try {
-            const [hours, minutes] = timeString.split(':');
-            const hourNum = parseInt(hours, 10);
-            
-            // Check if hours is a valid number
-            if (isNaN(hourNum)) return 'N/A';
-            
-            const period = hourNum >= 12 ? 'PM' : 'AM';
-            const displayHour = hourNum % 12 || 12;
-            return `${displayHour}:${minutes || '00'} ${period}`;
+            const [hours, minutes] = timeString.split(':').map(Number);
+            const period = hours >= 12 ? 'PM' : 'AM';
+            const displayHour = hours % 12 || 12;
+            return `${displayHour}:${minutes.toString().padStart(2, '0')} ${period}`;
         } catch {
             return 'N/A';
         }
@@ -30,23 +25,23 @@ const ViewShiftModal = ({ isOpen, onClose, shift }) => {
         let textColorClass = '';
         let borderColorClass = 'border-2';
 
-        switch (shiftType) {
-            case 'Morning':
+        switch (shiftType?.toLowerCase()) {
+            case 'morning':
                 bgColorClass = 'bg-green-50';
                 textColorClass = 'text-green-700';
                 borderColorClass += ' border-green-300';
                 break;
-            case 'Afternoon':
+            case 'afternoon':
                 bgColorClass = 'bg-yellow-50';
                 textColorClass = 'text-yellow-700';
                 borderColorClass += ' border-yellow-300';
                 break;
-            case 'Night':
+            case 'night':
                 bgColorClass = 'bg-blue-50';
                 textColorClass = 'text-blue-700';
                 borderColorClass += ' border-blue-300';
                 break;
-            case 'Unassigned':
+            case 'unassigned':
             default:
                 bgColorClass = 'bg-gray-50';
                 textColorClass = 'text-gray-700';
@@ -57,7 +52,7 @@ const ViewShiftModal = ({ isOpen, onClose, shift }) => {
             <span
                 className={`inline-flex items-center px-4 py-1 rounded-full text-sm font-medium ${bgColorClass} ${textColorClass} ${borderColorClass}`}
             >
-                {shiftType}
+                {shiftType || 'Unassigned'}
             </span>
         );
     };
@@ -90,19 +85,21 @@ const ViewShiftModal = ({ isOpen, onClose, shift }) => {
                 </div>
 
                 <div className="space-y-6">
-                    <div className="">
+                    <div>
                         <p className="text-sm font-semibold text-[#b88b1b] uppercase mb-2 ml-2">Shift Type</p>
-                        {renderBadge(shift.shiftType || 'Unassigned')}
+                        {renderBadge(shift.shiftType)}
                     </div>
-                    
+
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-y-6 gap-x-8">
                         <div>
                             <p className="text-sm font-semibold text-[#b88b1b] uppercase">Department</p>
                             <p className="text-lg text-gray-900 font-medium mt-1">{shift.department || 'N/A'}</p>
                         </div>
                         <div>
-                            <p className="text-sm font-semibold text-[#b88b1b] uppercase">Date</p>
-                            <p className="text-lg text-gray-900 font-medium mt-1">{shift.date || 'N/A'}</p>
+                            <p className="text-sm font-semibold text-[#b88b1b] uppercase">Date Range</p>
+                            <p className="text-lg text-gray-900 font-medium mt-1">
+                                {shift.date && shift.endDate ? `${shift.date} - ${shift.endDate}` : 'N/A'}
+                            </p>
                         </div>
                         <div>
                             <p className="text-sm font-semibold text-[#b88b1b] uppercase">Start Time</p>
@@ -117,13 +114,6 @@ const ViewShiftModal = ({ isOpen, onClose, shift }) => {
                             </p>
                         </div>
                     </div>
-
-                    {shift.note && (
-                        <div>
-                            <p className="text-sm font-semibold text-[#b88b1b] uppercase">Note</p>
-                            <p className="text-lg text-gray-900 mt-1">{shift.note}</p>
-                        </div>
-                    )}
                 </div>
 
                 <div className="flex justify-end mt-8">

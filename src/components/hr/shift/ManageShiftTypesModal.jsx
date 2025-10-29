@@ -1,6 +1,8 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faTrash } from '@fortawesome/free-solid-svg-icons';
 
 const SHIFT_ORDER = ["Morning", "Afternoon", "Night"];
 
@@ -15,19 +17,23 @@ const sortShiftTypes = (shifts) => {
     });
 };
 
-export default function ManageShiftTypesModal({ isOpen, onClose, shiftTypes, onUpdateShiftType }) {
+export default function ManageShiftTypesModal({ isOpen, onClose, shiftTypes, onUpdateShiftType, onDeleteShiftType }) {
     const [editableShiftTypes, setEditableShiftTypes] = useState([]);
 
     useEffect(() => {
         if (isOpen && shiftTypes) {
             const sortedShifts = sortShiftTypes(shiftTypes);
-            setEditableShiftTypes(sortedShifts.map(type => ({ ...type })));
+            setEditableShiftTypes(sortedShifts.map(type => ({
+                ...type,
+                start_time: type.start_time || '00:00:00',
+                end_time: type.end_time || '00:00:00'
+            })));
         }
     }, [isOpen, shiftTypes]);
 
     if (!isOpen) return null;
 
-    const handleTimeChange = (id, field, value) => {
+    const handleInputChange = (id, field, value) => {
         setEditableShiftTypes(prevTypes => {
             const updatedTypes = prevTypes.map(type =>
                 type.id === id ? { ...type, [field]: value } : type
@@ -42,6 +48,12 @@ export default function ManageShiftTypesModal({ isOpen, onClose, shiftTypes, onU
             start_time: shiftTypeToSave.start_time,
             end_time: shiftTypeToSave.end_time,
         });
+    };
+
+    const handleDelete = async (shiftTypeId) => {
+        if (window.confirm("Are you sure you want to delete this shift type?")) {
+            await onDeleteShiftType(shiftTypeId);
+        }
     };
 
     return (
@@ -67,10 +79,10 @@ export default function ManageShiftTypesModal({ isOpen, onClose, shiftTypes, onU
                                         Shift Name
                                     </th>
                                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Start Time (HH:MM)
+                                        Start Time (HH:MM:SS)
                                     </th>
                                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        End Time (HH:MM)
+                                        End Time (HH:MM:SS)
                                     </th>
                                     <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                                         Actions
@@ -81,31 +93,46 @@ export default function ManageShiftTypesModal({ isOpen, onClose, shiftTypes, onU
                                 {editableShiftTypes.map(type => (
                                     <tr key={type.id}>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                                            {type.name}
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                             <input
-                                                type="time"
-                                                value={type.start_time || ''}
-                                                onChange={(e) => handleTimeChange(type.id, 'start_time', e.target.value)}
+                                                type="text"
+                                                value={type.name || ''}
+                                                onChange={(e) => handleInputChange(type.id, 'name', e.target.value)}
                                                 className="mt-1 block w-full px-3 py-2 border rounded-md border-gray-300 shadow-sm focus:outline-none focus:ring-[#b88b1b] focus:border-[#b88b1b] sm:text-sm text-black bg-white"
                                             />
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                             <input
                                                 type="time"
-                                                value={type.end_time || ''}
-                                                onChange={(e) => handleTimeChange(type.id, 'end_time', e.target.value)}
+                                                step="1"
+                                                value={type.start_time || '00:00:00'}
+                                                onChange={(e) => handleInputChange(type.id, 'start_time', e.target.value)}
+                                                className="mt-1 block w-full px-3 py-2 border rounded-md border-gray-300 shadow-sm focus:outline-none focus:ring-[#b88b1b] focus:border-[#b88b1b] sm:text-sm text-black bg-white"
+                                            />
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                            <input
+                                                type="time"
+                                                step="1"
+                                                value={type.end_time || '00:00:00'}
+                                                onChange={(e) => handleInputChange(type.id, 'end_time', e.target.value)}
                                                 className="mt-1 block w-full px-3 py-2 border rounded-md border-gray-300 shadow-sm focus:outline-none focus:ring-[#b88b1b] focus:border-[#b88b1b] sm:text-sm text-black bg-white"
                                             />
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                            <button
-                                                onClick={() => handleSave(type)}
-                                                className="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-[#b88b1b] hover:bg-[#a67c18] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#b88b1b]"
-                                            >
-                                                Save
-                                            </button>
+                                            <div className="flex space-x-2 justify-end">
+                                                <button
+                                                    onClick={() => handleSave(type)}
+                                                    className="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-[#b88b1b] hover:bg-[#a67c18] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#b88b1b]"
+                                                >
+                                                    Save
+                                                </button>
+                                                <button
+                                                    onClick={() => handleDelete(type.id)}
+                                                    className="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                                                >
+                                                    <FontAwesomeIcon icon={faTrash} />
+                                                </button>
+                                            </div>
                                         </td>
                                     </tr>
                                 ))}

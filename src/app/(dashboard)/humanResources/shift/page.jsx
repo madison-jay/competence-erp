@@ -5,18 +5,13 @@ import ShiftCard from "@/components/hr/shift/ShiftCard";
 import ViewShiftModal from "@/components/hr/shift/ViewShiftModal";
 import UpdateShiftModal from "@/components/hr/shift/UpdateShiftModal";
 import ManageShiftTypesModal from "@/components/hr/shift/ManageShiftTypesModal";
+import CreateShiftTypeModal from "@/components/hr/shift/CreateShiftTypeModal"; // New component
 import ShiftTable from "@/components/hr/shift/ShiftTable";
 import apiService from "@/app/lib/apiService";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { 
-    faMagnifyingGlass,
-    faQuestionCircle,
-    faSun,
-    faCloudSun,
-    faMoon
-} from '@fortawesome/free-solid-svg-icons';
+import { faMagnifyingGlass, faQuestionCircle, faSun, faCloudSun, faMoon } from '@fortawesome/free-solid-svg-icons';
 
 export default function ShiftPage() {
     const router = useRouter();
@@ -24,6 +19,7 @@ export default function ShiftPage() {
     const [searchTerm, setSearchTerm] = useState('');
     const [isAssignShiftModalOpen, setIsAssignShiftModalOpen] = useState(false);
     const [isManageShiftTypesModalOpen, setIsManageShiftTypesModalOpen] = useState(false);
+    const [isCreateShiftTypeModalOpen, setIsCreateShiftTypeModalOpen] = useState(false); // New state
     const [selectedShift, setSelectedShift] = useState(null);
     const [isViewShiftModalOpen, setIsViewShiftModalOpen] = useState(false);
     const [allAssignedShifts, setAllAssignedShifts] = useState([]);
@@ -57,37 +53,32 @@ export default function ShiftPage() {
         setLoading(true);
         setError(null);
         try {
-            const employeesData = await apiService.getEmployees(router);
-            const todayFormatted = new Date().toLocaleDateString('en-US');
-
-            // Filter out terminated employees before processing, using case-insensitive comparison
-            const activeEmployees = employeesData.filter(
-                employee => employee.employment_status?.toLowerCase() !== 'terminated'
-            );
-
-            const transformedAssignedShifts = activeEmployees.map(employee => ({
-                id: employee.id,
+            const shiftSchedules = await apiService.getCurrentShiftSchedules(router);
+            const transformedAssignedShifts = shiftSchedules.map(schedule => ({
+                id: schedule.id,
                 employee: {
-                    name: `${employee.first_name || ''} ${employee.last_name || ''}`.trim(),
-                    email: employee.email || 'N/A',
-                    avatar: employee.avatar_url || '/default-profile.png',
-                    first_name: employee.first_name,
-                    last_name: employee.last_name
+                    id: schedule.employee?.id || 'N/A',
+                    name: `${schedule.employee?.first_name || ''} ${schedule.employee?.last_name || ''}`.trim() || 'N/A',
+                    email: schedule.employee?.email || 'N/A',
+                    avatar: schedule.employee?.avatar_url || '/default-profile.png',
+                    first_name: schedule.employee?.first_name || '',
+                    last_name: schedule.employee?.last_name || ''
                 },
-                department: employee.departments?.name || 'N/A',
-                shiftType: employee.shift_types?.name || 'Unassigned',
-                shiftTypeId: employee.shift_types?.id || null,
-                date: todayFormatted,
-                startTime: employee.shift_types?.start_time ? employee.shift_types.start_time.substring(0, 5) : 'N/A',
-                endTime: employee.shift_types?.end_time ? employee.shift_types.end_time.substring(0, 5) : 'N/A',
-                originalEmployeeData: employee,
+                department: schedule.employee?.departments?.name || 'N/A',
+                shiftType: schedule.shift_types?.name || 'Unassigned',
+                shiftTypeId: schedule.shift_type_id || null,
+                date: schedule.start_date ? new Date(schedule.start_date).toLocaleDateString('en-US') : 'N/A',
+                endDate: schedule.end_date ? new Date(schedule.end_date).toLocaleDateString('en-US') : 'N/A',
+                startTime: schedule.shift_types?.start_time?.substring(0, 5) || 'N/A',
+                endTime: schedule.shift_types?.end_time?.substring(0, 5) || 'N/A',
+                originalScheduleData: schedule
             }));
 
             setAllAssignedShifts(transformedAssignedShifts);
         } catch (err) {
-            console.error("Failed to fetch employee shifts:", err);
-            setError(err.message || "Failed to load employee shifts.");
-            toast.error(err.message || "Failed to load employee shifts.");
+            console.error("Failed to fetch shift schedules:", err);
+            setError(err.message || "Failed to load shift schedules.");
+            toast.error(err.message || "Failed to load shift schedules.");
         } finally {
             setLoading(false);
         }
@@ -106,27 +97,52 @@ export default function ShiftPage() {
     useEffect(() => {
         fetchAssignedShifts();
         fetchShiftTypes();
-    }, [router, fetchAssignedShifts]);
+    }, [fetchAssignedShifts, router]);
 
     const handleSearchChange = (e) => {
         setSearchTerm(e.target.value);
     };
 
-    const handleUpdateEmployeeShift = async (assignmentData) => {
+    const handleUpdateShiftSchedule = async (assignmentData) => {
         try {
-            const { employeeId, shiftTypeId } = assignmentData;
-            const updatedEmployeeData = {
-                shift_id: shiftTypeId === "unassign" ? null : shiftTypeId
-            };
-
-            await apiService.updateEmployee(employeeId, updatedEmployeeData, router);
-            toast.success("Employee shift updated successfully!");
+            const { scheduleId, shiftTypeId, startDate, endDate } = assignmentData;
+            if (scheduleId) {
+                const updatedScheduleData = {
+                    shift_type_id: shiftTypeId === "unassign" ? null : shiftTypeId,
+                    start_date: startDate,
+                    end_date: endDate
+                };
+                await apiService.updateShiftSchedule(scheduleId, updatedScheduleData, router);
+                toast.success("Shift schedule updated successfully!");
+            } else {
+                const newScheduleData = {
+                    employee_id: assignmentData.employeeId,
+                    shift_type_id: shiftTypeId,
+                    start_date: startDate,
+                    end_date: endDate
+                };
+                await apiService.createShiftSchedule(newScheduleData, router);
+                toast.success("Shift schedule assigned successfully!");
+            }
             setIsAssignShiftModalOpen(false);
             setEmployeeToUpdateShift(null);
             fetchAssignedShifts();
         } catch (err) {
-            console.error("Error updating employee shift:", err);
-            toast.error(err.message || "Failed to update employee shift.");
+            console.error("Error updating shift schedule:", err);
+            toast.error(err.message || "Failed to update shift schedule.");
+        }
+    };
+
+    const handleCreateShiftType = async (shiftTypeData) => {
+        try {
+            await apiService.createShift(router, shiftTypeData);
+            toast.success("Shift type created successfully!");
+            setIsCreateShiftTypeModalOpen(false);
+            fetchShiftTypes();
+            fetchAssignedShifts();
+        } catch (err) {
+            console.error("Error creating shift type:", err);
+            toast.error(err.message || "Failed to create shift type.");
         }
     };
 
@@ -152,7 +168,7 @@ export default function ShiftPage() {
             </div>
             <input
                 type="text"
-                className="block w-full rounded-md border-0 py-1.5 pl-10 pr-3 text-gray-900placeholder:text-gray-400 focus:ring-2 focus:ring-[#b88b1b] sm:text-sm sm:leading-6 focus:border-0"
+                className="block w-full rounded-md border-0 py-1.5 pl-10 pr-3 text-gray-900 placeholder:text-gray-400 focus:ring-2 focus:ring-[#b88b1b] sm:text-sm sm:leading-6 focus:border-0"
                 placeholder="Search shifts..."
                 value={searchTerm}
                 onChange={handleSearchChange}
@@ -170,7 +186,6 @@ export default function ShiftPage() {
         );
     });
 
-    // Calculate the count of unassigned shifts based on the filtered data
     const unassignedCount = allAssignedShifts.filter(s => s.shiftType === 'Unassigned').length;
 
     return (
@@ -186,7 +201,6 @@ export default function ShiftPage() {
             </div>
 
             <div className="flex flex-wrap gap-4 items-center justify-between mb-14">
-                {/* 'Unassigned Shifts' */}
                 <ShiftCard 
                     title="Unassigned Shifts" 
                     count={unassignedCount} 
@@ -195,8 +209,6 @@ export default function ShiftPage() {
                     bgColor="bg-red-50"
                     textColor="text-red-700"
                 />
-                
-                {/* Morning Shifts Card */}
                 <ShiftCard 
                     title="Morning Shifts" 
                     count={allAssignedShifts.filter(s => s.shiftType === 'Morning').length} 
@@ -205,8 +217,6 @@ export default function ShiftPage() {
                     bgColor="bg-yellow-50"
                     textColor="text-yellow-700"
                 />
-                
-                {/* Afternoon Shifts Card */}
                 <ShiftCard 
                     title="Afternoon Shifts" 
                     count={allAssignedShifts.filter(s => s.shiftType === 'Afternoon').length} 
@@ -215,8 +225,6 @@ export default function ShiftPage() {
                     bgColor="bg-blue-50"
                     textColor="text-blue-700"
                 />
-                
-                {/* Night Shifts Card */}
                 <ShiftCard 
                     title="Night Shifts" 
                     count={allAssignedShifts.filter(s => s.shiftType === 'Night').length} 
@@ -228,9 +236,15 @@ export default function ShiftPage() {
             </div>
 
             <div className="flex flex-col md:flex-row items-center justify-between p-4 md:p-6 bg-white border-b border-gray-200 rounded-t-lg">
-                <h1 className="text-2xl font-semibold text-gray-900 mb-4 md:mb-0">Shift List</h1>
+                <h1 className="text-2xl font-semibold text-gray-900 mb-4 md:mb-0">Shift Schedules</h1>
                 <div className="flex flex-col md:flex-row items-center space-y-4 md:space-y-0 md:space-x-4 w-full md:w-auto">
                     {renderSearchBar()}
+                    <button
+                        onClick={() => setIsCreateShiftTypeModalOpen(true)}
+                        className="whitespace-nowrap px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-[#b88b1b] hover:bg-[#a67c18] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#b88b1b] w-full md:w-auto"
+                    >
+                        Create Shift Type
+                    </button>
                     <button
                         onClick={() => setIsManageShiftTypesModalOpen(true)}
                         className="whitespace-nowrap px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-[#b88b1b] hover:bg-[#a67c18] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#b88b1b] w-full md:w-auto"
@@ -247,8 +261,8 @@ export default function ShiftPage() {
                         setSelectedShift(shift);
                         setIsViewShiftModalOpen(true);
                     }}
-                    onOpenUpdateShiftModal={(employeeData) => {
-                        setEmployeeToUpdateShift(employeeData);
+                    onOpenUpdateShiftModal={(shift) => {
+                        setEmployeeToUpdateShift(shift);
                         setIsAssignShiftModalOpen(true);
                     }}
                     loading={loading}
@@ -262,9 +276,9 @@ export default function ShiftPage() {
                     setIsAssignShiftModalOpen(false);
                     setEmployeeToUpdateShift(null);
                 }}
-                onAssignShift={handleUpdateEmployeeShift}
+                onAssignShift={handleUpdateShiftSchedule}
                 shiftTypes={shiftTypes}
-                employee={employeeToUpdateShift?.originalEmployeeData || employeeToUpdateShift}
+                employee={employeeToUpdateShift}
             />
 
             <ViewShiftModal
@@ -278,6 +292,23 @@ export default function ShiftPage() {
                 onClose={() => setIsManageShiftTypesModalOpen(false)}
                 shiftTypes={shiftTypes}
                 onUpdateShiftType={handleUpdateShiftType}
+                onDeleteShiftType={async (shiftTypeId) => {
+                    try {
+                        await apiService.deleteShift(shiftTypeId, router);
+                        toast.success("Shift type deleted successfully!");
+                        fetchShiftTypes();
+                        fetchAssignedShifts();
+                    } catch (err) {
+                        console.error("Error deleting shift type:", err);
+                        toast.error(err.message || "Failed to delete shift type.");
+                    }
+                }}
+            />
+
+            <CreateShiftTypeModal
+                isOpen={isCreateShiftTypeModalOpen}
+                onClose={() => setIsCreateShiftTypeModalOpen(false)}
+                onCreateShiftType={handleCreateShiftType}
             />
         </div>
     );

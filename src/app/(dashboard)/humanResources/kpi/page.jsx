@@ -3,6 +3,9 @@
 import React, { useState, useEffect } from 'react';
 import apiService from '@/app/lib/apiService';
 import { useRouter } from 'next/navigation';
+import KPITemplatesTable from '@/components/kpi/KpiTemplateTable';
+import RoleAssignmentsTable from '@/components/kpi/RoleAssignmentTable';
+import EmployeeAssignmentsTable from '@/components/kpi/EmployeeAssignmentTable';
 
 const KPIDashboard = () => {
   const router = useRouter();
@@ -11,23 +14,18 @@ const KPIDashboard = () => {
   const [employeeAssignments, setEmployeeAssignments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [activeTab, setActiveTab] = useState('KPI Templates');
+  const [currentDateTime, setCurrentDateTime] = useState('');
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // Fetch KPI Templates
         const templates = await apiService.getKPITemplates(router);
         setKpiTemplates(templates || []);
-
-        // Fetch Role Assignments (direct Supabase via apiService)
         const roles = await apiService.getKPIRoleAssignments();
         setRoleAssignments(roles || []);
-
-        // Fetch Employee Assignments (direct Supabase; use getEmployeeKPIAssignments for all, or getMyEmployeeKPIAssignments for user-specific)
-        // Assuming HR view, so all assignments
         const employees = await apiService.getEmployeeKPIAssignments();
         setEmployeeAssignments(employees || []);
-
         setLoading(false);
       } catch (err) {
         setError(err.message);
@@ -38,109 +36,68 @@ const KPIDashboard = () => {
     fetchData();
   }, [router]);
 
-  if (loading) {
-    return <div>Loading KPI data...</div>;
-  }
+  useEffect(() => {
+    const updateDateTime = () => {
+      const now = new Date();
+      const options = {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: true,
+      };
+      setCurrentDateTime(now.toLocaleString('en-US', options));
+    };
 
-  if (error) {
-    return <div>Error: {error}</div>;
-  }
+    updateDateTime();
+    const intervalId = setInterval(updateDateTime, 1000);
+    return () => clearInterval(intervalId);
+  }, []);
+
+  const tabs = [
+    { name: 'KPI Templates', content: <KPITemplatesTable kpiTemplates={kpiTemplates} loading={loading} /> },
+    { name: 'Role Assignments', content: <RoleAssignmentsTable roleAssignments={roleAssignments} kpiTemplates={kpiTemplates} loading={loading} /> },
+    { name: 'Employee Assignments', content: <EmployeeAssignmentsTable employeeAssignments={employeeAssignments} loading={loading} /> },
+  ];
 
   return (
-    <div className="kpi-dashboard">
-      <h1>HR KPI Dashboard</h1>
-
-      <section>
-        <h2>KPI Templates</h2>
-        <table>
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>Title</th>
-              <th>Description</th>
-              <th>Weight</th>
-              <th>Target Type</th>
-              <th>Target Value</th>
-              <th>Active</th>
-            </tr>
-          </thead>
-          <tbody>
-            {kpiTemplates.map((template) => (
-              <tr key={template.kpi_id}>
-                <td>{template.kpi_id}</td>
-                <td>{template.title}</td>
-                <td>{template.description || 'N/A'}</td>
-                <td>{template.weight}</td>
-                <td>{template.target_type}</td>
-                <td>{JSON.stringify(template.target_value)}</td>
-                <td>{template.active ? 'Yes' : 'No'}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </section>
-
-      <section>
-        <h2>KPI Role Assignments</h2>
-        <table>
-          <thead>
-            <tr>
-              <th>Assignment ID</th>
-              <th>KPI ID</th>
-              <th>Role</th>
-              <th>Department ID</th>
-              <th>Created At</th>
-            </tr>
-          </thead>
-          <tbody>
-            {roleAssignments.map((assignment) => (
-              <tr key={assignment.assignment_id}>
-                <td>{assignment.assignment_id}</td>
-                <td>{assignment.kpi_id}</td>
-                <td>{assignment.role || 'N/A'}</td>
-                <td>{assignment.department_id || 'N/A'}</td>
-                <td>{assignment.created_at}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </section>
-
-      <section>
-        <h2>Employee KPI Assignments</h2>
-        <table>
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>KPI ID</th>
-              <th>Employee ID</th>
-              <th>Period Start</th>
-              <th>Period End</th>
-              <th>Target Value</th>
-              <th>Status</th>
-              <th>Submitted Value</th>
-              <th>Evidence URL</th>
-              <th>Reviewed By</th>
-            </tr>
-          </thead>
-          <tbody>
-            {employeeAssignments.map((assignment) => (
-              <tr key={assignment.id}>
-                <td>{assignment.id}</td>
-                <td>{assignment.kpi_id}</td>
-                <td>{assignment.employee_id}</td>
-                <td>{assignment.period_start}</td>
-                <td>{assignment.period_end}</td>
-                <td>{JSON.stringify(assignment.target_value)}</td>
-                <td>{assignment.status}</td>
-                <td>{JSON.stringify(assignment.submitted_value) || 'N/A'}</td>
-                <td>{assignment.evidence_url || 'N/A'}</td>
-                <td>{assignment.reviewed_by || 'N/A'}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </section>
+    <div className="">
+      <div className="flex justify-between items-center mt-5 mb-14 flex-wrap gap-4">
+        <div>
+          <h1 className="text-2xl font-bold">HR KPI Dashboard</h1>
+          <p className="text-gray-500 font-medium mt-2">Manage KPI templates, role assignments, and employee assignments</p>
+        </div>
+        <span className="rounded-[20px] px-3 py-2 border border-gray-300 text-gray-500">
+          {currentDateTime}
+        </span>
+      </div>
+      <div className="border-b border-gray-200">
+        <nav className="-mb-px flex space-x-8 overflow-y-auto">
+          {tabs.map((tab) => (
+            <button
+              key={tab.name}
+              onClick={() => setActiveTab(tab.name)}
+              className={`${
+                activeTab === tab.name
+                  ? 'border-[#b88b1b] text-[#b88b1b]'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
+            >
+              {tab.name}
+            </button>
+          ))}
+        </nav>
+      </div>
+      <div className="mt-4">
+        {error ? (
+          <div className="text-center py-10 text-red-500">Error: {error}</div>
+        ) : (
+          tabs.find((tab) => tab.name === activeTab)?.content
+        )}
+      </div>
     </div>
   );
 };

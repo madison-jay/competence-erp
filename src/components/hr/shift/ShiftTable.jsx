@@ -49,13 +49,11 @@ const ShiftTable = ({ shifts = [], onViewShift, onOpenUpdateShiftModal, loading,
     const formatTimeWithAmPm = (timeString) => {
         if (!timeString || timeString === 'N/A') return 'N/A';
         
-        const [hours, minutes] = timeString.split(':');
-        const hourNum = parseInt(hours, 10);
+        const [hours, minutes] = timeString.split(':').map(Number);
+        const period = hours >= 12 ? 'PM' : 'AM';
+        const displayHour = hours % 12 || 12;
         
-        const period = hourNum >= 12 ? 'PM' : 'AM';
-        const displayHour = hourNum % 12 || 12;
-        
-        return `${displayHour}:${minutes} ${period}`;
+        return `${displayHour}:${minutes.toString().padStart(2, '0')} ${period}`;
     };
 
     const getShiftTypeColorClasses = (shiftType) => {
@@ -77,14 +75,12 @@ const ShiftTable = ({ shifts = [], onViewShift, onOpenUpdateShiftModal, loading,
         return 'pr-3 border-gray-300 bg-gray-50 text-gray-700';
     };
 
-    // Sort shifts in descending order based on number of hours
     const sortedShifts = [...shifts].sort((a, b) => {
         const hoursA = calculateTotalMinutes(a);
         const hoursB = calculateTotalMinutes(b);
         return hoursB - hoursA;
     });
 
-    // Loading skeleton component
     const LoadingSkeletonRow = () => (
         <tr className="animate-pulse">
             <td className="px-6 py-4 whitespace-nowrap">
@@ -123,7 +119,7 @@ const ShiftTable = ({ shifts = [], onViewShift, onOpenUpdateShiftModal, loading,
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Employee</th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Department</th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Shift Type</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Time</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date Range</th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">No. of Hours</th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                         </tr>
@@ -148,7 +144,7 @@ const ShiftTable = ({ shifts = [], onViewShift, onOpenUpdateShiftModal, loading,
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Employee</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Department</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Shift Type</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Time</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date Range</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">No. of Hours</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                     </tr>
@@ -161,17 +157,16 @@ const ShiftTable = ({ shifts = [], onViewShift, onOpenUpdateShiftModal, loading,
                     ) : !sortedShifts || sortedShifts.length === 0 ? (
                         <tr>
                             <td colSpan="6" className="px-6 py-8 text-center text-gray-500">
-                                No shifts found
+                                No shift schedules found
                             </td>
                         </tr>
                     ) : (
                         sortedShifts.map((shift) => {
                             const startTimeFormatted = formatTimeWithAmPm(shift.startTime);
                             const endTimeFormatted = formatTimeWithAmPm(shift.endTime);
-                            const timeDisplay = shift.startTime && shift.endTime 
-                                ? `${startTimeFormatted} - ${endTimeFormatted}` 
+                            const dateRange = shift.date && shift.endDate 
+                                ? `${shift.date} - ${shift.endDate}` 
                                 : 'N/A';
-                            
                             const shiftTypeClass = getShiftTypeColorClasses(shift.shiftType);
                             const numberOfHours = calculateHours(shift.startTime, shift.endTime);
 
@@ -205,7 +200,7 @@ const ShiftTable = ({ shifts = [], onViewShift, onOpenUpdateShiftModal, loading,
                                         </span>
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                        {timeDisplay}
+                                        {dateRange}
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                         {numberOfHours}
