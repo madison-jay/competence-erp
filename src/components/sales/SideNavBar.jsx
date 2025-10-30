@@ -10,13 +10,15 @@ import {
     faUsers,
     faClipboardList,
     faBoxOpen,
-    faArrowRightFromBracket
+    faArrowRightFromBracket,
+    faUserGroup
 } from '@fortawesome/free-solid-svg-icons';
 import { usePathname } from 'next/navigation';
 import Image from "next/image";
 import { createClient } from "@/app/lib/supabase/client";
 import toast from "react-hot-toast";
 import { useRouter } from "next/navigation";
+import { faSalesforce } from "@fortawesome/free-brands-svg-icons";
 
 export default function SideNavBar({ isMobileMenuOpen, onCloseMobileMenu, isDesktopSidebarExpanded, toggleDesktopSidebar }) {
     const pathname = usePathname();
@@ -43,6 +45,7 @@ export default function SideNavBar({ isMobileMenuOpen, onCloseMobileMenu, isDesk
         { name: "Customers", icon: faUsers, path: "/sales/customers" },
         { name: "Orders", icon: faClipboardList, path: "/sales/orders" },
         { name: "Stocks", icon: faBoxOpen, path: "/sales/stocks" },
+        { name: "Employees", icon: faUserGroup, path: "/sales/employees" },
     ];
 
     const handleLogout = async () => {
