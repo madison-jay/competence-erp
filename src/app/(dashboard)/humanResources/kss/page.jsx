@@ -1,21 +1,23 @@
-"use client"
+// app/kss/page.jsx
+"use client";
 
-import React, { useState, useEffect } from 'react';
-import apiService from '@/app/lib/apiService';
-import { useRouter, useSearchParams } from 'next/navigation';
-import ModuleForm from '@/components/kss/ModuleForm';
-import LessonForm from '@/components/kss/LessonForm';
-import QuestionForm from '@/components/kss/QuestionForm';
-import AssignmentForm from '@/components/kss/AssignmentForm';
-import TestSubmissionForm from '@/components/kss/TestSubmissionForm';
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import apiService from "@/app/lib/apiService";
+import ModuleForm from "@/components/kss/ModuleForm";
+import LessonForm from "@/components/kss/LessonForm";
+import toast from "react-hot-toast";
 
-const CustomModal = ({ isOpen, onRequestClose, children }) => {
+const CustomModal = ({ isOpen, onClose, children }) => {
   if (!isOpen) return null;
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white p-6 rounded-lg shadow-lg max-w-lg w-full">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      <div className="w-full max-w-lg rounded-lg bg-white p-6 shadow-xl">
         {children}
-        <button onClick={onRequestClose} className="mt-4 bg-gray-500 text-white p-2 rounded">
+        <button
+          onClick={onClose}
+          className="mt-4 w-full rounded bg-gray-500 py-2 text-white hover:bg-gray-600 transition"
+        >
           Close
         </button>
       </div>
@@ -23,555 +25,365 @@ const CustomModal = ({ isOpen, onRequestClose, children }) => {
   );
 };
 
-const ModulesContent = () => {
+const SkeletonCard = () => (
+  <div className="animate-pulse space-y-3 rounded-lg border p-5 bg-white">
+    <div className="h-6 w-3/4 rounded bg-gray-200"></div>
+    <div className="h-4 w-full rounded bg-gray-200"></div>
+    <div className="h-4 w-5/6 rounded bg-gray-200"></div>
+  </div>
+);
+
+export default function KSS() {
+  const router = useRouter();
   const [modules, setModules] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [modalOpen, setModalOpen] = useState(false);
-  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
-  const [selectedModule, setSelectedModule] = useState(null);
-  const router = useRouter();
+  const [now, setNow] = useState("");
+  const [openModuleId, setOpenModuleId] = useState(null); // Tracks which module is open
 
+  // Modal state
+  const [modModal, setModModal] = useState(false);
+  const [lesModal, setLesModal] = useState(false);
+  const [delModal, setDelModal] = useState(false);
+  const [selModule, setSelModule] = useState(null);
+  const [selLesson, setSelLesson] = useState(null);
+  const [delType, setDelType] = useState(null);
+
+  // Clock
   useEffect(() => {
-    fetchModules();
+    const tick = () => {
+      const d = new Date();
+      const opts = {
+        weekday: "long",
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        hour12: true,
+      };
+      setNow(d.toLocaleString("en-US", opts));
+    };
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
   }, []);
 
-  const fetchModules = async () => {
+  // Fetch + sort
+  const fetchAll = async () => {
     try {
+      setLoading(true);
       const data = await apiService.getModules(router);
-      setModules(data || []);
-    } catch (err) {
-      setError(err.message);
+      if (!data) throw new Error("No data returned");
+
+      const sortedModules = [...data].sort(
+        (a, b) => new Date(a.created_at) - new Date(b.created_at)
+      );
+
+      const withSortedLessons = sortedModules.map((mod) => ({
+        ...mod,
+        lessons: [...(mod.lessons || [])].sort(
+          (a, b) => new Date(a.created_at) - new Date(b.created_at)
+        ),
+      }));
+
+      setModules(withSortedLessons);
+      setError(null);
+    } catch (e) {
+      setError(e.message ?? "Failed to load modules");
+      toast.error(e.message ?? "Failed to load modules");
     } finally {
       setLoading(false);
     }
   };
-
-  const openCreateModal = () => {
-    setSelectedModule(null);
-    setModalOpen(true);
-  };
-
-  const openUpdateModal = (module) => {
-    setSelectedModule(module);
-    setModalOpen(true);
-  };
-
-  const openDeleteModal = (module) => {
-    setSelectedModule(module);
-    setDeleteModalOpen(true);
-  };
-
-  const handleDelete = async () => {
-    try {
-      await apiService.deleteModule(selectedModule.id, router);
-      fetchModules();
-      setDeleteModalOpen(false);
-    } catch (err) {
-      setError(err.message);
-    }
-  };
-
-  const handleSuccess = () => {
-    setModalOpen(false);
-    fetchModules();
-  };
-
-  if (loading) return <p>Loading...</p>;
-  if (error) return <p>Error: {error}</p>;
-
-  return (
-    <div className="p-4">
-      <h1>Modules</h1>
-      <button onClick={openCreateModal} className="bg-green-500 text-white p-2 mb-4">
-        Create New Module
-      </button>
-      <table className="w-full border">
-        <thead>
-          <tr>
-            <th>Title</th>
-            <th>Description</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {modules.map((module) => (
-            <tr key={module.id}>
-              <td>{module.title}</td>
-              <td>{module.description}</td>
-              <td>
-                <button onClick={() => openUpdateModal(module)} className="bg-blue-500 text-white p-1 mr-2">
-                  Edit
-                </button>
-                <button onClick={() => openDeleteModal(module)} className="bg-red-500 text-white p-1">
-                  Delete
-                </button>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-
-      <CustomModal isOpen={modalOpen} onRequestClose={() => setModalOpen(false)}>
-        <h2>{selectedModule ? 'Update Module' : 'Create Module'}</h2>
-        <ModuleForm initialData={selectedModule} onSuccess={handleSuccess} />
-      </CustomModal>
-
-      <CustomModal isOpen={deleteModalOpen} onRequestClose={() => setDeleteModalOpen(false)}>
-        <h2>Confirm Delete</h2>
-        <p>Are you sure you want to delete {selectedModule?.title}?</p>
-        <button onClick={handleDelete} className="bg-red-500 text-white p-2 mr-2">
-          Yes
-        </button>
-        <button onClick={() => setDeleteModalOpen(false)} className="bg-gray-500 text-white p-2">
-          No
-        </button>
-      </CustomModal>
-    </div>
-  );
-};
-
-const LessonsContent = () => {
-  const [lessons, setLessons] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [modalOpen, setModalOpen] = useState(false);
-  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
-  const [selectedLesson, setSelectedLesson] = useState(null);
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const moduleId = searchParams.get('moduleId'); // Optional
 
   useEffect(() => {
-    fetchLessons();
-  }, []);
+    fetchAll();
+  }, [router]);
 
-  const fetchLessons = async () => {
+  // Toggle accordion
+  const toggleModule = (moduleId) => {
+    setOpenModuleId((prev) => (prev === moduleId ? null : moduleId));
+  };
+
+  // CRUD Handlers
+  const openCreateModule = () => {
+    setSelModule(null);
+    setModModal(true);
+  };
+  const openEditModule = (m) => {
+    setSelModule(m);
+    setModModal(true);
+  };
+  const openCreateLesson = (m) => {
+    setSelModule(m);
+    setSelLesson(null);
+    setLesModal(true);
+  };
+  const openEditLesson = (l) => {
+    setSelLesson(l);
+    setLesModal(true);
+  };
+  const openDelete = (item, type) => {
+    setSelModule(item.module ?? item);
+    setSelLesson(type === "lesson" ? item : null);
+    setDelType(type);
+    setDelModal(true);
+  };
+
+  const confirmDelete = async () => {
     try {
-      const data = await apiService.getLessons(router);
-      setLessons(data || []);
-    } catch (err) {
-      setError(err.message);
+      if (delType === "module") {
+        await apiService.deleteModule(selModule.id, router);
+        toast.success("Module deleted");
+      } else {
+        await apiService.deleteLesson(selLesson.id, router);
+        toast.success("Lesson deleted");
+      }
+      await fetchAll();
+    } catch (e) {
+      toast.error(e.message ?? "Delete failed");
     } finally {
-      setLoading(false);
+      setDelModal(false);
     }
   };
 
-  const openCreateModal = () => {
-    setSelectedLesson(null);
-    setModalOpen(true);
-  };
-
-  const openUpdateModal = (lesson) => {
-    setSelectedLesson(lesson);
-    setModalOpen(true);
-  };
-
-  const openDeleteModal = (lesson) => {
-    setSelectedLesson(lesson);
-    setDeleteModalOpen(true);
-  };
-
-  const handleDelete = async () => {
-    try {
-      await apiService.deleteLesson(selectedLesson.id, router);
-      fetchLessons();
-      setDeleteModalOpen(false);
-    } catch (err) {
-      setError(err.message);
-    }
-  };
-
-  const handleSuccess = () => {
-    setModalOpen(false);
-    fetchLessons();
-  };
-
-  if (loading) return <p>Loading...</p>;
-  if (error) return <p>Error: {error}</p>;
-
-  return (
-    <div className="p-4">
-      <h1>Lessons</h1>
-      <button onClick={openCreateModal} className="bg-green-500 text-white p-2 mb-4">
-        Create New Lesson
-      </button>
-      <table className="w-full border">
-        <thead>
-          <tr>
-            <th>Title</th>
-            <th>Description</th>
-            <th>YouTube Link</th>
-            <th>Module ID</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {lessons.map((lesson) => (
-            <tr key={lesson.id}>
-              <td>{lesson.title}</td>
-              <td>{lesson.description}</td>
-              <td>{lesson.youtube_link}</td>
-              <td>{lesson.module_id}</td>
-              <td>
-                <button onClick={() => openUpdateModal(lesson)} className="bg-blue-500 text-white p-1 mr-2">
-                  Edit
-                </button>
-                <button onClick={() => openDeleteModal(lesson)} className="bg-red-500 text-white p-1">
-                  Delete
-                </button>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-
-      <CustomModal isOpen={modalOpen} onRequestClose={() => setModalOpen(false)}>
-        <h2>{selectedLesson ? 'Update Lesson' : 'Create Lesson'}</h2>
-        <LessonForm moduleId={moduleId || 'default_module_id'} initialData={selectedLesson} onSuccess={handleSuccess} />
-      </CustomModal>
-
-      <CustomModal isOpen={deleteModalOpen} onRequestClose={() => setDeleteModalOpen(false)}>
-        <h2>Confirm Delete</h2>
-        <p>Are you sure you want to delete {selectedLesson?.title}?</p>
-        <button onClick={handleDelete} className="bg-red-500 text-white p-2 mr-2">
-          Yes
-        </button>
-        <button onClick={() => setDeleteModalOpen(false)} className="bg-gray-500 text-white p-2">
-          No
-        </button>
-      </CustomModal>
-    </div>
-  );
-};
-
-const QuestionsContent = () => {
-  const [questions, setQuestions] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [modalOpen, setModalOpen] = useState(false);
-  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
-  const [selectedQuestion, setSelectedQuestion] = useState(null);
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const moduleId = searchParams.get('moduleId') || 'default_module_id';
-
-  useEffect(() => {
-    fetchQuestions();
-  }, [moduleId]);
-
-  const fetchQuestions = async () => {
-    try {
-      const data = await apiService.getQuestions(moduleId, router);
-      setQuestions(data || []);
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const openCreateModal = () => {
-    setSelectedQuestion(null);
-    setModalOpen(true);
-  };
-
-  const openUpdateModal = (question) => {
-    setSelectedQuestion(question);
-    setModalOpen(true);
-  };
-
-  const openDeleteModal = (question) => {
-    setSelectedQuestion(question);
-    setDeleteModalOpen(true);
-  };
-
-  const handleDelete = async () => {
-    try {
-      await apiService.deleteQuestion(selectedQuestion.id, router);
-      fetchQuestions();
-      setDeleteModalOpen(false);
-    } catch (err) {
-      setError(err.message);
-    }
-  };
-
-  const handleSuccess = () => {
-    setModalOpen(false);
-    fetchQuestions();
-  };
-
-  if (loading) return <p>Loading...</p>;
-  if (error) return <p>Error: {error}</p>;
-
-  return (
-    <div className="p-4">
-      <h1>Questions for Module {moduleId}</h1>
-      <button onClick={openCreateModal} className="bg-green-500 text-white p-2 mb-4">
-        Create New Question
-      </button>
-      <table className="w-full border">
-        <thead>
-          <tr>
-            <th>Text</th>
-            <th>Type</th>
-            <th>Options</th>
-            <th>Correct Answer</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {questions.map((q) => (
-            <tr key={q.id}>
-              <td>{q.question_text}</td>
-              <td>{q.question_type}</td>
-              <td>{JSON.stringify(q.options)}</td>
-              <td>{q.correct_answer}</td>
-              <td>
-                <button onClick={() => openUpdateModal(q)} className="bg-blue-500 text-white p-1 mr-2">
-                  Edit
-                </button>
-                <button onClick={() => openDeleteModal(q)} className="bg-red-500 text-white p-1">
-                  Delete
-                </button>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-
-      <CustomModal isOpen={modalOpen} onRequestClose={() => setModalOpen(false)}>
-        <h2>{selectedQuestion ? 'Update Question' : 'Create Question'}</h2>
-        <QuestionForm moduleId={moduleId} initialData={selectedQuestion} onSuccess={handleSuccess} />
-      </CustomModal>
-
-      <CustomModal isOpen={deleteModalOpen} onRequestClose={() => setDeleteModalOpen(false)}>
-        <h2>Confirm Delete</h2>
-        <p>Are you sure you want to delete this question?</p>
-        <button onClick={handleDelete} className="bg-red-500 text-white p-2 mr-2">
-          Yes
-        </button>
-        <button onClick={() => setDeleteModalOpen(false)} className="bg-gray-500 text-white p-2">
-          No
-        </button>
-      </CustomModal>
-    </div>
-  );
-};
-
-const AssignmentsContent = () => {
-  const [assignments, setAssignments] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [modalOpen, setModalOpen] = useState(false);
-  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
-  const [selectedAssignment, setSelectedAssignment] = useState(null);
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const moduleId = searchParams.get('moduleId') || 'default_module_id';
-
-  useEffect(() => {
-    fetchAssignments();
-  }, [moduleId]);
-
-  const fetchAssignments = async () => {
-    try {
-      const data = await apiService.getAssignments(moduleId, router);
-      setAssignments(data || []);
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const openCreateModal = () => {
-    setModalOpen(true);
-  };
-
-  const openDeleteModal = (assignment) => {
-    setSelectedAssignment(assignment);
-    setDeleteModalOpen(true);
-  };
-
-  const handleDelete = async () => {
-    try {
-      await apiService.deleteAssignment(selectedAssignment.id, router);
-      fetchAssignments();
-      setDeleteModalOpen(false);
-    } catch (err) {
-      setError(err.message);
-    }
-  };
-
-  const handleSuccess = () => {
-    setModalOpen(false);
-    fetchAssignments();
-  };
-
-  if (loading) return <p>Loading...</p>;
-  if (error) return <p>Error: {error}</p>;
-
-  return (
-    <div className="p-4">
-      <h1>Assignments for Module {moduleId}</h1>
-      <button onClick={openCreateModal} className="bg-green-500 text-white p-2 mb-4">
-        Create New Assignment
-      </button>
-      <table className="w-full border">
-        <thead>
-          <tr>
-            <th>Target Type</th>
-            <th>Target Value</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {assignments.map((a) => (
-            <tr key={a.id}>
-              <td>{a.target_type}</td>
-              <td>{a.target_value}</td>
-              <td>
-                <button onClick={() => openDeleteModal(a)} className="bg-red-500 text-white p-1">
-                  Delete
-                </button>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-
-      <CustomModal isOpen={modalOpen} onRequestClose={() => setModalOpen(false)}>
-        <h2>Create Assignment</h2>
-        <AssignmentForm moduleId={moduleId} onSuccess={handleSuccess} />
-      </CustomModal>
-
-      <CustomModal isOpen={deleteModalOpen} onRequestClose={() => setDeleteModalOpen(false)}>
-        <h2>Confirm Delete</h2>
-        <p>Are you sure you want to delete this assignment?</p>
-        <button onClick={handleDelete} className="bg-red-500 text-white p-2 mr-2">
-          Yes
-        </button>
-        <button onClick={() => setDeleteModalOpen(false)} className="bg-gray-500 text-white p-2">
-          No
-        </button>
-      </CustomModal>
-    </div>
-  );
-};
-
-const TestContent = () => {
-  const [questions, setQuestions] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [result, setResult] = useState(null);
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const moduleId = searchParams.get('moduleId') || 'default_module_id';
-  const employeeId = 'current_employee_id'; // Replace with actual from auth
-
-  useEffect(() => {
-    fetchQuestions();
-  }, [moduleId]);
-
-  const fetchQuestions = async () => {
-    try {
-      const data = await apiService.getQuestions(moduleId, router);
-      setQuestions(data || []);
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleSuccess = (res) => {
-    setResult(res);
-  };
-
-  if (loading) return <p>Loading...</p>;
-  if (error) return <p>Error: {error}</p>;
-
-  return (
-    <div className="p-4">
-      <h1>Test for Module {moduleId}</h1>
-      {result ? (
-        <div>
-          <p>Score: {result.score}</p>
-          <p>Passed: {result.passed ? 'Yes' : 'No'}</p>
-        </div>
-      ) : (
-        <TestSubmissionForm employeeId={employeeId} moduleId={moduleId} questions={questions} onSuccess={handleSuccess} />
-      )}
-    </div>
-  );
-};
-
-export default function KSS() {
-    const [currentDateTime, setCurrentDateTime] = useState('');
-    const [activeTab, setActiveTab] = useState('Modules');
-
-    useEffect(() => {
-        const updateDateTime = () => {
-            const now = new Date();
-            const options = {
-                weekday: 'long',
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit',
-                second: '2-digit',
-                hour12: true
-            };
-            setCurrentDateTime(now.toLocaleString('en-US', options));
-        };
-
-        updateDateTime();
-        const intervalId = setInterval(updateDateTime, 1000);
-
-        return () => clearInterval(intervalId);
-    }, []);
-
-    const tabs = [
-        { name: 'Modules', content: <ModulesContent /> },
-        { name: 'Lessons', content: <LessonsContent /> },
-        { name: 'Questions', content: <QuestionsContent /> },
-        { name: 'Assignments', content: <AssignmentsContent /> },
-        { name: 'Test', content: <TestContent /> },
-    ];
-
-    return (
-        <div>
-            <div className='flex justify-between items-center mt-5 mb-10 flex-wrap gap-4'>
-                <div>
-                    <h1 className='text-2xl font-bold '>Knowledge Sharing System</h1>
-                    <p className='text-[#A09D9D] font-medium mt-2'>Manage modules, lessons, quiz and track employees' progress</p>
-                </div>
-                <span className='rounded-[20px] px-3 py-2 border-[0.5px] border-solid border-[#DDD9D9] text-[#A09D9D]'>
-                    {currentDateTime}
-                </span>
-            </div>
-            <div className="border-b border-gray-200">
-                <nav className="-mb-px flex space-x-8">
-                    {tabs.map((tab) => (
-                        <button
-                            key={tab.name}
-                            onClick={() => setActiveTab(tab.name)}
-                            className={`${
-                                activeTab === tab.name
-                                    ? 'border-blue-500 text-blue-600'
-                                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                            } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
-                        >
-                            {tab.name}
-                        </button>
-                    ))}
-                </nav>
-            </div>
-            <div className="mt-4">
-                {tabs.find((tab) => tab.name === activeTab)?.content}
-            </div>
-        </div>
+  const afterSave = async () => {
+    setModModal(false);
+    setLesModal(false);
+    toast.success(
+      selModule?.id
+        ? "Module updated"
+        : selLesson?.id
+          ? "Lesson updated"
+          : "Created successfully"
     );
+    await fetchAll();
+  };
+
+  return (
+    <div className="">
+      {/* Header */}
+      <div className="flex flex-wrap items-center justify-between gap-4 mb-14 mt-5">
+        <div>
+          <h1 className="text-2xl font-bold">Knowledge Sharing System</h1>
+          <p className="mt-2 text-gray-500 font-medium">
+            Manage training modules and lessons
+          </p>
+        </div>
+        <span className="rounded-[20px] border border-gray-300 px-3 py-2 text-gray-500">
+          {now}
+        </span>
+      </div>
+
+      {/* Content */}
+      <div className="space-y-4">
+        {loading ? (
+          <>
+            <SkeletonCard />
+            <SkeletonCard />
+          </>
+        ) : error ? (
+          <div className="rounded bg-red-50 p-4 text-center text-red-700">
+            {error}
+          </div>
+        ) : modules.length === 0 ? (
+          <div className="text-center py-12">
+            <p className="text-lg text-gray-600">No modules yet.</p>
+            <button
+              onClick={openCreateModule}
+              className="mt-4 rounded bg-[#d4a53b] px-6 py-2 text-white hover:bg-[#c49632] transition"
+            >
+              Create First Module
+            </button>
+          </div>
+        ) : (
+          modules.map((mod, modIdx) => {
+            const isOpen = openModuleId === mod.id;
+
+            return (
+              <div
+                key={mod.id}
+                className="overflow-hidden rounded-lg border shadow-sm hover:shadow-md transition-shadow"
+              >
+                {/* Accordion Header */}
+                {/* Accordion Header – NOW SAFE */}
+                <div
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => toggleModule(mod.id)}
+                  onKeyDown={(e) => e.key === "Enter" && toggleModule(mod.id)}
+                  className="w-full text-left bg-gradient-to-r from-[#d4a53b] to-[#e6c070] p-5 text-white hover:from-[#c49632] hover:to-[#d4a53b] transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#b88b1b] focus:ring-offset-2"
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <svg
+                        className={`h-5 w-5 transform transition-transform ${isOpen ? "rotate-90" : ""}`}
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                      </svg>
+                      <div>
+                        <h3 className="text-lg font-bold">
+                          Module {modIdx + 1}: {mod.title}
+                        </h3>
+                        <p className="text-sm opacity-90">{mod.description}</p>
+                      </div>
+                    </div>
+
+                    {/* Real buttons – NOT nested */}
+                    <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
+                      <button
+                        onClick={() => openEditModule(mod)}
+                        className="rounded bg-white px-4 py-1.5 text-sm font-medium text-[#b88b1b] hover:bg-gray-100 transition"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        onClick={() => openDelete(mod, "module")}
+                        className="rounded bg-red-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-red-700 transition"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Accordion Body – Collapsible */}
+                <div
+                  className={`transition-all duration-300 ease-in-out overflow-hidden ${isOpen ? "max-h-screen opacity-100" : "max-h-0 opacity-0"
+                    }`}
+                >
+                  <div className="bg-gray-50 p-5 border-t">
+                    <div className="mb-3 flex items-center justify-between">
+                      <h4 className="font-semibold text-gray-700">
+                        Lessons ({mod.lessons?.length ?? 0})
+                      </h4>
+                      <button
+                        onClick={() => openCreateLesson(mod)}
+                        className="text-sm font-medium text-[#b88b1b] hover:underline"
+                      >
+                        + Add Lesson
+                      </button>
+                    </div>
+
+                    {mod.lessons?.length ? (
+                      <div className="flex gap-3 overflow-x-auto pb-2">
+                        {mod.lessons.map((les, lesIdx) => (
+                          <div
+                            key={les.id}
+                            className="flex-shrink-0 w-64 rounded-lg border bg-white p-4 shadow-sm hover:shadow transition-shadow"
+                          >
+                            <div className="mb-2 flex items-start justify-between">
+                              <span className="font-bold text-[#b88b1b] text-sm">
+                                {modIdx + 1}.{lesIdx + 1}
+                              </span>
+                              <div className="flex gap-1">
+                                <button
+                                  onClick={() => openEditLesson(les)}
+                                  className="text-xs text-blue-600 hover:text-blue-800"
+                                >
+                                  Edit
+                                </button>
+                                <button
+                                  onClick={() => openDelete(les, "lesson")}
+                                  className="text-xs text-red-600 hover:text-red-800"
+                                >
+                                  Delete
+                                </button>
+                              </div>
+                            </div>
+                            <h5 className="text-sm font-medium text-gray-900">
+                              {les.title}
+                            </h5>
+                            <p className="mt-1 line-clamp-2 text-xs text-gray-600">
+                              {les.description}
+                            </p>
+                            {les.youtube_link && (
+                              <a
+                                href={les.youtube_link}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="mt-2 inline-flex items-center text-xs text-blue-600 hover:underline"
+                              >
+                                Watch Video
+                              </a>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="italic text-sm text-gray-500">
+                        No lessons yet.
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          })
+        )}
+      </div>
+
+      {/* Floating + Button */}
+      {!loading && modules.length > 0 && (
+        <button
+          onClick={openCreateModule}
+          className="fixed bottom-6 right-6 flex h-14 w-14 items-center justify-center rounded-full bg-[#d4a53b] text-3xl text-white shadow-lg hover:bg-[#c49632] transition"
+        >
+          +
+        </button>
+      )}
+
+      {/* Modals */}
+      <CustomModal isOpen={modModal} onClose={() => setModModal(false)}>
+        <h3 className="mb-4 text-xl font-bold text-gray-900">
+          {selModule ? "Update Module" : "Create New Module"}
+        </h3>
+        <ModuleForm initialData={selModule} onSuccess={afterSave} />
+      </CustomModal>
+
+      <CustomModal isOpen={lesModal} onClose={() => setLesModal(false)}>
+        <h3 className="mb-4 text-xl font-bold text-gray-900">
+          {selLesson ? "Update" : "Create"} Lesson
+          {selModule &&
+            ` – Module ${modules.findIndex((m) => m.id === selModule.id) + 1
+            }`}
+        </h3>
+        <LessonForm
+          moduleId={selModule?.id}
+          initialData={selLesson}
+          onSuccess={afterSave}
+        />
+      </CustomModal>
+
+      <CustomModal isOpen={delModal} onClose={() => setDelModal(false)}>
+        <h3 className="mb-2 text-xl font-bold text-red-600">Confirm Delete</h3>
+        <p className="text-gray-700">
+          Are you sure you want to delete this{" "}
+          <strong>{delType}</strong>?
+        </p>
+        <p className="mt-2 font-medium text-gray-900">
+          {(delType === "module" ? selModule?.title : selLesson?.title) ?? ""}
+        </p>
+        <div className="mt-6 flex gap-3">
+          <button
+            onClick={confirmDelete}
+            className="flex-1 rounded bg-red-500 py-2 text-white hover:bg-red-600 transition"
+          >
+            Yes, Delete
+          </button>
+          <button
+            onClick={() => setDelModal(false)}
+            className="flex-1 rounded bg-gray-500 py-2 text-white hover:bg-gray-600 transition"
+          >
+            Cancel
+          </button>
+        </div>
+      </CustomModal>
+    </div>
+  );
 }

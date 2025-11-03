@@ -1,12 +1,13 @@
-"use client"
+// components/kss/ModuleForm.jsx
+"use client";
 
-import { useState } from 'react';
-import apiService from '@/app/lib/apiService';
-import { useRouter } from 'next/navigation';
+import { useState } from "react";
+import apiService from "@/app/lib/apiService";
+import { useRouter } from "next/navigation";
 
-const ModuleForm = ({ initialData, onSuccess }) => {
-  const [title, setTitle] = useState(initialData?.title || '');
-  const [description, setDescription] = useState(initialData?.description || '');
+export default function ModuleForm({ initialData, onSuccess }) {
+  const [title, setTitle] = useState(initialData?.title ?? "");
+  const [description, setDescription] = useState(initialData?.description ?? "");
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
   const router = useRouter();
@@ -16,17 +17,17 @@ const ModuleForm = ({ initialData, onSuccess }) => {
     setLoading(true);
     setError(null);
 
-    const moduleData = { title, description };
+    const payload = { title, description };
 
     try {
       if (initialData?.id) {
-        await apiService.updateModule(initialData.id, moduleData, router);
+        await apiService.updateModule(initialData.id, payload, router);
       } else {
-        await apiService.createModule(moduleData, router);
+        await apiService.createModule(payload, router);
       }
-      if (onSuccess) onSuccess();
+      onSuccess?.();
     } catch (err) {
-      setError(err.message);
+      setError(err.message ?? "Something went wrong");
     } finally {
       setLoading(false);
     }
@@ -35,31 +36,34 @@ const ModuleForm = ({ initialData, onSuccess }) => {
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div>
-        <label htmlFor="title">Title</label>
+        <label className="block text-md font-medium text-gray-700 mb-2">Title *</label>
         <input
-          id="title"
-          type="text"
+          required
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          required
-          className="border p-2 w-full"
+          className="mt-1 block w-full rounded-md border-gray-300 px-2 py-4 border border-solid shadow-sm focus:border-[#b88b1b] focus:ring-[#b88b1b]"
         />
       </div>
+
       <div>
-        <label htmlFor="description">Description</label>
+        <label className="block text-md font-medium text-gray-700 mb-2">Description</label>
         <textarea
-          id="description"
+          rows={3}
           value={description}
           onChange={(e) => setDescription(e.target.value)}
-          className="border p-2 w-full"
+          className="mt-1 block w-full rounded-md border-gray-300 px-2 py-4 border border-solid shadow-sm focus:border-[#b88b1b] focus:ring-[#b88b1b]"
         />
       </div>
-      {error && <p className="text-red-500">{error}</p>}
-      <button type="submit" disabled={loading} className="bg-blue-500 text-white p-2">
-        {loading ? 'Saving...' : initialData?.id ? 'Update Module' : 'Create Module'}
+
+      {error && <p className="text-sm text-red-600">{error}</p>}
+
+      <button
+        type="submit"
+        disabled={loading}
+        className="w-full rounded-md bg-[#b88b1b] px-4 py-2 text-white hover:bg-[#a57a17] disabled:opacity-70"
+      >
+        {loading ? "Saving…" : initialData?.id ? "Update Module" : "Create Module"}
       </button>
     </form>
   );
-};
-
-export default ModuleForm;
+}
