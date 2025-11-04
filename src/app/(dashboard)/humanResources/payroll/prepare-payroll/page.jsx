@@ -307,7 +307,6 @@ const PreparePayroll = () => {
         }
     }, [router]);
 
-    // Fetch deductions for selected employee
     const fetchDeductions = useCallback(async () => {
         if (!selectedEmployeeId) {
             setSelectedEmployeeDeductions([]);
@@ -317,7 +316,11 @@ const PreparePayroll = () => {
         try {
             setIsDeductionsLoading(true);
             const deductionsData = await apiService.getDeductionsById(selectedEmployeeId, router);
-            setSelectedEmployeeDeductions(deductionsData || []);
+
+            // ONLY PENDING DEDUCTIONS
+            const pendingDeductions = deductionsData.filter(d => d.status === 'pending');
+
+            setSelectedEmployeeDeductions(pendingDeductions);
         } catch (err) {
             toast.error(`Failed to load deductions for employee ID ${selectedEmployeeId}.`);
             console.error(err);
