@@ -11,7 +11,8 @@ import {
     faClipboardList,
     faBoxOpen,
     faArrowRightFromBracket,
-    faUserGroup
+    faUserGroup,
+    faTasks
 } from '@fortawesome/free-solid-svg-icons';
 import { usePathname } from 'next/navigation';
 import Image from "next/image";
@@ -46,6 +47,7 @@ export default function SideNavBar({ isMobileMenuOpen, onCloseMobileMenu, isDesk
         { name: "Orders", icon: faClipboardList, path: "/sales/orders" },
         { name: "Stocks", icon: faBoxOpen, path: "/sales/stocks" },
         { name: "Employees", icon: faUserGroup, path: "/sales/employees" },
+        { name: "Tasks", icon: faTasks, path: "/sales/tasks" },
     ];
 
     const handleLogout = async () => {

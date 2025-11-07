@@ -20,7 +20,7 @@ const CustomModal = ({ isOpen, onClose, title, children }) => {
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
       <div className="w-full max-w-lg rounded-lg bg-white p-6 shadow-xl max-h-[90vh] overflow-y-auto">
         <h3 className="mb-4 text-xl font-bold text-gray-900">{title}</h3>
-        <div className="mb-6">{children}</div>
+        <div className="mb-6">{children-thumb}</div>
       </div>
     </div>
   );
@@ -48,7 +48,7 @@ export default function EmployeeKSS() {
   const [showQuizModal, setShowQuizModal] = useState(null);
   const [submitting, setSubmitting] = useState(false);
 
-  // Clock
+  // ---------- Clock ----------
   useEffect(() => {
     const tick = () => {
       const d = new Date();
@@ -69,7 +69,7 @@ export default function EmployeeKSS() {
     return () => clearInterval(id);
   }, []);
 
-  // Fetch employee ID
+  // ---------- Get employee ----------
   useEffect(() => {
     const fetchEmployee = async () => {
       try {
@@ -84,7 +84,7 @@ export default function EmployeeKSS() {
     fetchEmployee();
   }, [router]);
 
-  // Fetch modules + completion status
+  // ---------- Fetch modules + quiz result ----------
   const fetchModules = async () => {
     if (!employeeId) return;
 
@@ -93,18 +93,21 @@ export default function EmployeeKSS() {
       const data = await apiService.getModules(router);
       if (!data || !Array.isArray(data)) throw new Error("No modules returned");
 
+      // ---- Sort modules oldest to newest ----
       const sorted = [...data].sort(
         (a, b) => new Date(a.created_at) - new Date(b.created_at)
       );
 
       const fullModules = await Promise.all(
         sorted.map(async (mod) => {
+          // ---- Sort lessons oldest to newest ----
           const sortedLessons = [...(mod.lessons || [])].sort(
             (a, b) =>
               new Date(a.created_at || new Date()) -
               new Date(b.created_at || new Date())
           );
 
+          // ---- Questions (only for modal) ----
           let questions = [];
           try {
             questions = await apiService.getQuestions(mod.id, router);
@@ -112,7 +115,7 @@ export default function EmployeeKSS() {
             console.warn(`Questions failed for ${mod.id}:`, e);
           }
 
-          // === Use backend completion endpoint ===
+          // ---- Lesson progress ----
           let progress = {};
           let isCompleted = false;
           try {
@@ -120,18 +123,12 @@ export default function EmployeeKSS() {
             isCompleted = completion.all_lessons_completed === true;
 
             if (isCompleted) {
-              // Mark all lessons as completed
-              sortedLessons.forEach((lesson) => {
-                progress[lesson.id] = true;
-              });
+              sortedLessons.forEach((l) => (progress[l.id] = true));
             } else {
-              // Optional: fetch individual progress if not fully complete
               try {
                 const prog = await apiService.getLessonProgress?.(mod.id, router);
                 if (prog) {
-                  prog.forEach((p) => {
-                    progress[p.lesson_id] = p.is_completed;
-                  });
+                  prog.forEach((p) => (progress[p.lesson_id] = p.is_completed));
                 }
               } catch (e) {
                 console.warn("Individual progress fetch failed:", e);
@@ -141,16 +138,24 @@ export default function EmployeeKSS() {
             console.warn(`Completion check failed for ${mod.id}:`, e);
           }
 
+          // ---- Saved quiz answers (if any) ----
           let savedAnswers = {};
           try {
             const answers = await apiService.getQuizAnswers?.(mod.id, router);
             if (answers) {
-              answers.forEach((a) => {
-                savedAnswers[a.question_id] = a.answer;
-              });
+              answers.forEach((a) => (savedAnswers[a.question_id] = a.answer));
             }
           } catch (e) {
             console.warn("Quiz answers fetch failed:", e);
+          }
+
+          // ---- Quiz result (score, pass/fail, date) ----
+          let quizResult = null;
+          try {
+            const res = await apiService.getQuizCompletion(mod.id, router);
+            if (res?.data?.completed) quizResult = res.data;
+          } catch (e) {
+            console.warn(`Quiz result fetch failed for ${mod.id}:`, e);
           }
 
           return {
@@ -160,6 +165,7 @@ export default function EmployeeKSS() {
             progress,
             savedAnswers,
             isCompleted,
+            quizResult,
           };
         })
       );
@@ -183,17 +189,15 @@ export default function EmployeeKSS() {
     setOpenModuleId((prev) => (prev === id ? null : id));
   };
 
-  // Click video → track only if not done
+  // ---------- Lesson video ----------
   const handleVideoClick = async (lessonId) => {
     if (!employeeId) return;
 
     const mod = modules.find((m) => m.lessons.some((l) => l.id === lessonId));
     if (!mod) return;
-
     const lesson = mod.lessons.find((l) => l.id === lessonId);
     const alreadyCompleted = mod.progress[lessonId] === true;
 
-    // Open video immediately if already done
     if (alreadyCompleted) {
       window.open(lesson.youtube_link, "_blank");
       return;
@@ -203,24 +207,23 @@ export default function EmployeeKSS() {
     setSavingLessons((prev) => ({ ...prev, [lessonId]: true }));
 
     try {
-      await apiService.trackLessonProgress(lessonId, {
-        employee_id: employeeId,
-        lesson_id: lessonId,
-        is_completed: true,
-        completion_date: new Date().toISOString(),
-      }, router);
+      await apiService.trackLessonProgress(
+        lessonId,
+        {
+          employee_id: employeeId,
+          lesson_id: lessonId,
+          is_completed: true,
+          completion_date: new Date().toISOString(),
+        },
+        router
+      );
 
-      // Update local state
       setModules((prevModules) =>
         prevModules.map((m) => {
           if (m.id === mod.id) {
             const newProgress = { ...m.progress, [lessonId]: true };
             const allDone = m.lessons.every((l) => newProgress[l.id]);
-            return {
-              ...m,
-              progress: newProgress,
-              isCompleted: allDone,
-            };
+            return { ...m, progress: newProgress, isCompleted: allDone };
           }
           return m;
         })
@@ -235,45 +238,40 @@ export default function EmployeeKSS() {
       setSavingLessons((prev) => ({ ...prev, [lessonId]: false }));
     }
 
-    // Open video after tracking
     window.open(lesson.youtube_link, "_blank");
   };
 
+  // ---------- Submit quiz ----------
   const submitQuiz = async (moduleId) => {
     if (!employeeId) return;
-
     setSubmitting(true);
+
     try {
       const responses = Object.entries(quizAnswers[moduleId] || {}).map(
         ([question_id, answer]) => ({
           question_id,
-          submitted_answer: answer.trim(),  // ← key fix
+          submitted_answer: answer.trim(),
         })
       );
 
       if (responses.length === 0) {
         toast.error("Please answer all questions");
-        setSubmitting(false);
         return;
       }
 
-      await apiService.submitTest({
-        employee_id: employeeId,
-        module_id: moduleId,
-        responses,  // ← key fix
-        attempt_date: new Date().toISOString(),
-      }, router);
+      await apiService.submitTest(
+        {
+          employee_id: employeeId,
+          module_id: moduleId,
+          responses,
+          attempt_date: new Date().toISOString(),
+        },
+        router
+      );
 
       toast.success("Quiz submitted!");
       setShowQuizModal(null);
-
-      // Refresh completion status
-      const completion = await apiService.checkModuleCompletion(moduleId, { employee_id: employeeId }, router);
-      setModules((prev) =>
-        prev.map((m) =>
-          m.id === moduleId ? { ...m, isCompleted: completion.all_lessons_completed } : m
-        )
-      );
+      await fetchModules(); // Refresh quiz result
     } catch (e) {
       console.error(e);
       toast.error(e.message || "Failed to submit quiz");
@@ -282,6 +280,7 @@ export default function EmployeeKSS() {
     }
   };
 
+  // ---------- Render ----------
   return (
     <div className="">
       {/* Header */}
@@ -315,17 +314,18 @@ export default function EmployeeKSS() {
           modules.map((mod, modIdx) => {
             const isOpen = openModuleId === mod.id;
             const isCompleted = mod.isCompleted === true;
-            const quizDone =
-              mod.questions.length > 0 &&
-              Object.keys(mod.savedAnswers || {}).length === mod.questions.length;
             const completedCount = Object.values(mod.progress).filter(Boolean).length;
+
+            const quizResult = mod.quizResult;
+            const quizDone = !!quizResult?.completed;
+            const quizPassed = quizResult?.passed === true;
 
             return (
               <div
                 key={mod.id}
                 className="overflow-hidden rounded-lg border border-solid border-gray-200 shadow-sm hover:shadow-md transition-shadow"
               >
-                {/* Header */}
+                {/* Module Header */}
                 <div
                   onClick={() => toggleModule(mod.id)}
                   role="button"
@@ -356,10 +356,11 @@ export default function EmployeeKSS() {
                   </div>
                 </div>
 
-                {/* Body */}
+                {/* Module Body */}
                 <div
-                  className={`transition-all duration-300 ease-in-out overflow-y-auto ${isOpen ? "max-h-screen opacity-100" : "max-h-0 opacity-0"
-                    }`}
+                  className={`transition-all duration-300 ease-in-out overflow-y-auto ${
+                    isOpen ? "max-h-screen opacity-100" : "max-h-0 opacity-0"
+                  }`}
                 >
                   <div className="bg-gray-50 p-5 border-t border-gray-300 space-y-6">
                     {/* Lessons */}
@@ -411,12 +412,13 @@ export default function EmployeeKSS() {
                                 e.stopPropagation();
                                 handleVideoClick(les.id);
                               }}
-                              className={`px-4 py-1.5 rounded text-sm font-medium transition flex items-center gap-2 min-w-[140px] ${isComplete
+                              className={`px-4 py-1.5 rounded text-sm font-medium transition flex items-center gap-2 min-w-[140px] ${
+                                isComplete
                                   ? "bg-green-100 text-green-700 cursor-default"
                                   : isSaving
-                                    ? "bg-gray-300 text-gray-600 cursor-wait"
-                                    : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-                                }`}
+                                  ? "bg-gray-300 text-gray-600 cursor-wait"
+                                  : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                              }`}
                             >
                               {isSaving ? (
                                 <>
@@ -434,17 +436,26 @@ export default function EmployeeKSS() {
                       })}
                     </div>
 
-                    {/* Quiz */}
+                    {/* Quiz Section - ONLY BUTTON + RESULT */}
                     {mod.questions.length > 0 && (
                       <div>
                         <div className="mb-4 flex items-center justify-between">
                           <h4 className="font-bold text-gray-700">
                             Quiz ({mod.questions.length} questions)
                           </h4>
+
+                          {/* Show Result OR Take Quiz Button */}
                           {quizDone ? (
-                            <span className="text-sm text-green-700 font-medium">
-                              Submitted
-                            </span>
+                            <div className="flex flex-col items-end text-sm">
+                              <span
+                                className={`font-medium ${quizPassed ? "text-green-700" : "text-red-600"}`}
+                              >
+                                {quizPassed ? "Pass" : "Fail"} – {quizResult.score}%
+                              </span>
+                              <span className="text-xs text-gray-500">
+                                {new Date(quizResult.completion_date).toLocaleDateString()}
+                              </span>
+                            </div>
                           ) : (
                             <button
                               onClick={(e) => {
@@ -456,39 +467,18 @@ export default function EmployeeKSS() {
                                 }));
                               }}
                               disabled={!isCompleted}
-                              className={`text-sm font-medium transition ${isCompleted
+                              className={`text-sm font-medium transition ${
+                                isCompleted
                                   ? "text-[#b88b1b] hover:underline"
                                   : "text-gray-400 cursor-not-allowed"
-                                }`}
+                              }`}
                             >
                               Take Quiz
                             </button>
                           )}
                         </div>
 
-                        <div className="space-y-3">
-                          {mod.questions.map((q, i) => (
-                            <div key={q.id} className="p-4 bg-white rounded-lg border">
-                              <div className="flex items-start gap-2">
-                                <span className="font-bold text-[#b88b1b] text-sm">
-                                  Q{i + 1}.
-                                </span>
-                                <div className="flex-1">
-                                  <p className="font-medium text-gray-900">{q.question_text}</p>
-                                  {q.question_type === "multiple_choice" && (
-                                    <div className="mt-2 space-y-1 text-sm text-gray-600">
-                                      {Object.entries(q.options || {}).map(([k, v]) => (
-                                        <div key={k} className="pl-6">
-                                          {k}. {v}
-                                        </div>
-                                      ))}
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
+                        {/* REMOVED: Question list from main view */}
                       </div>
                     )}
                   </div>
@@ -499,7 +489,7 @@ export default function EmployeeKSS() {
         )}
       </div>
 
-      {/* Quiz Modal */}
+      {/* ---------- Quiz Modal (Questions HERE) ---------- */}
       <CustomModal
         isOpen={!!showQuizModal}
         onClose={() => setShowQuizModal(null)}
@@ -575,10 +565,11 @@ export default function EmployeeKSS() {
             <button
               onClick={() => submitQuiz(showQuizModal)}
               disabled={submitting}
-              className={`flex items-center gap-2 px-6 py-2 text-white rounded-lg transition ${submitting
+              className={`flex items-center gap-2 px-6 py-2 text-white rounded-lg transition ${
+                submitting
                   ? "bg-gray-400 cursor-not-allowed"
                   : "bg-[#d4a53b] hover:bg-[#c49632]"
-                }`}
+              }`}
             >
               <FontAwesomeIcon icon={faPaperPlane} />
               {submitting ? "Submitting..." : "Submit Quiz"}

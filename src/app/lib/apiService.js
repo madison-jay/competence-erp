@@ -38,6 +38,7 @@ const callApi = async (endpoint, method = "GET", data = null, router = null) => 
         method,
         headers,
         body: data ? JSON.stringify(data) : undefined,
+        credentials: 'include'
     };
 
     try {
@@ -530,6 +531,18 @@ const apiService = {
 
     submitTest: async (testData, router) => {
         return callApi("/kss/test/submit", "POST", testData, router);
+    },
+
+    getQuizCompletion: async (moduleId, router) => {
+        return callApi(`/kss/test/completion/${moduleId}`, "GET", null, router);
+    },
+
+    getQuizAnswers: async (moduleId, router) => {
+        return callApi(`/kss/test/answers/${moduleId}`, "GET", null, router);
+    },
+
+    getLessonProgress: async (moduleId, router) => {
+        return callApi(`/kss/modules/${moduleId}/progress`, "GET", null, router);
     },
 
     getKPITemplates: async (router) => {

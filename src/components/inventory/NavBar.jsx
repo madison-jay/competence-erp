@@ -55,6 +55,7 @@ export default function SideNavBar({ isMobileMenuOpen, onCloseMobileMenu, isDesk
         { name: "Employees", icon: faUserGroup, path: "/inventory/employees" },
         { name: "Reports", icon: faFile, path: "/inventory/reports" },
         { name: "Documents", icon: faFolder, path: "/inventory/documents" },
+        { name: "Tasks", icon: faFolder, path: "/inventory/tasks" },
     ];
 
     const handleLogout = async () => {
