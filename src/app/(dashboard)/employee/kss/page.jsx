@@ -244,32 +244,39 @@ export default function EmployeeKSS() {
 
     setSubmitting(true);
     try {
-      const answers = Object.entries(quizAnswers[moduleId] || {}).map(
-        ([question_id, answer]) => ({ question_id, answer })
+      const responses = Object.entries(quizAnswers[moduleId] || {}).map(
+        ([question_id, answer]) => ({
+          question_id,
+          submitted_answer: answer.trim(),  // ← key fix
+        })
       );
+
+      if (responses.length === 0) {
+        toast.error("Please answer all questions");
+        setSubmitting(false);
+        return;
+      }
 
       await apiService.submitTest({
         employee_id: employeeId,
         module_id: moduleId,
-        answers,
+        responses,  // ← key fix
+        attempt_date: new Date().toISOString(),
       }, router);
 
       toast.success("Quiz submitted!");
       setShowQuizModal(null);
 
-      // Refresh completion after quiz
-      try {
-        const completion = await apiService.checkModuleCompletion(moduleId, { employee_id: employeeId }, router);
-        setModules((prev) =>
-          prev.map((m) =>
-            m.id === moduleId ? { ...m, isCompleted: completion.all_lessons_completed } : m
-          )
-        );
-      } catch (e) {
-        console.warn("Failed to refresh completion after quiz");
-      }
+      // Refresh completion status
+      const completion = await apiService.checkModuleCompletion(moduleId, { employee_id: employeeId }, router);
+      setModules((prev) =>
+        prev.map((m) =>
+          m.id === moduleId ? { ...m, isCompleted: completion.all_lessons_completed } : m
+        )
+      );
     } catch (e) {
-      toast.error(e.message || "Failed to submit");
+      console.error(e);
+      toast.error(e.message || "Failed to submit quiz");
     } finally {
       setSubmitting(false);
     }
@@ -351,9 +358,8 @@ export default function EmployeeKSS() {
 
                 {/* Body */}
                 <div
-                  className={`transition-all duration-300 ease-in-out overflow-y-auto ${
-                    isOpen ? "max-h-screen opacity-100" : "max-h-0 opacity-0"
-                  }`}
+                  className={`transition-all duration-300 ease-in-out overflow-y-auto ${isOpen ? "max-h-screen opacity-100" : "max-h-0 opacity-0"
+                    }`}
                 >
                   <div className="bg-gray-50 p-5 border-t border-gray-300 space-y-6">
                     {/* Lessons */}
@@ -405,13 +411,12 @@ export default function EmployeeKSS() {
                                 e.stopPropagation();
                                 handleVideoClick(les.id);
                               }}
-                              className={`px-4 py-1.5 rounded text-sm font-medium transition flex items-center gap-2 min-w-[140px] ${
-                                isComplete
+                              className={`px-4 py-1.5 rounded text-sm font-medium transition flex items-center gap-2 min-w-[140px] ${isComplete
                                   ? "bg-green-100 text-green-700 cursor-default"
                                   : isSaving
-                                  ? "bg-gray-300 text-gray-600 cursor-wait"
-                                  : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-                              }`}
+                                    ? "bg-gray-300 text-gray-600 cursor-wait"
+                                    : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                                }`}
                             >
                               {isSaving ? (
                                 <>
@@ -451,11 +456,10 @@ export default function EmployeeKSS() {
                                 }));
                               }}
                               disabled={!isCompleted}
-                              className={`text-sm font-medium transition ${
-                                isCompleted
+                              className={`text-sm font-medium transition ${isCompleted
                                   ? "text-[#b88b1b] hover:underline"
                                   : "text-gray-400 cursor-not-allowed"
-                              }`}
+                                }`}
                             >
                               Take Quiz
                             </button>
@@ -571,11 +575,10 @@ export default function EmployeeKSS() {
             <button
               onClick={() => submitQuiz(showQuizModal)}
               disabled={submitting}
-              className={`flex items-center gap-2 px-6 py-2 text-white rounded-lg transition ${
-                submitting
+              className={`flex items-center gap-2 px-6 py-2 text-white rounded-lg transition ${submitting
                   ? "bg-gray-400 cursor-not-allowed"
                   : "bg-[#d4a53b] hover:bg-[#c49632]"
-              }`}
+                }`}
             >
               <FontAwesomeIcon icon={faPaperPlane} />
               {submitting ? "Submitting..." : "Submit Quiz"}

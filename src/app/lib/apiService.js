@@ -561,7 +561,7 @@ const apiService = {
     },
 
     deleteKPIRoleAssignment: async (assignmentId, router) => {
-        return callApi(`/hr/k9pi/role-assignments/${assignmentId}`, "DELETE", null, router);
+        return callApi(`/hr/kpi/role-assignments/${assignmentId}`, "DELETE", null, router);
     },
 
     getEmployeeKPIAssignments: async (employeeId, router) => {
@@ -598,6 +598,27 @@ const apiService = {
     deleteEmployeeKPIAssignment: async (assignmentId, router) => {
         return callApi(`/hr/kpi/employee-assignments/${assignmentId}`, "DELETE", null, router);
     },
+
+    ensureBucketExists: async (bucketName) => {
+        const { data: buckets, error: listErr } = await supabase.storage.listBuckets();
+        if (listErr) throw listErr;
+        const exists = buckets?.some(b => b.name === bucketName);
+        if (!exists) {
+            const { error: createErr } = await supabase.storage.createBucket(bucketName, {
+                public: true,
+                allowedMimeTypes: ['image/*', 'application/pdf']
+            });
+            if (createErr) throw createErr;
+        }
+    },
+
+    uploadEvidence: async (path, file) => {
+        const { data, error } = await supabase.storage
+            .from('kpi-evidence')
+            .upload(path, file, { upsert: true });
+        if (error) throw error;
+        return { data, error };
+    }
 };
 
 export default apiService;
