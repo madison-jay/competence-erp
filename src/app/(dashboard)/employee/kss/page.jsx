@@ -13,19 +13,31 @@ import {
   faSpinner,
 } from "@fortawesome/free-solid-svg-icons";
 
+/* -------------------------------------------------
+   Custom Modal (close with X button)
+   ------------------------------------------------- */
 const CustomModal = ({ isOpen, onClose, title, children }) => {
   if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="w-full max-w-lg rounded-lg bg-white p-6 shadow-xl max-h-[90vh] overflow-y-auto">
+      <div className="relative w-full max-w-lg rounded-lg bg-white p-6 shadow-xl max-h-[90vh] overflow-y-auto">
+        <button
+          onClick={onClose}
+          className="absolute top-3 right-3 text-gray-400 hover:text-gray-600 text-2xl"
+        >
+          ×
+        </button>
         <h3 className="mb-4 text-xl font-bold text-gray-900">{title}</h3>
-        <div className="mb-6">{children-thumb}</div>
+        <div>{children}</div>
       </div>
     </div>
   );
 };
 
+/* -------------------------------------------------
+   Skeleton Card (loading)
+   ------------------------------------------------- */
 const SkeletonCard = () => (
   <div className="animate-pulse space-y-3 rounded-lg border border-solid border-gray-400 p-5 bg-white">
     <div className="h-6 w-3/4 rounded bg-gray-200"></div>
@@ -34,21 +46,24 @@ const SkeletonCard = () => (
   </div>
 );
 
+/* -------------------------------------------------
+   MAIN COMPONENT
+   ------------------------------------------------- */
 export default function EmployeeKSS() {
   const router = useRouter();
+
   const [employeeId, setEmployeeId] = useState(null);
   const [modules, setModules] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [now, setNow] = useState("");
   const [openModuleId, setOpenModuleId] = useState(null);
-  const [viewedLessons, setViewedLessons] = useState({});
   const [savingLessons, setSavingLessons] = useState({});
-  const [quizAnswers, setQuizAnswers] = useState({});
+  const [quizAnswers, setQuizAnswers] = useState({}); // {moduleId: {questionId: answer}}
   const [showQuizModal, setShowQuizModal] = useState(null);
   const [submitting, setSubmitting] = useState(false);
 
-  // ---------- Clock ----------
+  /* ---------- Real-time Clock (WAT) ---------- */
   useEffect(() => {
     const tick = () => {
       const d = new Date();
@@ -62,14 +77,14 @@ export default function EmployeeKSS() {
         second: "2-digit",
         hour12: true,
       };
-      setNow(d.toLocaleString("en-US", opts));
+      setNow(d.toLocaleString("en-GB", opts)); // en-GB uses 24-h but we force 12-h above
     };
     tick();
     const id = setInterval(tick, 1000);
     return () => clearInterval(id);
   }, []);
 
-  // ---------- Get employee ----------
+  /* ---------- Get Employee ID ---------- */
   useEffect(() => {
     const fetchEmployee = async () => {
       try {
@@ -84,7 +99,7 @@ export default function EmployeeKSS() {
     fetchEmployee();
   }, [router]);
 
-  // ---------- Fetch modules + quiz result ----------
+  /* ---------- Fetch Modules + Progress + Quiz Result ---------- */
   const fetchModules = async () => {
     if (!employeeId) return;
 
@@ -93,21 +108,20 @@ export default function EmployeeKSS() {
       const data = await apiService.getModules(router);
       if (!data || !Array.isArray(data)) throw new Error("No modules returned");
 
-      // ---- Sort modules oldest to newest ----
       const sorted = [...data].sort(
         (a, b) => new Date(a.created_at) - new Date(b.created_at)
       );
 
       const fullModules = await Promise.all(
         sorted.map(async (mod) => {
-          // ---- Sort lessons oldest to newest ----
+          /* ---- Sort lessons ---- */
           const sortedLessons = [...(mod.lessons || [])].sort(
             (a, b) =>
               new Date(a.created_at || new Date()) -
               new Date(b.created_at || new Date())
           );
 
-          // ---- Questions (only for modal) ----
+          /* ---- Questions (for modal) ---- */
           let questions = [];
           try {
             questions = await apiService.getQuestions(mod.id, router);
@@ -115,7 +129,7 @@ export default function EmployeeKSS() {
             console.warn(`Questions failed for ${mod.id}:`, e);
           }
 
-          // ---- Lesson progress ----
+          /* ---- Lesson progress ---- */
           let progress = {};
           let isCompleted = false;
           try {
@@ -125,35 +139,26 @@ export default function EmployeeKSS() {
             if (isCompleted) {
               sortedLessons.forEach((l) => (progress[l.id] = true));
             } else {
-              try {
-                const prog = await apiService.getLessonProgress?.(mod.id, router);
-                if (prog) {
-                  prog.forEach((p) => (progress[p.lesson_id] = p.is_completed));
-                }
-              } catch (e) {
-                console.warn("Individual progress fetch failed:", e);
+              const prog = await apiService.getLessonProgress?.(mod.id, router);
+              if (prog) {
+                prog.forEach((p) => (progress[p.lesson_id] = p.is_completed));
               }
             }
           } catch (e) {
             console.warn(`Completion check failed for ${mod.id}:`, e);
           }
 
-          // ---- Saved quiz answers (if any) ----
-          let savedAnswers = {};
-          try {
-            const answers = await apiService.getQuizAnswers?.(mod.id, router);
-            if (answers) {
-              answers.forEach((a) => (savedAnswers[a.question_id] = a.answer));
-            }
-          } catch (e) {
-            console.warn("Quiz answers fetch failed:", e);
-          }
-
-          // ---- Quiz result (score, pass/fail, date) ----
+          /* ---- Quiz result ---- */
           let quizResult = null;
           try {
             const res = await apiService.getQuizCompletion(mod.id, router);
-            if (res?.data?.completed) quizResult = res.data;
+            if (res?.data?.completed) {
+              quizResult = {
+                score: res.data.score,
+                passed: res.data.passed,
+                completion_date: res.data.completion_date,
+              };
+            }
           } catch (e) {
             console.warn(`Quiz result fetch failed for ${mod.id}:`, e);
           }
@@ -163,7 +168,6 @@ export default function EmployeeKSS() {
             lessons: sortedLessons,
             questions: Array.isArray(questions) ? questions : [],
             progress,
-            savedAnswers,
             isCompleted,
             quizResult,
           };
@@ -189,12 +193,13 @@ export default function EmployeeKSS() {
     setOpenModuleId((prev) => (prev === id ? null : id));
   };
 
-  // ---------- Lesson video ----------
+  /* ---------- Watch Video & Mark Complete ---------- */
   const handleVideoClick = async (lessonId) => {
     if (!employeeId) return;
 
     const mod = modules.find((m) => m.lessons.some((l) => l.id === lessonId));
     if (!mod) return;
+
     const lesson = mod.lessons.find((l) => l.id === lessonId);
     const alreadyCompleted = mod.progress[lessonId] === true;
 
@@ -203,7 +208,6 @@ export default function EmployeeKSS() {
       return;
     }
 
-    setViewedLessons((prev) => ({ ...prev, [lessonId]: true }));
     setSavingLessons((prev) => ({ ...prev, [lessonId]: true }));
 
     try {
@@ -233,7 +237,6 @@ export default function EmployeeKSS() {
     } catch (e) {
       console.error(e);
       toast.error("Failed to save progress");
-      setViewedLessons((prev) => ({ ...prev, [lessonId]: false }));
     } finally {
       setSavingLessons((prev) => ({ ...prev, [lessonId]: false }));
     }
@@ -241,7 +244,7 @@ export default function EmployeeKSS() {
     window.open(lesson.youtube_link, "_blank");
   };
 
-  // ---------- Submit quiz ----------
+  /* ---------- Submit Quiz ---------- */
   const submitQuiz = async (moduleId) => {
     if (!employeeId) return;
     setSubmitting(true);
@@ -269,8 +272,9 @@ export default function EmployeeKSS() {
         router
       );
 
-      toast.success("Quiz submitted!");
+      toast.success("Quiz submitted successfully!");
       setShowQuizModal(null);
+      setQuizAnswers((prev) => ({ ...prev, [moduleId]: {} }));
       await fetchModules(); // Refresh quiz result
     } catch (e) {
       console.error(e);
@@ -280,33 +284,35 @@ export default function EmployeeKSS() {
     }
   };
 
-  // ---------- Render ----------
+  /* -------------------------------------------------
+     RENDER
+     ------------------------------------------------- */
   return (
-    <div className="">
+    <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-4 mb-14 mt-5">
+      <div className="flex flex-wrap items-center justify-between gap-4 mb-14 mt-5 px-4">
         <div>
-          <h1 className="text-2xl font-bold">My Training Portal</h1>
+          <h1 className="text-2xl font-bold text-gray-900">My Training Portal</h1>
           <p className="mt-2 text-gray-500 font-medium">
             Watch the video, then mark as complete
           </p>
         </div>
-        <span className="rounded-[20px] border border-gray-300 px-3 py-2 text-gray-500">
+        <span className="rounded-[20px] border border-gray-300 px-3 py-2 text-gray-500 text-sm">
           {now}
         </span>
       </div>
 
       {/* Content */}
-      <div className="space-y-10">
+      <div className="space-y-10 pb-10">
         {loading ? (
           <>
             <SkeletonCard />
             <SkeletonCard />
           </>
         ) : error ? (
-          <div className="rounded bg-red-50 p-4 text-center text-red-700">{error}</div>
+          <div className="rounded bg-red-50 p-6 text-center text-red-700">{error}</div>
         ) : modules.length === 0 ? (
-          <div className="text-center py-12">
+          <div className="text-center py-16">
             <p className="text-lg text-gray-600">No training modules assigned.</p>
             <p className="text-sm text-gray-500 mt-2">Contact HR if needed.</p>
           </div>
@@ -315,15 +321,13 @@ export default function EmployeeKSS() {
             const isOpen = openModuleId === mod.id;
             const isCompleted = mod.isCompleted === true;
             const completedCount = Object.values(mod.progress).filter(Boolean).length;
-
             const quizResult = mod.quizResult;
-            const quizDone = !!quizResult?.completed;
-            const quizPassed = quizResult?.passed === true;
+            const quizDone = !!quizResult;
 
             return (
               <div
                 key={mod.id}
-                className="overflow-hidden rounded-lg border border-solid border-gray-200 shadow-sm hover:shadow-md transition-shadow"
+                className="overflow-hidden rounded-lg border border-solid border-gray-200 shadow-sm hover:shadow-md transition-shadow bg-white"
               >
                 {/* Module Header */}
                 <div
@@ -347,7 +351,7 @@ export default function EmployeeKSS() {
                           <FontAwesomeIcon icon={faCheckCircle} className="text-green-300" />
                           <span>
                             {isCompleted
-                              ? "Completed"
+                              ? "All Lessons Completed"
                               : `${completedCount}/${mod.lessons.length} lessons`}
                           </span>
                         </div>
@@ -358,7 +362,7 @@ export default function EmployeeKSS() {
 
                 {/* Module Body */}
                 <div
-                  className={`transition-all duration-300 ease-in-out overflow-y-auto ${
+                  className={`transition-all duration-300 ease-in-out overflow-hidden ${
                     isOpen ? "max-h-screen opacity-100" : "max-h-0 opacity-0"
                   }`}
                 >
@@ -436,24 +440,26 @@ export default function EmployeeKSS() {
                       })}
                     </div>
 
-                    {/* Quiz Section - ONLY BUTTON + RESULT */}
+                    {/* Quiz Section */}
                     {mod.questions.length > 0 && (
                       <div>
-                        <div className="mb-4 flex items-center justify-between">
+                        <div className="flex items-center justify-between mb-4">
                           <h4 className="font-bold text-gray-700">
                             Quiz ({mod.questions.length} questions)
                           </h4>
 
-                          {/* Show Result OR Take Quiz Button */}
+                          {/* RESULT OR TAKE QUIZ */}
                           {quizDone ? (
                             <div className="flex flex-col items-end text-sm">
                               <span
-                                className={`font-medium ${quizPassed ? "text-green-700" : "text-red-600"}`}
+                                className={`font-medium ${
+                                  quizResult.passed ? "text-green-700" : "text-red-600"
+                                }`}
                               >
-                                {quizPassed ? "Pass" : "Fail"} – {quizResult.score}%
+                                {quizResult.passed ? "Pass" : "Fail"} – {quizResult.score}%
                               </span>
                               <span className="text-xs text-gray-500">
-                                {new Date(quizResult.completion_date).toLocaleDateString()}
+                                {new Date(quizResult.completion_date).toLocaleDateString("en-GB")}
                               </span>
                             </div>
                           ) : (
@@ -463,7 +469,7 @@ export default function EmployeeKSS() {
                                 setShowQuizModal(mod.id);
                                 setQuizAnswers((prev) => ({
                                   ...prev,
-                                  [mod.id]: { ...mod.savedAnswers },
+                                  [mod.id]: {}, // fresh answers
                                 }));
                               }}
                               disabled={!isCompleted}
@@ -477,8 +483,6 @@ export default function EmployeeKSS() {
                             </button>
                           )}
                         </div>
-
-                        {/* REMOVED: Question list from main view */}
                       </div>
                     )}
                   </div>
@@ -489,7 +493,7 @@ export default function EmployeeKSS() {
         )}
       </div>
 
-      {/* ---------- Quiz Modal (Questions HERE) ---------- */}
+      {/* ---------- QUIZ MODAL ---------- */}
       <CustomModal
         isOpen={!!showQuizModal}
         onClose={() => setShowQuizModal(null)}
@@ -507,6 +511,7 @@ export default function EmployeeKSS() {
                     <span className="text-[#b88b1b] font-bold">Q{i + 1}.</span> {q.question_text}
                   </p>
 
+                  {/* Multiple Choice */}
                   {q.question_type === "multiple_choice" ? (
                     <div className="space-y-2">
                       {Object.entries(q.options).map(([k, v]) => (
@@ -530,11 +535,14 @@ export default function EmployeeKSS() {
                             }
                             className="text-[#d4a53b]"
                           />
-                          <span>{k}. {v}</span>
+                          <span>
+                            {k}. {v}
+                          </span>
                         </label>
                       ))}
                     </div>
                   ) : (
+                    /* Short Answer */
                     <input
                       type="text"
                       value={ans}
@@ -555,10 +563,11 @@ export default function EmployeeKSS() {
               );
             })}
 
+          {/* Buttons */}
           <div className="flex justify-end gap-3 mt-6">
             <button
               onClick={() => setShowQuizModal(null)}
-              className="px-6 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600"
+              className="px-6 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition"
             >
               Cancel
             </button>

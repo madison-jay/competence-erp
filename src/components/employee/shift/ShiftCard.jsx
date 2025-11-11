@@ -1,10 +1,9 @@
-// app/shift/page.jsx   (or wherever you keep the page)
 "use client";
 
 import React, { useEffect, useState } from "react";
 import apiService from "@/app/lib/apiService";
 import { useRouter } from "next/navigation";
-import toast from "react-hot-toast";
+import { toast } from "react-hot-toast"; // Correct named import
 
 export default function ShiftPage() {
   const router = useRouter();
@@ -31,7 +30,7 @@ export default function ShiftPage() {
   }, [router]);
 
   /* -------------------------------------------------------------
-   *  2. Fetch shift schedules with the new endpoint
+   *  2. Fetch shift schedules
    * ------------------------------------------------------------- */
   useEffect(() => {
     if (!employeeId) return;
@@ -43,14 +42,12 @@ export default function ShiftPage() {
         const data = await apiService.getEmployeeShiftSchedules(employeeId, router);
 
         if (Array.isArray(data) && data.length) {
-          // sort newest first
           const sorted = data.sort(
             (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
           );
           setShifts(sorted);
         } else {
-          setShifts([]);
-          toast.info("No upcoming shifts found.");
+          setShifts([]); // Empty → show warning in UI
         }
       } catch (err) {
         const msg = err.message || "Failed to load shifts";
@@ -126,15 +123,40 @@ export default function ShiftPage() {
 
       <div className="flex-1 overflow-y-auto space-y-4">
         {shifts.length === 0 ? (
-          <div className="text-center text-gray-500 py-10">
-            <p className="mb-2">No shifts scheduled.</p>
-            <p className="text-sm">Check back later or contact HR.</p>
+          /* ——— Warning Card (No Shifts) ——— */
+          <div className="flex flex-col items-center justify-center py-12 px-6 text-center">
+            {/* Warning Icon */}
+            <div className="mb-4 p-3 bg-yellow-100 rounded-full">
+              <svg
+                className="w-8 h-8 text-yellow-600"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                />
+              </svg>
+            </div>
+
+            {/* Warning Message */}
+            <p className="text-lg font-semibold text-yellow-800 mb-1">
+              You have not been scheduled a shift.
+            </p>
+            <p className="text-sm text-yellow-600">
+              Contact administrator for assistance.
+            </p>
           </div>
         ) : (
+          /* ——— Shift Cards ——— */
           shifts.map((shift) => (
             <div
               key={shift.id}
-              className="border border-gray-200 rounded-lg p-4 bg-gradient-to-r from-blue-50 to-indigo-50"
+              className="border border-gray-200 rounded-lg p-4 bg-gradient-to-r from-blue-50 to-indigo-50 hover:shadow-md transition-shadow"
             >
               <div className="flex justify-between items-center mb-2">
                 <h4 className="font-bold text-gray-900">{shift.shift_name}</h4>
