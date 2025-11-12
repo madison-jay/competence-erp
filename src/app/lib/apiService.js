@@ -85,32 +85,20 @@ const callApi = async (endpoint, method = "GET", data = null, router = null) => 
 const apiService = {
     sendInvoiceEmail: async (formData, router) => {
         try {
-            const token = localStorage.getItem('access_token');
-
-            const response = await fetch(`${process.env.RESEND_API_KEY}/api/invoice/send-email`, {
+            const response = await fetch('/api/send-invoice', {
                 method: 'POST',
                 body: formData,
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                },
             });
 
-            if (response.status === 401) {
-                localStorage.removeItem('access_token');
-                localStorage.removeItem('first_name');
-                router.push('/login');
-                throw new Error('Authentication failed');
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.message || 'Failed to send email');
             }
 
             const data = await response.json();
-
-            if (!response.ok) {
-                throw new Error(data.message || 'Failed to send invoice email email');
-            }
-
-            return data;
+            return data;  // { status: 'success' }
         } catch (error) {
-            console.error('Error in sendInvoiceEmail:', error);
+            console.error('sendInvoiceEmail error:', error);
             throw error;
         }
     },

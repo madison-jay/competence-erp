@@ -7,6 +7,7 @@ import html2canvas from 'html2canvas';
 import toast from "react-hot-toast";
 import apiService from "@/app/lib/apiService";
 import { useRouter } from "next/navigation";
+import { PDFDocument } from "pdf-lib";
 
 const CreateOrderModal = ({ isOpen, onClose, onSubmit }) => {
     const [formData, setFormData] = useState({
@@ -40,6 +41,7 @@ const CreateOrderModal = ({ isOpen, onClose, onSubmit }) => {
     const [accountNumber, setAccountNumber] = useState("");
     const [bankName, setBankName] = useState("");
     const router = useRouter();
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     // Fetch customers and products from backend
     useEffect(() => {
@@ -103,17 +105,17 @@ const CreateOrderModal = ({ isOpen, onClose, onSubmit }) => {
         setCustomerQuery(value);
         if (value.trim() === "") {
             setSelectedCustomer(null);
-            setFormData(prev => ({ 
-                ...prev, 
-                customer_id: "", 
-                phone_number: "", 
-                dispatch_address: "" 
+            setFormData(prev => ({
+                ...prev,
+                customer_id: "",
+                phone_number: "",
+                dispatch_address: ""
             }));
             setFilteredCustomers([]);
             return;
         }
         setFilteredCustomers(
-            customers.filter(c => 
+            customers.filter(c =>
                 c.name?.toLowerCase().includes(value.toLowerCase())
             )
         );
@@ -152,9 +154,9 @@ const CreateOrderModal = ({ isOpen, onClose, onSubmit }) => {
 
     const handleQuantityChange = (productId, quantity) => {
         const newQuantity = Math.max(1, quantity);
-        setItemQuantities(prev => ({ 
-            ...prev, 
-            [productId]: newQuantity 
+        setItemQuantities(prev => ({
+            ...prev,
+            [productId]: newQuantity
         }));
     };
 
@@ -179,6 +181,23 @@ const CreateOrderModal = ({ isOpen, onClose, onSubmit }) => {
 
     const handleRemoveAdditionalCost = (index) => {
         setAdditionalCosts(prev => prev.filter((_, i) => i !== index));
+    };
+
+    const compressPdf = async (blob) => {
+        try {
+            const arrayBuffer = await blob.arrayBuffer();
+            const pdfDoc = await PDFDocument.load(arrayBuffer);
+
+            const compressedBytes = await pdfDoc.save({
+                useObjectStreams: false,
+                addDefaultPage: false,
+            });
+
+            return new Blob([compressedBytes], { type: 'application/pdf' });
+        } catch (error) {
+            console.warn('PDF compression failed, using original:', error);
+            return blob;
+        }
     };
 
     const generateInvoiceHTML = (orderData, customerData, itemsData, additionalCosts) => {
@@ -347,7 +366,7 @@ const CreateOrderModal = ({ isOpen, onClose, onSubmit }) => {
     const sendInvoiceEmail = async (orderData, customerData, pdfBlob) => {
         try {
             setSendingEmail(true);
-            
+
             const formData = new FormData();
             formData.append('customer_email', customerData.email);
             formData.append('customer_name', customerData.name);
@@ -356,7 +375,7 @@ const CreateOrderModal = ({ isOpen, onClose, onSubmit }) => {
             formData.append('invoice_pdf', pdfBlob, `invoice_${orderData.order_number}.pdf`);
 
             const response = await apiService.sendInvoiceEmail(formData, router);
-            
+
             if (response.status === "success") {
                 toast.success("Invoice sent to customer's email successfully!");
                 return true;
@@ -375,7 +394,12 @@ const CreateOrderModal = ({ isOpen, onClose, onSubmit }) => {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        
+
+        if (isSubmitting) {
+            console.log("Already submitting — blocked duplicate");
+            return;
+        }
+
         if (selectedItems.length === 0) {
             toast.error("Please select at least one product");
             return;
@@ -386,6 +410,7 @@ const CreateOrderModal = ({ isOpen, onClose, onSubmit }) => {
             return;
         }
 
+        setIsSubmitting(true);
         setIsLoading(true);
         try {
             // Prepare data for backend
@@ -409,10 +434,10 @@ const CreateOrderModal = ({ isOpen, onClose, onSubmit }) => {
 
             // Submit to backend
             const response = await apiService.createOrder(orderData, router);
-            
+
             if (response.status === "success") {
                 const createdOrder = response.data[0];
-                
+
                 // Generate invoice with the created order data
                 const itemsData = selectedItems.map(item => ({
                     ...item,
@@ -421,8 +446,8 @@ const CreateOrderModal = ({ isOpen, onClose, onSubmit }) => {
 
                 const invoiceElement = document.createElement('div');
                 invoiceElement.innerHTML = generateInvoiceHTML(
-                    { ...createdOrder, order_number: createdOrder?.order_number }, 
-                    selectedCustomer, 
+                    { ...createdOrder, order_number: createdOrder?.order_number },
+                    selectedCustomer,
                     itemsData,
                     additionalCosts
                 );
@@ -450,19 +475,25 @@ const CreateOrderModal = ({ isOpen, onClose, onSubmit }) => {
                 const pdfHeight = pdf.internal.pageSize.getHeight();
 
                 pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
-                
-                // Generate PDF blob for email
-                const pdfBlob = pdf.output('blob');
-                
+
+
+                const rawBlob = pdf.output('blob');
+                const pdfBlob = await compressPdf(rawBlob);
+
                 // Save PDF locally
                 pdf.save(`invoice_${selectedCustomer?.name || 'customer'}_${createdOrder?.order_number || 'order'}.pdf`);
                 document.body.removeChild(invoiceElement);
 
                 // Send invoice email to customer
                 if (selectedCustomer?.email) {
-                    await sendInvoiceEmail(createdOrder, selectedCustomer, pdfBlob);
-                } else {
-                    toast.error("Customer email not found - invoice not sent");
+                    const success = await sendInvoiceEmail(
+                        { ...createdOrder, order_number: createdOrder.order_number },
+                        selectedCustomer,
+                        pdfBlob
+                    );
+                    if (success?.status === 'success') {
+                        toast.success('Invoice sent!');
+                    }
                 }
 
                 onSubmit(response.data);
@@ -539,14 +570,13 @@ const CreateOrderModal = ({ isOpen, onClose, onSubmit }) => {
                                     </div>
                                 </div>
 
-                                {/* ✅ BOTH EMAIL & PHONE NOW PREFILLED & READONLY */}
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                                     <div>
                                         <label className="block text-sm font-medium text-gray-700">Phone Number</label>
                                         <input
                                             type="text"
                                             value={formData.phone_number}
-                                            readOnly  // ✅ CHANGED TO READONLY
+                                            readOnly
                                             className="mt-1 p-2 w-full border border-gray-300 rounded-md bg-gray-100"
                                         />
                                     </div>
@@ -631,7 +661,7 @@ const CreateOrderModal = ({ isOpen, onClose, onSubmit }) => {
                                             placeholder="Search products by name or SKU..."
                                         />
                                     </div>
-                                    
+
                                     {searchResults.length > 0 && (
                                         <div className="border border-gray-300 mt-1 rounded-md max-h-40 overflow-y-auto bg-white">
                                             {searchResults.map((product) => (
@@ -792,7 +822,7 @@ const CreateOrderModal = ({ isOpen, onClose, onSubmit }) => {
                                     type="button"
                                     onClick={() => setCurrentStep(prev => prev - 1)}
                                     className="px-4 py-2 text-gray-700 border border-gray-300 rounded-md hover:bg-gray-100"
-                                    disabled={isLoading}
+                                    disabled={isLoading || isSubmitting}
                                 >
                                     Back
                                 </button>
@@ -802,7 +832,7 @@ const CreateOrderModal = ({ isOpen, onClose, onSubmit }) => {
                                     type="button"
                                     onClick={() => setCurrentStep(prev => prev + 1)}
                                     className="px-4 py-2 bg-[#b88b1b] hover:bg-[#8b6a15] transition-all text-white rounded-md disabled:opacity-50 flex items-center"
-                                    disabled={isLoading || (currentStep === 1 && !formData.customer_id) || (currentStep === 2 && selectedItems.length === 0)}
+                                    disabled={isLoading || isSubmitting || (currentStep === 1 && !formData.customer_id) || (currentStep === 2 && selectedItems.length === 0)}
                                 >
                                     Next
                                 </button>
@@ -811,7 +841,7 @@ const CreateOrderModal = ({ isOpen, onClose, onSubmit }) => {
                                 <button
                                     type="submit"
                                     className="px-4 py-2 bg-[#b88b1b] hover:bg-[#8b6a15] transition-all text-white rounded-md disabled:opacity-50 flex items-center"
-                                    disabled={isLoading || !accountName || !accountNumber || !bankName}
+                                    disabled={isLoading || isSubmitting || !accountName || !accountNumber || !bankName}
                                 >
                                     {isLoading ? (
                                         <>
