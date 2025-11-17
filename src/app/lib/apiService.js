@@ -96,7 +96,7 @@ const apiService = {
             }
 
             const data = await response.json();
-            return data;  // { status: 'success' }
+            return data;
         } catch (error) {
             console.error('sendInvoiceEmail error:', error);
             throw error;
@@ -652,6 +652,33 @@ const apiService = {
             .upload(path, file, { upsert: true });
         if (error) throw error;
         return { data, error };
+    },
+
+    createBiometricEmployee: async (employeeId, router) => {
+        return callApi(`/hr/biometrics/employees/${employeeId}`, "POST", null, router);
+    },
+
+    deleteBiometricEmployee: async (employeeId, router) => {
+        return callApi(`/hr/biometrics/employees/${employeeId}`, "DELETE", null, router);
+    },
+
+    syncAttendanceTransactions: async (payload, router) => {
+        return callApi("/hr/biometrics/sync-attendance", "POST", payload, router);
+    },
+
+    getAttendanceTransactions: async (filters = {}, router) => {
+        let endpoint = "/hr/biometrics/attendance-transactions";
+        const params = new URLSearchParams();
+        if (filters.start_date) params.append("start_date", filters.start_date);
+        if (filters.end_date) params.append("end_date", filters.end_date);
+        if (params.toString()) {
+            endpoint += `?${params.toString()}`;
+        }
+        return callApi(endpoint, "GET", null, router);
+    },
+
+    getEmployeeAttendanceTransactions: async (employeeId, router) => {
+        return callApi(`/hr/biometrics/attendance-transactions/${employeeId}`, "GET", null, router);
     }
 };
 

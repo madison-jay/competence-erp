@@ -3,17 +3,23 @@
 import React, { useState, useEffect } from "react";
 import apiService from "@/app/lib/apiService";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import TaskCard from "@/components/employee/TaskCard";
 import UpcomingHolidaysSection from "@/components/employee/UpcomingHolidays";
 import ShiftPage from "@/components/employee/shift/ShiftCard";
 import { faTasks, faCheckCircle, faSpinner, faCalendarCheck } from '@fortawesome/free-solid-svg-icons';
+import { createClient } from "@/app/lib/supabase/client";
+import toast from "react-hot-toast";
 
 export default function EmployeeDashboard() {
     const router = useRouter();
+    const supabase = createClient();
     const [currentDateTime, setCurrentDateTime] = useState('');
     const [greeting, setGreeting] = useState('');
     const [allTasks, setAllTasks] = useState([]);
     const [approvedLeaves, setApprovedLeaves] = useState(0);
+    const [daysPresent, setDaysPresent] = useState(0);
+    const [employeeId, setEmployeeId] = useState(null);
 
     const first_name = localStorage.getItem('first_name');
 
@@ -22,6 +28,31 @@ export default function EmployeeDashboard() {
         completed: 0,
         inProgress: 0,
     });
+
+    useEffect(() => {
+        const fetchUserData = async () => {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) {
+                toast.error('Not authenticated');
+                return;
+            }
+
+            const { data: employee, error } = await supabase
+                .from('employees')
+                .select('id')
+                .eq('user_id', user.id)
+                .single();
+
+            if (error || !employee) {
+                toast.error('Employee record not found');
+                return;
+            }
+
+            setEmployeeId(employee.id);
+        };
+
+        fetchUserData();
+    }, []);
 
     useEffect(() => {
         const updateDateTimeAndGreeting = () => {
@@ -77,15 +108,33 @@ export default function EmployeeDashboard() {
                 const tasks = (await apiService.getTasks(router)) || [];
                 setAllTasks(tasks);
 
+                if (employeeId) {
+                    const attendanceRecords = await apiService.getEmployeeAttendanceTransactions(employeeId, router) || [];
+                    const normalizeStatus = (status) => {
+                        if (!status) return "Absent";
+                        switch (status.toLowerCase()) {
+                            case "in-time": return "Present";
+                            case "late": return "Late";
+                            case "absent": return "Absent";
+                            case "early-departure": return "Early Departure";
+                            case "on-leave": return "On Leave";
+                            default: return status;
+                        }
+                    };
+                    const presentCount = attendanceRecords.filter(record => normalizeStatus(record.status) === 'Present').length;
+                    setDaysPresent(presentCount);
+                }
+
             } catch (error) {
                 console.error("Error fetching data:", error);
                 setAllTasks([]);
                 setApprovedLeaves(0);
+                setDaysPresent(0);
             }
         };
 
         fetchData();
-    }, [router]);
+    }, [router, employeeId]);
 
     useEffect(() => {
         let assignedCount = 0;
@@ -127,34 +176,42 @@ export default function EmployeeDashboard() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mt-8">
-                <TaskCard 
-                    title="Task Assigned" 
-                    value={taskData.assigned} 
-                    icon={faTasks} 
-                    iconColor="text-blue-600"
-                    backgroundColor="bg-blue-100"
-                />
-                <TaskCard 
-                    title="Task Completed" 
-                    value={taskData.completed} 
-                    icon={faCheckCircle} 
-                    iconColor="text-green-600" 
-                    backgroundColor="bg-green-100"
-                />
-                <TaskCard 
-                    title="Days Present" 
-                    value="23" 
-                    icon={faSpinner} 
-                    iconColor="text-orange-600" 
-                    backgroundColor="bg-orange-100"
-                />
-                <TaskCard 
-                    title="Approved Leaves" 
-                    value={approvedLeaves} 
-                    icon={faCalendarCheck} 
-                    iconColor="text-purple-600" 
-                    backgroundColor="bg-purple-100"
-                />
+                <Link href="/employee/tasks" passHref>
+                    <TaskCard 
+                        title="Task Assigned" 
+                        value={taskData.assigned} 
+                        icon={faTasks} 
+                        iconColor="text-blue-600"
+                        backgroundColor="bg-blue-100"
+                    />
+                </Link>
+                <Link href="/employee/tasks" passHref>
+                    <TaskCard 
+                        title="Task Completed" 
+                        value={taskData.completed} 
+                        icon={faCheckCircle} 
+                        iconColor="text-green-600" 
+                        backgroundColor="bg-green-100"
+                    />
+                </Link>
+                <Link href="/employee/attendance" passHref>
+                    <TaskCard 
+                        title="Days Present" 
+                        value={daysPresent} 
+                        icon={faSpinner} 
+                        iconColor="text-orange-600" 
+                        backgroundColor="bg-orange-100"
+                    />
+                </Link>
+                <Link href="/employee/leave" passHref>
+                    <TaskCard 
+                        title="Approved Leaves" 
+                        value={approvedLeaves} 
+                        icon={faCalendarCheck} 
+                        iconColor="text-purple-600" 
+                        backgroundColor="bg-purple-100"
+                    />
+                </Link>
             </div>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-8">
                 <div className="w-full">
