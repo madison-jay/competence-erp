@@ -340,20 +340,11 @@ const CreateOrderModal = ({ isOpen, onClose, onSubmit }) => {
                             Payment is due within 30 days of invoice date. Late payments may be subject to fees. All orders are subject to availability. Delivery times are estimates and may vary.
                         </p>
                     </div>
-
-                    <!-- Signature -->
-                    <div style="flex: 1; min-width: 200px; text-align: center;">
-                        <p style="margin: 20px 0 5px 0; font-weight: bold;">MADISON JAY</p>
-                        <p style="margin: 0; color: #666;">Furniture Company</p>
-                        <div style="margin-top: 40px; border-top: 1px solid #333; padding-top: 10px;">
-                            <p style="margin: 0; font-style: italic;">Authorized Signature</p>
-                        </div>
-                    </div>
                 </div>
 
                 <!-- Company Information -->
                 <div style="text-align: center; margin-top: 40px; padding: 20px; background: #f5f5f5; border-radius: 5px;">
-                    <p style="margin: 5px 0; font-weight: bold; color: #b88b1b;">MADISON JAY FURNITURE</p>
+                    <p style="margin: 5px 0; font-weight: bold; color: #b88b1b;">MADISON JAY LIMITED</p>
                     <p style="margin: 3px 0; font-size: 12px;">13, Alhaij Kanike Close, off Awolowo Road, Ikoyi - Lagos</p>
                     <p style="margin: 3px 0; font-size: 12px;">Phone: +234-817-777-0017 | Email: sales@madisonjayng.com</p>
                     <p style="margin: 3px 0; font-size: 12px;">Website: www.madisonjayng.com</p>

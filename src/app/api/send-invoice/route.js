@@ -44,7 +44,7 @@ export async function POST(request) {
             <p>Thank you for your order! Your invoice is attached.</p>
             <p><strong>Order #:</strong> ${orderNumber}</p>
             <p><strong>Total:</strong> ₦${Number(totalAmount).toLocaleString()}</p>
-            <p>Best regards,<br/>Madison Jay Furniture</p>
+            <p>Best regards,<br/>Madison Jay</p>
           `,
           attachments: [
             {
