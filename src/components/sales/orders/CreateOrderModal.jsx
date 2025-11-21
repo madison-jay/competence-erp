@@ -37,9 +37,9 @@ const CreateOrderModal = ({ isOpen, onClose, onSubmit }) => {
     const [additionalCosts, setAdditionalCosts] = useState([]);
     const [newCostName, setNewCostName] = useState("");
     const [newCostPrice, setNewCostPrice] = useState(0);
-    const [accountName, setAccountName] = useState("");
-    const [accountNumber, setAccountNumber] = useState("");
-    const [bankName, setBankName] = useState("");
+    const [accountName, setAccountName] = useState("Madison Jay");
+    const [accountNumber, setAccountNumber] = useState("7045580195");
+    const [bankName, setBankName] = useState("Fidelity Bank");
     const router = useRouter();
     const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -787,7 +787,7 @@ const CreateOrderModal = ({ isOpen, onClose, onSubmit }) => {
                                     <label className="block text-sm font-medium text-gray-700">Account Name</label>
                                     <input
                                         type="text"
-                                        value={accountName}
+                                        value='Madison Jay'
                                         onChange={(e) => setAccountName(e.target.value)}
                                         className="mt-1 p-2 w-full border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#b88b1b]"
                                         required
@@ -798,7 +798,7 @@ const CreateOrderModal = ({ isOpen, onClose, onSubmit }) => {
                                     <label className="block text-sm font-medium text-gray-700">Account Number</label>
                                     <input
                                         type="text"
-                                        value={accountNumber}
+                                        value='7045580195'
                                         onChange={(e) => setAccountNumber(e.target.value)}
                                         className="mt-1 p-2 w-full border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#b88b1b]"
                                         required
@@ -809,7 +809,7 @@ const CreateOrderModal = ({ isOpen, onClose, onSubmit }) => {
                                     <label className="block text-sm font-medium text-gray-700">Bank Name</label>
                                     <input
                                         type="text"
-                                        value={bankName}
+                                        value='Fidelity Bank'
                                         onChange={(e) => setBankName(e.target.value)}
                                         className="mt-1 p-2 w-full border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#b88b1b]"
                                         required
