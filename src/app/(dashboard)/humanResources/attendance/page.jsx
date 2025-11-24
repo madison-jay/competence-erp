@@ -208,9 +208,11 @@ const AttendanceRecordTable = () => {
   }, [employees]);
 
   // ── Filtered Records ─────────────────────────
+  // ── Filtered & Sorted Records ─────────────────────────
   const filteredAttendanceRecords = useMemo(() => {
     let filtered = attendanceRecords;
 
+    // Search filter
     if (searchTerm) {
       const term = searchTerm.toLowerCase();
       filtered = filtered.filter(record => {
@@ -225,6 +227,7 @@ const AttendanceRecordTable = () => {
       });
     }
 
+    // Calendar month filter
     if (displayMode === 'calendar') {
       const year = currentMonth.getFullYear();
       const month = currentMonth.getMonth();
@@ -233,6 +236,12 @@ const AttendanceRecordTable = () => {
         return d.getFullYear() === year && d.getMonth() === month;
       });
     }
+
+    // Sort by date: newest first (descending)
+    filtered.sort((a, b) => {
+      // Ensure we compare actual Date objects
+      return new Date(b.date) - new Date(a.date);
+    });
 
     return filtered;
   }, [attendanceRecords, searchTerm, employeeMap, displayMode, currentMonth]);
