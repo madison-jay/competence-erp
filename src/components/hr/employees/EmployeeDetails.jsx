@@ -9,8 +9,19 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 
 const DEFAULT_AVATAR = "/default-profile.png";
 
-const formatDate = (iso) =>
-  iso ? new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }).replace(/(\w+) (\d+), (\d+)/, "$2 $1 $3") : "—";
+const formatDate = (iso) => {
+    if (!iso) return '—';
+    try {
+        const date = new Date(iso);
+        if (isNaN(date.getTime())) return 'Invalid Date';
+        const day = String(date.getDate()).padStart(2, '0');
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const year = date.getFullYear();
+        return `${day}/${month}/${year}`;
+    } catch {
+        return '—';
+    }
+};
 
 const formatCurrency = (n) =>
   new Intl.NumberFormat("en-NG", {

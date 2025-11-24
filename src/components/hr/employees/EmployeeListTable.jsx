@@ -4,11 +4,18 @@ import React, { useState } from 'react';
 
 const DEFAULT_AVATAR = '/default-profile.png';
 
-const formatDate = (isoString) => {
-    if (!isoString) return '—';
-    const date = new Date(isoString);
-    const options = { day: 'numeric', month: 'short', year: 'numeric' };
-    return date.toLocaleDateString('en-US', options).replace(/(\w+) (\d+), (\d+)/, '$2 of $1 $3');
+const formatDate = (dateString) => {
+    if (!dateString) return '—';
+    try {
+        const date = new Date(dateString);
+        if (isNaN(date.getTime())) return 'Invalid Date';
+        const day = String(date.getDate()).padStart(2, '0');
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const year = date.getFullYear();
+        return `${day}/${month}/${year}`;
+    } catch {
+        return '—';
+    }
 };
 
 const EmployeeRow = ({ employee, onEdit, onView, onDelete }) => {
