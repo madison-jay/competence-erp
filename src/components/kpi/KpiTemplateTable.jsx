@@ -58,7 +58,7 @@ const KPITemplatesTable = ({ kpiTemplates = [], loading, setKpiTemplates }) => {
   const normalizedTemplates = useMemo(() => {
   return kpiTemplates.map(t => ({
     kpi_id: t.kpi_id,
-    title: t.kpi_title || t.title || 'Untitled',  // ← Use kpi_title first
+    title: t.kpi_title || t.title || 'Untitled',
     description: t.description || 'No description',
     weight: t.weight ?? 0,
     target_type: t.target_type || 'numeric',
@@ -224,11 +224,8 @@ const handleSaveAssignments = async (e) => {
   setIsLoading(true);
   try {
     const { roles, departments } = assignmentForm;
-    const kpi_id = assignmentTemplate.kpi_id; // string from Supabase
+    const kpi_id = assignmentTemplate.kpi_id;
 
-    // -------------------------------------------------
-    // 1. CURRENT STATE – from the template (RPC already gave us the arrays)
-    // -------------------------------------------------
     const tmpl = kpiTemplates.find(t => t.kpi_id === kpi_id);
     if (!tmpl) throw new Error('Template not found');
 
@@ -242,15 +239,11 @@ const handleSaveAssignments = async (e) => {
     const newRoles = new Set(roles);
     const newDeptIds = new Set(departments);
 
-    // -------------------------------------------------
-    // 2. ADD NEW ROLES / DEPARTMENTS
-    // -------------------------------------------------
-    // add missing roles
     for (const r of newRoles) {
       if (!curRoles.has(r)) {
         await apiService.createKPIRoleAssignment({
-          kpi_id,          // string – backend expects it
-          role: r          // only role
+          kpi_id,
+          role: r
         });
       }
     }
@@ -260,7 +253,7 @@ const handleSaveAssignments = async (e) => {
       if (!curDeptIds.has(d)) {
         await apiService.createKPIRoleAssignment({
           kpi_id,
-          department_id: d // only department_id
+          department_id: d
         });
       }
     }
@@ -289,9 +282,6 @@ const handleSaveAssignments = async (e) => {
       }
     }
 
-    // -------------------------------------------------
-    // 4. REFRESH UI – pull fresh templates (RPC includes assignments)
-    // -------------------------------------------------
     const fresh = await apiService.getKPITemplates();
     setKpiTemplates(fresh.templates ?? fresh);
 
@@ -454,16 +444,16 @@ const handleSaveAssignments = async (e) => {
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <label className="block font-medium mb-1">Title</label>
-                <input name="title" value={formData.title} onChange={handleFormChange} required className="w-full border rounded px-3 py-2" />
+                <input name="title" value={formData.title} onChange={handleFormChange} required className="w-full border rounded border-gray-300 focus:border-[#b88b1b] outline-none focus:outline-[#b88b1b] px-3 py-2" />
               </div>
               <div>
                 <label className="block font-medium mb-1">Description</label>
-                <textarea name="description" value={formData.description} onChange={handleFormChange} className="w-full border rounded px-3 py-2" rows="3" />
+                <textarea name="description" value={formData.description} onChange={handleFormChange} className="w-full border rounded resize-none border-gray-300 focus:border-[#b88b1b] outline-none focus:outline-[#b88b1b] px-3 py-2" rows="3" />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block font-medium mb-1">Weight (0–1)</label>
-                  <input type="number" name="weight" step="0.01" min="0" max="1" value={formData.weight} onChange={handleFormChange} required className="w-full border rounded px-3 py-2" />
+                  <input type="number" name="weight" step="0.01" min="0" max="1" value={formData.weight} onChange={handleFormChange} required className="w-full border rounded border-gray-300 focus:border-[#b88b1b] outline-none focus:outline-[#b88b1b] px-3 py-2" />
                 </div>
                 <div>
                   <label className="block font-medium mb-1">Active</label>
@@ -475,7 +465,7 @@ const handleSaveAssignments = async (e) => {
               </div>
               <div>
                 <label className="block font-medium mb-1">Target Type</label>
-                <select name="target_type" value={formData.target_type} onChange={handleFormChange} className="w-full border rounded px-3 py-2">
+                <select name="target_type" value={formData.target_type} onChange={handleFormChange} className="w-full border rounded border-gray-300 focus:border-[#b88b1b] outline-none focus:outline-[#b88b1b] px-3 py-2">
                   <option value="numeric">Numeric</option>
                   <option value="percentage">Percentage</option>
                   <option value="boolean">Yes/No</option>
@@ -485,8 +475,8 @@ const handleSaveAssignments = async (e) => {
               </div>
               {formData.target_type === 'range' ? (
                 <div className="grid grid-cols-2 gap-4">
-                  <input type="number" name="target_min" placeholder="Min" value={formData.target_value.min || ''} onChange={handleFormChange} required className="border rounded px-3 py-2" />
-                  <input type="number" name="target_max" placeholder="Max" value={formData.target_value.max || ''} onChange={handleFormChange} required className="border rounded px-3 py-2" />
+                  <input type="number" name="target_min" placeholder="Min" value={formData.target_value.min || ''} onChange={handleFormChange} required className="border rounded border-gray-300 focus:border-[#b88b1b] outline-none focus:outline-[#b88b1b] px-3 py-2" />
+                  <input type="number" name="target_max" placeholder="Max" value={formData.target_value.max || ''} onChange={handleFormChange} required className="border rounded border-gray-300 focus:border-[#b88b1b] outline-none focus:outline-[#b88b1b] px-3 py-2" />
                 </div>
               ) : formData.target_type === 'boolean' ? (
                 <label className="flex items-center gap-2">
@@ -500,7 +490,7 @@ const handleSaveAssignments = async (e) => {
                   value={formData.target_value.value || ''}
                   onChange={handleFormChange}
                   required
-                  className="w-full border rounded px-3 py-2"
+                  className="w-full border rounded px-3 py-2 border-gray-300 focus:border-[#b88b1b] outline-none focus:outline-[#b88b1b]"
                   placeholder={formData.target_type === 'text' ? 'Text goal' : 'Number'}
                 />
               )}

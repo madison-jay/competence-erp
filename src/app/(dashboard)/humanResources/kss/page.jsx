@@ -138,16 +138,24 @@ export default function KSS() {
           }
 
           const enrichedAssignments = assignments.map((ass) => {
-            const parts = [];
-            // if (ass.role) {
-            //   parts.push(`Role: ${ass.role.charAt(0).toUpperCase() + ass.role.slice(1)}`);
-            // }
+            let label = "";
+
             if (ass.department_id && deptMap[ass.department_id]) {
-              parts.push(`Department: ${deptMap[ass.department_id]}`);
+              label = `Department: ${deptMap[ass.department_id]}`;
+            } else if (ass.role) {
+              const roleName = ass.role
+                .split("_")
+                .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+                .join(" ");
+              label = `Role: ${roleName}`;
+            } else {
+              label = "All Employees";
             }
-            const displayLabel =
-              parts.length ? parts.join(", ") : `ID: ${ass.id.slice(0, 8)}…`;
-            return { ...ass, displayLabel };
+
+            return {
+              ...ass,
+              displayLabel: label,
+            };
           });
 
           let questions = [];
@@ -175,100 +183,74 @@ export default function KSS() {
             const employeeIds = new Set();
 
             for (const ass of assignments) {
+              // 1. All Employees
               if (!ass.role && !ass.department_id) {
                 const { data: emps = [] } = await supabase
                   .from("employees")
                   .select("id")
-                .neq("employment_status", "terminated");
-                emps.forEach((e) => employeeIds.add(e.id));
+                  .neq("employment_status", "terminated");
+                emps.forEach(e => employeeIds.add(e.id));
                 continue;
               }
 
+              // 2. Department assignment
               if (ass.department_id) {
                 const { data: emps = [] } = await supabase
                   .from("employees")
                   .select("id")
                   .eq("department_id", ass.department_id)
-                .neq("employment_status", "terminated");
-                emps.forEach((e) => employeeIds.add(e.id));
+                  .neq("employment_status", "terminated");
+                emps.forEach(e => employeeIds.add(e.id));
               }
 
-              // ROLE ASSIGNMENT COMMENTED OUT
-              // if (ass.role) { ... }
+              // 3. Role assignment — FIXED & WORKING
+              if (ass.role) {
+                const { data: userIds = [], error: rpcError } = await supabase
+                  .rpc("get_user_ids_by_role", { target_role: ass.role });
+
+                if (rpcError) {
+                  console.warn("RPC error for role", ass.role, rpcError);
+                  continue;
+                }
+
+                if (userIds.length === 0) continue;
+
+                const authUserIds = userIds.map(u => u.user_id);
+
+                const { data: emps = [] } = await supabase
+                  .from("employees")
+                  .select("id")
+                  .in("user_id", authUserIds)
+                  .neq("employment_status", "terminated");
+
+                emps.forEach(e => employeeIds.add(e.id));
+              }
             }
 
             const empArr = Array.from(employeeIds);
             progressStats.totalAssignedEmployees = empArr.length;
 
-            // FILTER OUT TERMINATED EMPLOYEES
+            // Final fetch: full employee details
             if (empArr.length > 0) {
               const { data: emps = [] } = await supabase
                 .from("employees")
-                .select("id, user_id, first_name, last_name, email, employment_status")
+                .select(`
+                  id,
+                  user_id,
+                  first_name,
+                  last_name,
+                  email,
+                  employment_status,
+                  department:department_id (name)
+                `)
                 .in("id", empArr)
                 .neq("employment_status", "terminated");
 
               employees = emps.map(e => ({
                 ...e,
                 name: `${e.first_name || ""} ${e.last_name || ""}`.trim() || "Unknown",
+                department_name: e.department?.name || "No Department",
               }));
-            }
-
-            // Lesson progress
-            if (sortedLessons.length && employees.length) {
-              const { data: prog = [] } = await supabase
-                .from("employee_lesson_progress")
-                .select("employee_id, lesson_id, is_completed")
-                .in("employee_id", employees.map(e => e.id))
-                .in("lesson_id", sortedLessons.map(l => l.id));
-
-              const lessonCompleteCount = {};
-              const employeeLessonCounts = {};
-
-              prog.forEach((p) => {
-                if (p.is_completed) {
-                  lessonCompleteCount[p.lesson_id] =
-                    (lessonCompleteCount[p.lesson_id] || 0) + 1;
-                  employeeLessonCounts[p.employee_id] =
-                    (employeeLessonCounts[p.employee_id] || 0) + 1;
-                }
-              });
-
-              const completedAll = Object.values(employeeLessonCounts).filter(
-                (c) => c === sortedLessons.length
-              ).length;
-
-              progressStats.lessonCompleteCount = lessonCompleteCount;
-              progressStats.moduleCompleted = completedAll;
-              progressStats.moduleCompletionPercent = employees.length
-                ? Math.round((completedAll / employees.length) * 100)
-                : 0;
-
-              lessonMap = Object.fromEntries(
-                employees.map(e => [e.id, { completed: employeeLessonCounts[e.id] || 0 }])
-              );
-            }
-
-            // Quiz results
-            if (questions.length && employees.length) {
-              const { data: quiz = [] } = await supabase
-                .from("employee_test_results")
-                .select("employee_id, score, passed")
-                .eq("module_id", mod.id)
-                .in("employee_id", employees.map(e => e.id));
-
-              const scores = quiz.map(r => r.score).filter(s => s != null);
-              const passed = quiz.filter(r => r.passed).length;
-
-              progressStats.quizCompleted = scores.length;
-              progressStats.quizPassed = passed;
-              progressStats.averageScore = scores.length
-                ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length)
-                : 0;
-
-              quizMap = Object.fromEntries(
-                quiz.map(q => [q.employee_id, { score: q.score, passed: q.passed }])
-              );
             }
           }
 
@@ -1003,13 +985,13 @@ export default function KSS() {
             {delType === "module"
               ? selModule?.title
               : delType === "lesson"
-              ? selLesson?.title
-              : delType === "assignment"
-              ? selAssignment?.displayLabel ||
-                `Assignment ${selAssignment?.id?.slice(0, 8)}…`
-              : delType === "question"
-              ? selQuestion?.question_text?.slice(0, 60) + "..."
-              : "Unknown"}
+                ? selLesson?.title
+                : delType === "assignment"
+                  ? selAssignment?.displayLabel ||
+                  `Assignment ${selAssignment?.id?.slice(0, 8)}…`
+                  : delType === "question"
+                    ? selQuestion?.question_text?.slice(0, 60) + "..."
+                    : "Unknown"}
           </p>
           <p className="text-sm text-red-600">
             This action cannot be undone.
@@ -1019,11 +1001,10 @@ export default function KSS() {
           <button
             onClick={confirmDelete}
             disabled={deleting}
-            className={`flex items-center gap-2 px-6 py-2 text-white rounded-lg transition ${
-              deleting
-                ? "bg-red-400 cursor-not-allowed"
-                : "bg-red-600 hover:bg-red-700"
-            }`}
+            className={`flex items-center gap-2 px-6 py-2 text-white rounded-lg transition ${deleting
+              ? "bg-red-400 cursor-not-allowed"
+              : "bg-red-600 hover:bg-red-700"
+              }`}
           >
             {deleting ? (
               <>
