@@ -5,7 +5,7 @@ let warningTimeoutId = null;
 let countdownInterval = null;
 let eventsBound = false;
 
-const INACTIVITY_TIMEOUT = 15 * 60 * 1000;
+const INACTIVITY_TIMEOUT = 15;
 const ABSOLUTE_SESSION_TIMEOUT = 12 * 60 * 60 * 1000;
 const WARNING_BEFORE_LOGOUT = 60 * 1000;
 
