@@ -76,13 +76,13 @@ export default function LoginPage() {
   };
 
   useEffect(() => {
-    const checkUserSession = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+    const signOutSession = async () => {
+      const { data: { user } } = await supabase.auth.signOut();
       if (user) {
         await redirectToDashboard(user);
       }
     };
-    checkUserSession();
+    signOutSession();
 
     const savedEmail = localStorage.getItem('rememberedEmail');
     if (savedEmail) {
