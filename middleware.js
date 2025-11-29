@@ -2,15 +2,20 @@ import { NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 
 export async function middleware(request) {
-  // Step 1: Check for HTTP and redirect to HTTPS if needed
-  const forwardedProto = request.headers.get('x-forwarded-proto');
-  if (forwardedProto && forwardedProto !== 'https' && process.env.NODE_ENV === 'production') {
-    const url = request.nextUrl.clone();
-    url.protocol = 'https';
-    return NextResponse.redirect(url, 301);
+  // === FORCE HTTPS ON HEROKU (RELIABLE CHECK) ===
+  const host = request.headers.get('host') || '';
+  const proto = request.headers.get('x-forwarded-proto');
+  const isHttp = (!proto || proto === 'http') || host.includes(':80');
+
+  if (isHttp && process.env.NODE_ENV === 'production') {
+    const httpsUrl = new URL(request.url);
+    httpsUrl.protocol = 'https:';
+    // Remove :80 if present
+    httpsUrl.port = '';
+    return NextResponse.redirect(httpsUrl.toString(), 301);
   }
 
-  // Step 2: Continue with your existing Supabase logic
+  // === SUPABASE AUTH LOGIC (UNCHANGED) ===
   const response = NextResponse.next({
     request: {
       headers: request.headers,
