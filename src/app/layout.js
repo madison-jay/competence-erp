@@ -6,8 +6,6 @@ import "@fortawesome/fontawesome-svg-core/styles.css";
 import { config } from "@fortawesome/fontawesome-svg-core";
 import Footer from "@/components/Footer";
 import ClientLayout from "@/components/ClientLayout";
-import { createServerClient } from "@supabase/ssr";
-import { cookies } from "next/headers";
 
 config.autoAddCss = false;
 
@@ -22,34 +20,14 @@ export const metadata = {
 
 export const revalidate = 0;
 
-export default async function RootLayout({ children }) {
-  const cookieStore = await cookies();
-
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL || '',
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '',
-    {
-      cookies: {
-        getAll: () => cookieStore.getAll(),
-        setAll: () => { },
-      },
-    }
-  );
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-
-  const isLoggedIn = !!session;
-
+export default function RootLayout({ children }) {
   return (
     <html lang="en">
-      <body className={`${roboto.variable} ${robotoSerif.variable} antialiased`}>
+      <body className={' ${roboto.variable} ${robotoSerif.variable} antialiased'}>
         <Toaster position="top-right" />
-        <ClientLayout isLoggedIn={isLoggedIn}>
-          {children}
-          <Footer />
-        </ClientLayout>
+        <ClientLayout>{children}<Footer /></ClientLayout>
       </body>
     </html>
   );
 }
+

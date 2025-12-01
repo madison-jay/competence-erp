@@ -33,7 +33,7 @@ const LoginBanner = () => {
         width={200}
         height={50}
         alt="madisonjayng_logo"
-        className="absolute madison-logo right-[50%] bottom-[57%] left-[50%] top-[50%] translate-x-[-50%] translate-y-[-50%] z-[9999] white-effect"
+        className="absolute madison-logo right-[50%] bottom-[57%] left-[50%] top-[50%] translate-x-[-50%] translate-y-[-50%] z-9999 white-effect"
       />
       <Image
         src="/login-img-01.png"
@@ -53,7 +53,7 @@ const LoginBanner = () => {
         height={100}
         className="absolute right-[10%] top-[20%] translate-x-[-50%] translate-y-[-50%] login-img-02"
       />
-      <div className="absolute top-[3%] right-[5%] bg-white p-2 rounded-[7px] max-w-[240px] flex items-center gap-2 login-div-02">
+      <div className="absolute top-[3%] right-[5%] bg-white p-2 rounded-[7px] max-w-60 flex items-center gap-2 login-div-02">
         <FontAwesomeIcon icon={faBarChart} className="text-[#A09D9D] bg-[#F9F7F7] p-[7px] rounded-full text-2xl login-icon" />
         <p className="text-[#A09D9D] text-[11px] text-justify login-content">Performance evaluation has been <br /> scheduled</p>
       </div>
@@ -64,7 +64,7 @@ const LoginBanner = () => {
         height={100}
         className="absolute left-[14%] top-[50%] bottom-[50%] translate-x-[-50%] translate-y-[-55%] login-img-03"
       />
-      <div className="absolute top-[33%] left-[2%] bg-white p-2 rounded-[7px] max-w-[240px] flex items-center gap-2 login-div-03">
+      <div className="absolute top-[33%] left-[2%] bg-white p-2 rounded-[7px] max-w-60 flex items-center gap-2 login-div-03">
         <FontAwesomeIcon icon={faMoneyBill} className="text-[#A09D9D] bg-[#F9F7F7] p-[7px] rounded-full text-2xl login-icon" />
         <p className="text-[#A09D9D] text-[11px] text-justify login-content">Payroll cycle closed <br /> successfully</p>
       </div>
@@ -75,7 +75,7 @@ const LoginBanner = () => {
         height={100}
         className="absolute right-[1%] top-[50%] bottom-[50%] translate-x-[-50%] translate-y-[-64%] login-img-04"
       />
-      <div className="absolute top-[32%] right-[2%] bg-white p-2 rounded-[7px] max-w-[240px] flex items-center gap-2 login-div-04">
+      <div className="absolute top-[32%] right-[2%] bg-white p-2 rounded-[7px] max-w-60 flex items-center gap-2 login-div-04">
         <FontAwesomeIcon icon={faFirstAid} className="text-[#A09D9D] bg-[#F9F7F7] p-[7px] rounded-full text-2xl login-icon" />
         <p className="text-[#A09D9D] text-[11px] text-justify login-content">Medical insurance option <br /> has been activated</p>
       </div>
@@ -86,7 +86,7 @@ const LoginBanner = () => {
         height={100}
         className="absolute left-[25%] bottom-[7%] translate-x-[-50%] translate-y-[-50%] login-img-05"
       />
-      <div className="absolute bottom-[28%] left-[2%] bg-white p-2 rounded-[7px] max-w-[240px] flex items-center gap-2 login-div-05">
+      <div className="absolute bottom-[28%] left-[2%] bg-white p-2 rounded-[7px] max-w-60 flex items-center gap-2 login-div-05">
         <FontAwesomeIcon icon={faNoteSticky} className="text-[#A09D9D] bg-[#F9F7F7] p-[7px] rounded-full text-2xl login-icon" />
         <p className="text-[#A09D9D] text-[11px] text-justify login-content">Product invoice successfully <br /> generated and sent</p>
       </div>
@@ -97,7 +97,7 @@ const LoginBanner = () => {
         height={100}
         className="absolute right-[10%] bottom-[8%] translate-x-[-50%] translate-y-[-50%] login-img-06"
       />
-      <div className="absolute bottom-[28%] right-[2%] bg-white p-2 rounded-[7px] max-w-[240px] flex items-center gap-2 login-div-06">
+      <div className="absolute bottom-[28%] right-[2%] bg-white p-2 rounded-[7px] max-w-60 flex items-center gap-2 login-div-06">
         <FontAwesomeIcon icon={faGlobe} className="text-[#A09D9D] bg-[#F9F7F7] p-[7px] rounded-full text-2xl login-icon" />
         <p className="text-[#A09D9D] text-[11px] text-justify login-content">Travel leave request approved</p>
       </div>

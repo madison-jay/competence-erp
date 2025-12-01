@@ -1,6 +1,5 @@
 // components/hr/employees/EditEmployeeModal.jsx
 "use client";
-
 import React, { useState, useRef, useEffect } from 'react';
 import { createClient } from "@/app/lib/supabase/client";
 import toast from 'react-hot-toast';
@@ -19,13 +18,14 @@ const EditEmployeeModal = ({ isOpen, onClose, onEmployeeUpdated, employee }) => 
                 first_name: employee.first_name || '',
                 last_name: employee.last_name || '',
                 email: employee.email || '',
-                // Ensure initial status matches backend's expected casing
                 employment_status: employee.employment_status
                     ? employee.employment_status.split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')
-                    : 'active', // Default to 'Active'
+                    : 'active',
                 position: employee.position || '',
                 department_id: employee.department_id || '',
                 avatar_url: employee.avatar_url || null,
+                signature_url: employee.signature_url || null,
+                document_urls: employee.document_urls || [],
             };
         }
         return {
@@ -37,14 +37,32 @@ const EditEmployeeModal = ({ isOpen, onClose, onEmployeeUpdated, employee }) => 
             position: '',
             department_id: '',
             avatar_url: null,
+            signature_url: null,
+            document_urls: [],
         };
     });
 
     const [avatarFile, setAvatarFile] = useState(null);
     const [avatarPreviewUrl, setAvatarPreviewUrl] = useState(employee?.avatar_url || null);
+
+    const [signatureFile, setSignatureFile] = useState(null);
+    const [signaturePreviewUrl, setSignaturePreviewUrl] = useState(employee?.signature_url || null);
+
+    const [documentFiles, setDocumentFiles] = useState([]);
+    const [documentPreviews, setDocumentPreviews] = useState(
+        (employee?.document_urls || []).map((url, i) => ({
+            name: `Document ${i + 1}.pdf`,
+            url,
+            isExisting: true,
+        }))
+    );
+
     const [loading, setLoading] = useState(false);
     const [departments, setDepartments] = useState([]);
+
     const avatarInputRef = useRef(null);
+    const signatureInputRef = useRef(null);
+    const documentsInputRef = useRef(null);
     const modalContentRef = useRef(null);
 
     useEffect(() => {
@@ -60,16 +78,34 @@ const EditEmployeeModal = ({ isOpen, onClose, onEmployeeUpdated, employee }) => 
                 position: employee.position || '',
                 department_id: employee.department_id || '',
                 avatar_url: employee.avatar_url || null,
+                signature_url: employee.signature_url || null,
+                document_urls: employee.document_urls || [],
             });
             setAvatarPreviewUrl(employee.avatar_url || null);
+            setSignaturePreviewUrl(employee.signature_url || null);
+            setDocumentPreviews(
+                (employee.document_urls || []).map((url, i) => ({
+                    name: `Document ${i + 1}`,
+                    url,
+                    isExisting: true,
+                }))
+            );
             setAvatarFile(null);
+            setSignatureFile(null);
+            setDocumentFiles([]);
         } else if (!isOpen) {
             setEditedEmployee({
-                id: '', first_name: '', last_name: '', email: '', employment_status: 'active', position: '', department_id: '', avatar_url: null,
+                id: '', first_name: '', last_name: '', email: '', employment_status: 'active', position: '', department_id: '', avatar_url: null, signature_url: null, document_urls: [],
             });
             setAvatarFile(null);
             setAvatarPreviewUrl(null);
+            setSignatureFile(null);
+            setSignaturePreviewUrl(null);
+            setDocumentFiles([]);
+            setDocumentPreviews([]);
             if (avatarInputRef.current) avatarInputRef.current.value = '';
+            if (signatureInputRef.current) signatureInputRef.current.value = '';
+            if (documentsInputRef.current) documentsInputRef.current.value = '';
         }
     }, [isOpen, employee]);
 
@@ -113,6 +149,33 @@ const EditEmployeeModal = ({ isOpen, onClose, onEmployeeUpdated, employee }) => 
         }
     };
 
+    const handleSignatureChange = (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            setSignatureFile(file);
+            setSignaturePreviewUrl(URL.createObjectURL(file));
+        } else {
+            setSignatureFile(null);
+            setSignaturePreviewUrl(editedEmployee.signature_url || null);
+        }
+    };
+
+    const handleDocumentChange = (e) => {
+        const files = Array.from(e.target.files);
+        setDocumentFiles(prev => [...prev, ...files]);
+        const newPreviews = files.map(file => ({
+            name: file.name,
+            url: URL.createObjectURL(file),
+            isExisting: false
+        }));
+        setDocumentPreviews(prev => [...prev, ...newPreviews]);
+    };
+
+    const removeDocument = (index) => {
+        setDocumentFiles(prev => prev.filter((_, i) => i !== index));
+        setDocumentPreviews(prev => prev.filter((_, i) => i !== index));
+    };
+
     const uploadFileToSupabase = async (file, bucketName, folderPath) => {
         const fileName = `${Date.now()}-${file.name}`;
         const filePath = `${folderPath}/${fileName}`;
@@ -122,16 +185,13 @@ const EditEmployeeModal = ({ isOpen, onClose, onEmployeeUpdated, employee }) => 
                 cacheControl: '3600',
                 upsert: false
             });
-
         if (error) {
             console.error(`Error uploading file to ${bucketName}:`, error);
             throw new Error(`Failed to upload ${file.name}: ${error.message}`);
         }
-
         const { data: publicUrlData } = supabase.storage
             .from(bucketName)
             .getPublicUrl(filePath);
-
         return publicUrlData.publicUrl;
     };
 
@@ -140,10 +200,21 @@ const EditEmployeeModal = ({ isOpen, onClose, onEmployeeUpdated, employee }) => 
         setLoading(true);
 
         let newAvatarUrl = editedEmployee.avatar_url;
+        let newSignatureUrl = editedEmployee.signature_url;
+        let newDocumentUrls = editedEmployee.document_urls.filter(url => url); // keep existing ones
 
         try {
             if (avatarFile) {
                 newAvatarUrl = await uploadFileToSupabase(avatarFile, 'avatars', 'employee_avatars');
+            }
+            if (signatureFile) {
+                newSignatureUrl = await uploadFileToSupabase(signatureFile, 'signatures', 'employee_signatures');
+            }
+            if (documentFiles.length > 0) {
+                const uploaded = await Promise.all(
+                    documentFiles.map(file => uploadFileToSupabase(file, 'documents', 'employee_documents'))
+                );
+                newDocumentUrls = [...newDocumentUrls, ...uploaded];
             }
 
             const employeeDataToUpdate = {
@@ -151,6 +222,8 @@ const EditEmployeeModal = ({ isOpen, onClose, onEmployeeUpdated, employee }) => 
                 position: editedEmployee.position,
                 department_id: editedEmployee.department_id,
                 avatar_url: newAvatarUrl,
+                signature_url: newSignatureUrl || null,
+                document_urls: newDocumentUrls,
             };
 
             await apiService.updateEmployee(editedEmployee.id, employeeDataToUpdate, router);
@@ -159,14 +232,7 @@ const EditEmployeeModal = ({ isOpen, onClose, onEmployeeUpdated, employee }) => 
             setTimeout(() => {
                 onEmployeeUpdated();
                 onClose();
-                setEditedEmployee({
-                    id: '', first_name: '', last_name: '', email: '', employment_status: 'active', position: '', department_id: '', avatar_url: null,
-                });
-                setAvatarFile(null);
-                setAvatarPreviewUrl(null);
-                if (avatarInputRef.current) avatarInputRef.current.value = '';
             }, 1500);
-
         } catch (err) {
             console.error('Error during employee update or file upload:', err);
             toast.error(`Failed to update employee: ${err.message || 'An unexpected error occurred'}`);
@@ -187,12 +253,13 @@ const EditEmployeeModal = ({ isOpen, onClose, onEmployeeUpdated, employee }) => 
                     onClick={onClose}
                     aria-label="Close modal"
                 >
-                    &times;
+                    ×
                 </button>
-
                 <h2 className="text-2xl font-bold text-center text-black mb-6">Edit Employee Details</h2>
 
                 <form onSubmit={handleSubmit} className="space-y-6">
+
+                    {/* Avatar */}
                     <div className="flex flex-col items-center mb-4">
                         <label htmlFor="avatar" className="block text-sm font-medium text-black mb-2">
                             Employee Photo
@@ -262,7 +329,6 @@ const EditEmployeeModal = ({ isOpen, onClose, onEmployeeUpdated, employee }) => 
                                 disabled
                             />
                         </div>
-
                         <div>
                             <label htmlFor="employment_status" className="block text-sm font-medium text-black mb-1">
                                 Employment Status <span className="text-[#b88b1b]">*</span>
@@ -285,7 +351,7 @@ const EditEmployeeModal = ({ isOpen, onClose, onEmployeeUpdated, employee }) => 
                             <input
                                 id="position"
                                 name="position"
-                                type='text'
+                                type="text"
                                 value={editedEmployee.position}
                                 onChange={handleChange}
                                 className="mt-1 block w-full px-3 py-2 border border-black rounded-md shadow-sm focus:outline-none focus:ring-[#b88b1b] focus:border-[#b88b1b] sm:text-sm text-black bg-white"
@@ -307,6 +373,73 @@ const EditEmployeeModal = ({ isOpen, onClose, onEmployeeUpdated, employee }) => 
                                     <option key={department.id} value={department.id}>{department.name}</option>
                                 ))}
                             </select>
+                        </div>
+                        {/* Signature Upload */}
+                        <div className="md:col-span-2">
+                            <label htmlFor="signature" className="block text-sm font-medium text-black mb-2">
+                                Scanned Copy of Signature
+                            </label>
+                            <div className="w-full h-32 border-2 border-gray-300 border-dashed rounded-md flex items-center justify-center mb-3 overflow-hidden">
+                                {signaturePreviewUrl ? (
+                                    <img src={signaturePreviewUrl} alt="Signature Preview" className="h-full object-contain" />
+                                ) : (
+                                    <span className="text-gray-400 text-sm">No Signature</span>
+                                )}
+                            </div>
+                            <input
+                                type="file"
+                                id="signature"
+                                name="signature"
+                                accept="image/*"
+                                onChange={handleSignatureChange}
+                                ref={signatureInputRef}
+                                className="block w-full text-sm text-gray-500
+                                file:mr-4 file:py-2 file:px-4
+                                file:rounded-md file:border-0
+                                file:text-sm file:font-semibold
+                                file:bg-[#b88b1b] file:text-white
+                                hover:file:bg-[#997417] cursor-pointer"
+                            />
+                        </div>
+
+                        {/* Supporting Documents */}
+                        <div className="md:col-span-2">
+                            <label htmlFor="documents" className="block text-sm font-medium text-black mb-2">
+                                Supporting Documents (add or replace)
+                            </label>
+                            <input
+                                type="file"
+                                id="documents"
+                                name="documents"
+                                accept=".pdf,.doc,.docx,.jpg,.png"
+                                multiple
+                                onChange={handleDocumentChange}
+                                ref={documentsInputRef}
+                                className="block w-full text-sm text-gray-500
+                                file:mr-4 file:py-2 file:px-4
+                                file:rounded-md file:border-0
+                                file:text-sm file:font-semibold
+                                file:bg-[#b88b1b] file:text-white
+                                hover:file:bg-[#997417] cursor-pointer"
+                            />
+                            <div className="mt-3 space-y-2">
+                                {documentPreviews.map((doc, index) => (
+                                    <div key={index} className="flex items-center justify-between bg-gray-100 p-2 rounded-md">
+                                        <span className="text-sm text-black truncate">
+                                            {doc.isExisting ? <a href={doc.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">{doc.name}</a> : doc.name}
+                                        </span>
+                                        {!doc.isExisting && (
+                                            <button
+                                                type="button"
+                                                onClick={() => removeDocument(index)}
+                                                className="ml-4 text-red-600 text-sm hover:text-red-800"
+                                            >
+                                                Remove
+                                            </button>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
                         </div>
                     </div>
 

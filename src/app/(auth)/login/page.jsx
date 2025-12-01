@@ -76,13 +76,11 @@ export default function LoginPage() {
   };
 
   useEffect(() => {
-    const signOutSession = async () => {
-      const { data: { user } } = await supabase.auth.signOut();
-      if (user) {
-        await redirectToDashboard(user);
-      }
+    const forceLogout = async () => {
+      await supabase.auth.signOut();
     };
-    signOutSession();
+
+    forceLogout();
 
     const savedEmail = localStorage.getItem('rememberedEmail');
     if (savedEmail) {
@@ -150,7 +148,7 @@ export default function LoginPage() {
   };
 
   return (
-    <section className="flex justify-center items-center h-[100vh]">
+    <section className="flex justify-center items-center h-screen">
       <div className="flex justify-center items-center flex-nowrap gap-7 w-full max-w-[1200px] banner-width p-5">
         <LoginBanner />
         <div className="w-1/2 login-div h-full">

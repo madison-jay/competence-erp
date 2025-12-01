@@ -140,7 +140,7 @@ const EmployeeDetailModal = ({ isOpen, onClose, employee: rawEmployee, router })
         </button>
 
         {/* Header */}
-        <div className="bg-gradient-to-r from-[#b88b1b] to-[#d4a53b] text-white p-6 rounded-t-2xl">
+        <div className="bg-linear-to-r from-[#b88b1b] to-[#d4a53b] text-white p-6 rounded-t-2xl">
           {isLoading ? (
             <div className="flex items-center gap-4">
               <SkeletonAvatar />
@@ -254,7 +254,7 @@ const EmployeeDetailModal = ({ isOpen, onClose, employee: rawEmployee, router })
 
           {/* Salary */}
           {isLoading ? (
-            <section className="bg-gradient-to-r from-green-50 to-emerald-50 p-5 rounded-xl border border-green-200">
+            <section className="bg-linear-to-r from-green-50 to-emerald-50 p-5 rounded-xl border border-green-200">
               <div className="flex items-center mb-4">
                 <div className="w-5 h-5 bg-gray-300 rounded-full animate-pulse mr-2" />
                 <SkeletonText width="w-48" height="h-6" />
@@ -266,7 +266,7 @@ const EmployeeDetailModal = ({ isOpen, onClose, employee: rawEmployee, router })
               </div>
             </section>
           ) : salary.base_salary !== undefined ? (
-            <section className="bg-gradient-to-r from-green-50 to-emerald-50 p-5 rounded-xl border border-green-200">
+            <section className="bg-linear-to-r from-green-50 to-emerald-50 p-5 rounded-xl border border-green-200">
               <h3 className="text-lg font-semibold text-green-800 mb-4 flex items-center">
                 <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -392,13 +392,13 @@ const EmployeeDetailModal = ({ isOpen, onClose, employee: rawEmployee, router })
 
               {/* Employee Signature - Direct signature_url field */}
               {rawEmployee.signature_url && !isLoading && (
-                <div className="bg-gradient-to-r from-indigo-50 to-purple-50 border-2 border-indigo-200 rounded-2xl p-6 shadow-md">
+                <div className="bg-linear-to-r from-indigo-50 to-purple-50 border-2 border-indigo-200 rounded-2xl p-6 shadow-md">
                   <h4 className="text-xl font-bold text-indigo-800 mb-4 flex items-center">
                     <FontAwesomeIcon icon={faSignature} className="w-6 h-6 mr-3 text-indigo-600" />
                     Employee Digital Signature
                   </h4>
                   <div className="flex flex-col md:flex-row items-center gap-6 bg-white rounded-xl p-6 shadow-inner">
-                    <div className="flex-shrink-0">
+                    <div className="shrink-0">
                       <img
                         src={rawEmployee.signature_url}
                         alt="Employee Signature"
@@ -440,7 +440,7 @@ const EmployeeDetailModal = ({ isOpen, onClose, employee: rawEmployee, router })
                         href={doc.url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="group flex items-center justify-between bg-gradient-to-r from-blue-50 to-cyan-50 border border-blue-200 rounded-xl p-5 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1"
+                        className="group flex items-center justify-between bg-linear-to-r from-blue-50 to-cyan-50 border border-blue-200 rounded-xl p-5 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1"
                       >
                         <div className="flex items-center gap-4">
                           <div className="p-3 bg-blue-100 rounded-full group-hover:bg-blue-200 transition">
@@ -489,7 +489,7 @@ const EmployeeDetailModal = ({ isOpen, onClose, employee: rawEmployee, router })
               onClick={() => setShowIdCard(false)}
             >
               <div className="relative min-w-4xl w-full p-8 flex" onClick={(e) => e.stopPropagation()}>
-                <div className="flex gap-16 mt-20 print:mt-0 print:gap-12 w-full mx-auto">
+                <div className="flex gap-16 mt-20 print:mt-0 print:gap-12 w-full justify-center">
                   {/* FRONT */}
                   <div className="h-[85mm] w-[50mm] bg-cover bg-center relative" style={{ backgroundImage: 'url("/id-card-01.svg")' }}>
                     <Image src={details.avatar_url || DEFAULT_AVATAR}
@@ -498,9 +498,9 @@ const EmployeeDetailModal = ({ isOpen, onClose, employee: rawEmployee, router })
                     <div className="absolute translate-x-1/2 -left-1/2 top-32 w-full">
                       <h2 className="text-center font-bold text-xl text-[#b88b1b]">{fullName || "Employee Name"}</h2>
                       <h4 className="text-center text-[14px] font-semibold">{rawEmployee.position || "Position"}</h4>
-                      <hr className="w-[80%] text-[#b88b1b] mx-auto h-[2px] mt-2" />
+                      <hr className="w-[80%] text-[#b88b1b] mx-auto h-0.5 mt-2" />
                     </div>
-                    <div className="absolute bottom-[48px] left-1/2 -translate-x-1/2">
+                    <div className="absolute bottom-12 left-1/2 -translate-x-1/2">
                       <img
                         src={`https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(
                           JSON.stringify({
@@ -524,9 +524,9 @@ const EmployeeDetailModal = ({ isOpen, onClose, employee: rawEmployee, router })
                   <div className="h-[85mm] w-[50mm] bg-cover bg-center relative" style={{ backgroundImage: 'url("/id-card-02.svg")' }}>
                     <Image src='/madisonjayng_logo.png' width={100} height={100} alt="id card front page" className="w-32 absolute top-[54px] -left-[37px] translate-x-1/2" />
                     <div className="absolute mx-2 top-24 w-[96%]">
-                      <p className="text-[11.7px] text-gray-700">This is a property of <strong>Madison Jay</strong> and if found, kindly return to the address below or contact:</p>
-                      <p className="text-[12px] text-gray-700 mt-2"><strong> <FontAwesomeIcon icon={faPhone} /> </strong> 09046746391, 08167392756</p>
-                      <p className="text-[12px] text-gray-700 mt-2"><strong> <FontAwesomeIcon icon={faLocation} /> </strong> Alhaji Kanke CLose, Ikoyi, Lagos.</p>
+                      <p className="text-[11.7px] text-gray-700">This is a property of <strong>Madison Jay</strong> and if found, kindly return <br /> to the address below or <br /> contact:</p>
+                      <p className="text-[11px] text-gray-700 mt-2"><strong> <FontAwesomeIcon icon={faPhone} /> </strong> 09046746391, 08167392756</p>
+                      <p className="text-[11px] text-gray-700 mt-2"><strong> <FontAwesomeIcon icon={faLocation} /> </strong> Alhaji Kanke CLose, Ikoyi, Lagos.</p>
                     </div>
 
                     <div className="absolute w-full bottom-10">

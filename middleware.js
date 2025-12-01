@@ -1,30 +1,24 @@
-// middleware.js
 import { NextResponse } from 'next/server';
-import { createServerClient } from '@supabase/ssr';
+import { createServerClient } from '@supabase/auth-helpers-nextjs';
 
 export async function middleware(request) {
-  let response = NextResponse.next({
-    request: { headers: request.headers },
-  });
-
+  // 1️⃣ HTTP → HTTPS redirect (production only)
   if (process.env.NODE_ENV === 'production') {
     const protoHeader = request.headers.get('x-forwarded-proto') || '';
-    // Heroku can send: "http", "https", or "http,https"
     const protocols = protoHeader.split(',').map(p => p.trim());
-    const isSecure = protocols.includes('https');
+    const isHttps = protocols.includes('https');
 
-    if (!isSecure) {
+    if (!isHttps) {
       const url = new URL(request.url);
       url.protocol = 'https:';
-      // Use the correct host from x-forwarded-host or host
-      const forwardedHost = request.headers.get('x-forwarded-host') || request.headers.get('host');
-      url.host = forwardedHost || url.host;
-      url.port = ''; // remove any :80/:443
-      return NextResponse.redirect(url.toString(), 301);
+      url.hostname = request.headers.get('x-forwarded-host') || request.headers.get('host');
+      url.port = '';
+      return NextResponse.redirect(url.href, 301);
     }
   }
 
-  // === 2. Supabase session handling ===
+  const response = NextResponse.next();
+
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
@@ -43,7 +37,6 @@ export async function middleware(request) {
   );
 
   await supabase.auth.getSession();
-
   return response;
 }
 

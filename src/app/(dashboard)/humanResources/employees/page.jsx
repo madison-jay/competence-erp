@@ -309,7 +309,7 @@ const EmployeeListTable = () => {
                 <h2 className="text-2xl font-semibold text-gray-800">Employee List</h2>
                 <div className="flex items-center space-x-4 w-full sm:w-auto flex-wrap gap-4">
                     <div className='flex flex-nowrap gap-2 items-center'>
-                        <div className="relative flex-grow">
+                        <div className="relative grow">
                             <input
                                 type="text"
                                 placeholder="Search..."

@@ -61,73 +61,76 @@ const getAuthToken = async (router = null) => {
 
 const cachedcallApi = async (endpoint, method = "GET", data = null, router = null) => {
     const cacheKey = getCacheKey(endpoint, method, data);
-    const cachedData = getCache(cacheKey);
 
-    if (cachedData !== null) {
-        if (isOnline()) {
-            (async () => {
-                try {
-                    await cachedcallApi(endpoint, method, data, router);
-                    window.dispatchEvent(
-                        new CustomEvent("api-cache-updated", {
-                            detail: { endpoint, data: cachedData },
-                        })
-                    );
-                } catch {
-                }
-            })();
-        }
+    // 1. Try to return fresh cache first
+    const cachedData = getCache(cacheKey);
+    if (cachedData !== null && isOnline() === false) {
+        // Offline → return cache (even if expired)
         return cachedData;
     }
 
-    if (!isOnline()) {
-        throw new Error("Offline and no cached data available");
-    }
+    // 2. Always try fresh request when online
+    if (isOnline()) {
+        try {
+            const { accessToken, refreshToken } = await getAuthToken(router);
 
-    const { accessToken, refreshToken } = await getAuthToken(router);
+            const headers = {
+                Authorization: `Bearer ${accessToken}`,
+                "Content-Type": "application/json",
+                "X-Refresh-Token": refreshToken,
+            };
 
-    const headers = {
-        Authorization: `Bearer ${accessToken}`,
-        "Content-Type": "application/json",
-        "X-Refresh-Token": refreshToken,
-    };
+            const response = await fetch(`${BASE_URL}${endpoint}`, {
+                method,
+                headers,
+                body: data ? JSON.stringify(data) : undefined,
+            });
 
-    const config = {
-        method,
-        headers,
-        body: data ? JSON.stringify(data) : undefined,
-    };
+            if (response.status === 204) {
+                setCache(cacheKey, null);
+                return null;
+            }
 
-    const response = await fetch(`${BASE_URL}${endpoint}`, config);
+            const contentType = response.headers.get("content-type");
+            const responseData = contentType?.includes("application/json")
+                ? await response.json()
+                : await response.text();
 
-    if (response.status === 204) {
-        setCache(cacheKey, null);
-        return null;
-    }
+            if (!response.ok) {
+                let errorMessage = `API Error: ${response.status}`;
+                if (responseData && typeof responseData === "object") {
+                    errorMessage = responseData.error || responseData.message || JSON.stringify(responseData);
+                }
+                throw new Error(errorMessage);
+            }
 
-    const contentType = response.headers.get("content-type");
-    let responseData = null;
+            // SUCCESS → update cache
+            setCache(cacheKey, responseData);
 
-    if (contentType?.includes("application/json")) {
-        responseData = await response.json();
-    } else {
-        responseData = await response.text();
-    }
+            // If we had stale cache before, notify UI to update
+            if (cachedData !== null) {
+                window.dispatchEvent(
+                    new CustomEvent("api-cache-updated", {
+                        detail: { endpoint, data: responseData }, // ← now sends FRESH data!
+                    })
+                );
+            }
 
-    if (!response.ok) {
-        let errorMessage = `API Error: ${response.status} ${response.statusText}`;
-        if (responseData && typeof responseData === "object") {
-            errorMessage =
-                responseData.error ||
-                responseData.message ||
-                JSON.stringify(responseData);
+            return responseData;
+
+        } catch (error) {
+            // If request fails but we have cache → fall back to cache
+            if (cachedData !== null) {
+                console.warn("API failed, falling back to cache:", error.message);
+                return cachedData;
+            }
+            throw error; // No cache → re-throw
         }
-        throw new Error(errorMessage);
     }
 
-    // Cache successful response
-    setCache(cacheKey, responseData);
-    return responseData;
+    // 3. Offline + no cache → error
+    if (cachedData !== null) return cachedData;
+    throw new Error("You are offline and no cached data available");
 };
 
 
@@ -263,7 +266,7 @@ const apiService = {
 
     getShiftById: async (shiftId, router) => {
         return cachedcallApi(`/shift_types/${shiftId}`, "GET", null, router);
-    }, 
+    },
 
     createShift: async (shiftData, router) => {
         return cachedcallApi("/shift_types", "POST", shiftData, router);

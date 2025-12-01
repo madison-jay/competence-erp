@@ -218,7 +218,7 @@ const EmployeeKPIAssignmentsTab = () => {
                     className="w-full px-5 py-4 bg-gray-50 hover:bg-gray-100 flex justify-between items-center text-left transition-colors"
                   >
                     <div className="flex items-center space-x-4">
-                      <div className="relative w-10 h-10 flex-shrink-0">
+                      <div className="relative w-10 h-10 shrink-0">
                         {emp.avatar_url ? (
                           <Image
                             src={emp.avatar_url}

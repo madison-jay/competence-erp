@@ -1,122 +1,74 @@
 let timeoutId = null;
-let absoluteTimeoutId = null;
-let visibilityListener = null;
 let warningTimeoutId = null;
 let countdownInterval = null;
-let eventsBound = false;
 
-const INACTIVITY_TIMEOUT = 15;
-const ABSOLUTE_SESSION_TIMEOUT = 12 * 60 * 60 * 1000;
-const WARNING_BEFORE_LOGOUT = 60 * 1000;
+const INACTIVITY_TIMEOUT = 2 * 60 * 1000; // 2 minutes
+const WARNING_BEFORE_LOGOUT = 60 * 1000; // Show modal 60s before logout
 
-const logoutAndRedirect = async (reason = "Session expired due to inactivity") => {
-  if (typeof window === "undefined") return;
+const logoutAndRedirect = async () => {
   clearAllTimers();
   localStorage.removeItem("lastActivity");
+
   const { createClient } = await import("./supabase/client");
   const supabase = createClient();
   await supabase.auth.signOut();
-  window.location.href = `/login?message=${encodeURIComponent(reason)}`;
+
+  window.location.href = "/login?message=Session expired";
 };
 
 const clearAllTimers = () => {
-  if (timeoutId) clearTimeout(timeoutId);
-  if (absoluteTimeoutId) clearTimeout(absoluteTimeoutId);
-  if (warningTimeoutId) clearTimeout(warningTimeoutId);
-  if (countdownInterval) clearInterval(countdownInterval);
-  if (visibilityListener) {
-    document.removeEventListener("visibilitychange", visibilityListener);
-    visibilityListener = null;
-  }
-};
-
-const resetInactivityTimer = () => {
-  if (timeoutId) clearTimeout(timeoutId);
-  if (warningTimeoutId) clearTimeout(warningTimeoutId);
-  if (countdownInterval) clearInterval(countdownInterval);
-
-  document.body.classList.remove("show-inactivity-modal");
-  document.getElementById("countdown")?.removeAttribute("data-seconds");
-
-  timeoutId = setTimeout(() => {
-    showWarningModal();
-  }, INACTIVITY_TIMEOUT - WARNING_BEFORE_LOGOUT);
-
-  warningTimeoutId = setTimeout(() => {
-    logoutAndRedirect("Session expired due to inactivity");
-  }, INACTIVITY_TIMEOUT);
+  clearTimeout(timeoutId);
+  clearTimeout(warningTimeoutId);
+  clearInterval(countdownInterval);
 };
 
 const showWarningModal = () => {
-  document.body.classList.add("show-inactivity-modal");
-  let seconds = 60;
-  const el = document.getElementById("countdown");
-  if (el) el.setAttribute("data-seconds", seconds.toString());
+  const modal = document.getElementById("inactivity-modal");
+  const countdownEl = document.getElementById("countdown-text");
+  if (!modal || !countdownEl) return;
+
+  modal.classList.remove("hidden");
+  modal.classList.add("flex");
+
+  let secondsLeft = 60;
+  countdownEl.textContent = "1 min";
 
   countdownInterval = setInterval(() => {
-    seconds--;
-    if (el) el.setAttribute("data-seconds", seconds.toString());
-    if (seconds <= 0) {
+    secondsLeft--;
+    countdownEl.textContent = secondsLeft > 0 ? `${secondsLeft} sec` : "0 sec";
+    if (secondsLeft <= 0) {
       clearInterval(countdownInterval);
-      logoutAndRedirect("Session expired due to inactivity");
+      logoutAndRedirect();
     }
   }, 1000);
-};
 
-const startAbsoluteTimer = () => {
-  if (absoluteTimeoutId) clearTimeout(absoluteTimeoutId);
-  absoluteTimeoutId = setTimeout(() => logoutAndRedirect("Session expired (12-hour limit reached)"), ABSOLUTE_SESSION_TIMEOUT);
-};
-
-const activityEvents = ["mousemove", "keydown", "scroll", "touchstart", "click"];
-
-export const startAuthTimeout = () => {
-  if (typeof window === "undefined" || eventsBound) return;
-
-  localStorage.setItem("lastActivity", Date.now().toString());
-
-  const handler = () => {
-    localStorage.setItem("lastActivity", Date.now().toString());
-    resetInactivityTimer();
-  };
-
-  activityEvents.forEach(event => window.addEventListener(event, handler, { passive: true }));
-
-  visibilityListener = () => {
-    if (document.visibilityState === "visible") {
-      const last = localStorage.getItem("lastActivity");
-      if (last) {
-        const elapsed = Date.now() - parseInt(last);
-        if (elapsed > INACTIVITY_TIMEOUT) {
-          logoutAndRedirect("Session expired while tab was inactive");
-        } else {
-          resetInactivityTimer();
-        }
-      }
-    }
-  };
-
-  document.addEventListener("visibilitychange", visibilityListener);
-  eventsBound = true;
-
-  resetInactivityTimer();
-  startAbsoluteTimer();
-
-  document.getElementById("stay-logged-in-btn")?.addEventListener("click", () => {
-    document.body.classList.remove("show-inactivity-modal");
-    resetInactivityTimer();
+  const stayBtn = document.getElementById("stay-logged-in-btn");
+  stayBtn?.addEventListener("click", () => {
+    modal.classList.add("hidden");
+    modal.classList.remove("flex");
+    resetTimer();
   });
 };
 
+export const resetTimer = () => {
+  clearAllTimers();
+  localStorage.setItem("lastActivity", Date.now().toString());
+
+  warningTimeoutId = setTimeout(showWarningModal, WARNING_BEFORE_LOGOUT);
+  timeoutId = setTimeout(logoutAndRedirect, INACTIVITY_TIMEOUT);
+};
+
+export const startAuthTimeout = () => {
+  const events = ["mousemove","keydown","scroll","touchstart","click","touchmove"];
+  events.forEach(ev => window.addEventListener(ev, resetTimer, { passive: true }));
+  resetTimer();
+};
+
 export const checkExistingTimeout = () => {
-  if (typeof window === "undefined") return;
   const last = localStorage.getItem("lastActivity");
-  if (!last) return;
-  const elapsed = Date.now() - parseInt(last);
-  if (elapsed > INACTIVITY_TIMEOUT) {
-    logoutAndRedirect("Session expired (inactive for too long)");
+  if (!last || Date.now() - parseInt(last) > INACTIVITY_TIMEOUT) {
+    logoutAndRedirect();
   } else {
-    resetInactivityTimer();
-    startAbsoluteTimer();
+    resetTimer();
   }
 };

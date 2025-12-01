@@ -56,18 +56,18 @@ const KPITemplatesTable = ({ kpiTemplates = [], loading, setKpiTemplates }) => {
 
 
   const normalizedTemplates = useMemo(() => {
-  return kpiTemplates.map(t => ({
-    kpi_id: t.kpi_id,
-    title: t.kpi_title || t.title || 'Untitled',
-    description: t.description || 'No description',
-    weight: t.weight ?? 0,
-    target_type: t.target_type || 'numeric',
-    target_value: t.target_value || { value: 0 },
-    active: t.active !== false,
-    assigned_departments: Array.isArray(t.assigned_departments) ? t.assigned_departments.filter(Boolean) : [],
-    assigned_roles: Array.isArray(t.assigned_roles) ? t.assigned_roles.filter(Boolean) : [],
-  }));
-}, [kpiTemplates]);
+    return kpiTemplates.map(t => ({
+      kpi_id: t.kpi_id,
+      title: t.title || 'Untitled',
+      description: t.description || 'No description',
+      weight: t.weight ?? 0,
+      target_type: t.target_type || 'numeric',
+      target_value: t.target_value || { value: 0 },
+      active: t.active !== false,
+      assigned_roles: t.assigned_roles || [],
+      assigned_departments: t.assigned_departments || [],
+    }));
+  }, [kpiTemplates]);
 
   // Filter & Paginate
   const filteredTemplates = useMemo(() => {
@@ -219,81 +219,71 @@ const KPITemplatesTable = ({ kpiTemplates = [], loading, setKpiTemplates }) => {
   };
 
   // ---------- inside KPITemplatesTable ----------
-const handleSaveAssignments = async (e) => {
-  e.preventDefault();
-  setIsLoading(true);
-  try {
-    const { roles, departments } = assignmentForm;
-    const kpi_id = assignmentTemplate.kpi_id;
+  const handleSaveAssignments = async (e) => {
+    e.preventDefault();
+    setIsLoading(true);
 
-    const tmpl = kpiTemplates.find(t => t.kpi_id === kpi_id);
-    if (!tmpl) throw new Error('Template not found');
+    try {
+      const { roles, departments: selectedDeptIds } = assignmentForm;
+      const kpi_id = assignmentTemplate.kpi_id;
 
-    const curRoles = new Set(tmpl.assigned_roles ?? []);
-    const curDeptIds = new Set(
-      (tmpl.assigned_departments ?? [])
-        .map(name => departments.find(d => d.name === name)?.id)
-        .filter(Boolean)
-    );
+      // 1. Get current state before changes
+      const allAssign = await apiService.getKPIRoleAssignments();
+      const thisKpiAssign = allAssign.filter(a => a.kpi_id === kpi_id);
 
-    const newRoles = new Set(roles);
-    const newDeptIds = new Set(departments);
+      const roleToAssignId = new Map();
+      const deptIdToAssignId = new Map();
+      thisKpiAssign.forEach(a => {
+        if (a.role) roleToAssignId.set(a.role, a.assignment_id);
+        if (a.department_id) deptIdToAssignId.set(a.department_id, a.assignment_id);
+      });
 
-    for (const r of newRoles) {
-      if (!curRoles.has(r)) {
-        await apiService.createKPIRoleAssignment({
-          kpi_id,
-          role: r
+      const currentRoles = new Set(roleToAssignId.keys());
+      const currentDeptIds = new Set(deptIdToAssignId.keys());
+      const desiredRoles = new Set(roles);
+      const desiredDeptIds = new Set(selectedDeptIds);
+
+      // === PERFORM ALL CHANGES ===
+      for (const role of desiredRoles) if (!currentRoles.has(role)) await apiService.createKPIRoleAssignment({ kpi_id, role });
+      for (const deptId of desiredDeptIds) if (!currentDeptIds.has(deptId)) await apiService.createKPIRoleAssignment({ kpi_id, department_id: deptId });
+      for (const role of currentRoles) if (!desiredRoles.has(role)) await apiService.deleteKPIRoleAssignment(roleToAssignId.get(role));
+      for (const deptId of currentDeptIds) if (!desiredDeptIds.has(deptId)) await apiService.deleteKPIRoleAssignment(deptIdToAssignId.get(deptId));
+
+      // === SUCCESS: Optimistically update UI immediately ===
+      const deptNames = selectedDeptIds.map(id =>
+        departments.find(d => d.id === id)?.name
+      ).filter(Boolean);
+
+      setKpiTemplates(prev => prev.map(t =>
+        t.kpi_id === kpi_id
+          ? {
+            ...t,
+            assigned_roles: roles,
+            assigned_departments: deptNames
+          }
+          : t
+      ));
+
+      toast.success('Assignments saved successfully!');
+      setShowAssignmentModal(false);
+
+      // === THEN: Re-fetch fresh data in background (keeps everything in sync) ===
+      // This runs silently — user already sees correct data
+      apiService.getKPITemplates()
+        .then(fresh => {
+          setKpiTemplates(fresh.templates ?? fresh);
+        })
+        .catch(err => {
+          console.warn('Background refresh failed (non-critical):', err);
         });
-      }
+
+    } catch (err) {
+      console.error(err);
+      toast.error(err.message ?? 'Failed to save assignments');
+    } finally {
+      setIsLoading(false);
     }
-
-    // add missing departments
-    for (const d of newDeptIds) {
-      if (!curDeptIds.has(d)) {
-        await apiService.createKPIRoleAssignment({
-          kpi_id,
-          department_id: d
-        });
-      }
-    }
-
-    const allAssign = await apiService.getKPIRoleAssignments();
-    const thisKpiAssign = allAssign.filter(a => a.kpi_id === kpi_id);
-
-    const roleIdMap = new Map();
-    const deptIdMap = new Map();
-    thisKpiAssign.forEach(a => {
-      if (a.role) roleIdMap.set(a.role, a.assignment_id);
-      if (a.department_id) deptIdMap.set(a.department_id, a.assignment_id);
-    });
-
-    // delete unchecked roles
-    for (const r of curRoles) {
-      if (!newRoles.has(r) && roleIdMap.has(r)) {
-        await apiService.deleteKPIRoleAssignment(roleIdMap.get(r));
-      }
-    }
-
-    // delete unchecked departments
-    for (const d of curDeptIds) {
-      if (!newDeptIds.has(d) && deptIdMap.has(d)) {
-        await apiService.deleteKPIRoleAssignment(deptIdMap.get(d));
-      }
-    }
-
-    const fresh = await apiService.getKPITemplates();
-    setKpiTemplates(fresh.templates ?? fresh);
-
-    toast.success('Assignments saved');
-    setShowAssignmentModal(false);
-  } catch (err) {
-    console.error(err);
-    toast.error(err.message ?? 'Failed to save assignments');
-  } finally {
-    setIsLoading(false);
-  }
-};
+  };
 
   // Format
   const formatTargetValue = (t) => {

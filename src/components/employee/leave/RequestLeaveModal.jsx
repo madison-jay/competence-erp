@@ -10,23 +10,27 @@ const getTodayDate = () => {
     return today.toISOString().split('T')[0];
 };
 
-const RequestLeaveModal = ({ isOpen, onClose, onSuccess }) => {
+// Helper to calculate the number of leave days
+const calculateLeaveDays = (start, end) => {
+    if (!start || !end) return 0;
+    const startDate = new Date(start);
+    const endDate = new Date(end);
+    return Math.floor((endDate - startDate) / (1000 * 60 * 60 * 24)) + 1; // Include start & end
+};
+
+const RequestLeaveModal = ({ isOpen, onClose, onSuccess, leaveBalance }) => {
     const [leaveType, setLeaveType] = useState('');
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
     const [reason, setReason] = useState('');
-
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [validationErrors, setValidationErrors] = useState({});
 
-    // Today's date (used to block past dates)
     const today = getTodayDate();
 
     // Reset form when modal opens
     useEffect(() => {
-        if (isOpen) {
-            resetForm();
-        }
+        if (isOpen) resetForm();
     }, [isOpen]);
 
     const resetForm = () => {
@@ -43,16 +47,13 @@ const RequestLeaveModal = ({ isOpen, onClose, onSuccess }) => {
         if (name === 'leaveType') setLeaveType(value);
         else if (name === 'startDate') {
             setStartDate(value);
-
-            // If endDate is now before the new startDate, clear it
-            if (endDate && value > endDate) {
-                setEndDate('');
-            }
+            // Reset end date if it's before new start date
+            if (endDate && value > endDate) setEndDate('');
         }
         else if (name === 'endDate') setEndDate(value);
         else if (name === 'reason') setReason(value);
 
-        // Clear error when user starts typing
+        // Clear error when user types
         if (validationErrors[name]) {
             setValidationErrors(prev => ({ ...prev, [name]: '' }));
         }
@@ -83,6 +84,13 @@ const RequestLeaveModal = ({ isOpen, onClose, onSuccess }) => {
             isValid = false;
         }
 
+        // Leave balance validation
+        const requestedDays = calculateLeaveDays(startDate, endDate);
+        if (leaveBalance !== null && requestedDays > leaveBalance) {
+            errors.endDate = `You only have ${leaveBalance} day${leaveBalance !== 1 ? 's' : ''} available.`;
+            isValid = false;
+        }
+
         if (!reason.trim()) {
             errors.reason = 'Please provide a reason for your leave.';
             isValid = false;
@@ -97,7 +105,6 @@ const RequestLeaveModal = ({ isOpen, onClose, onSuccess }) => {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-
         if (!validateForm()) {
             toast.error('Please fix the errors below.');
             return;
@@ -115,7 +122,7 @@ const RequestLeaveModal = ({ isOpen, onClose, onSuccess }) => {
 
             const response = await apiService.requestLeave(leaveRequestData);
 
-            if (response && response.status === 'success') {
+            if (response?.status === 'success') {
                 toast.success('Leave request submitted successfully!');
                 onSuccess?.();
                 onClose();
@@ -160,8 +167,7 @@ const RequestLeaveModal = ({ isOpen, onClose, onSuccess }) => {
                                 name="leaveType"
                                 value={leaveType}
                                 onChange={handleChange}
-                                className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-[#b88b1b] focus:border-[#b88b1b] outline-none transition-all ${validationErrors.leaveType ? 'border-red-500' : 'border-gray-300'
-                                    }`}
+                                className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-[#b88b1b] focus:border-[#b88b1b] outline-none transition-all ${validationErrors.leaveType ? 'border-red-500' : 'border-gray-300'}`}
                             >
                                 <option value="">-- Select Leave Type --</option>
                                 <option value="annual">Annual Leave</option>
@@ -187,9 +193,8 @@ const RequestLeaveModal = ({ isOpen, onClose, onSuccess }) => {
                                 name="startDate"
                                 value={startDate}
                                 onChange={handleChange}
-                                min={today}  // Blocks past dates
-                                className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-[#b88b1b] focus:border-[#b88b1b] outline-none transition-all ${validationErrors.startDate ? 'border-red-500' : 'border-gray-300'
-                                    }`}
+                                min={today}
+                                className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-[#b88b1b] focus:border-[#b88b1b] outline-none transition-all ${validationErrors.startDate ? 'border-red-500' : 'border-gray-300'}`}
                                 required
                             />
                             {validationErrors.startDate && (
@@ -209,8 +214,7 @@ const RequestLeaveModal = ({ isOpen, onClose, onSuccess }) => {
                                 value={endDate}
                                 onChange={handleChange}
                                 min={startDate || today}
-                                className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-[#b88b1b] focus:border-[#b88b1b] outline-none transition-all ${validationErrors.endDate ? 'border-red-500' : 'border-gray-300'
-                                    }`}
+                                className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-[#b88b1b] focus:border-[#b88b1b] outline-none transition-all ${validationErrors.endDate ? 'border-red-500' : 'border-gray-300'}`}
                                 required
                             />
                             {validationErrors.endDate && (
@@ -230,8 +234,7 @@ const RequestLeaveModal = ({ isOpen, onClose, onSuccess }) => {
                                 onChange={handleChange}
                                 rows="5"
                                 placeholder="Please explain why you need this leave..."
-                                className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-[#b88b1b] focus:border-[#b88b1b] outline-none resize-none transition-all ${validationErrors.reason ? 'border-red-500' : 'border-gray-300'
-                                    }`}
+                                className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-[#b88b1b] focus:border-[#b88b1b] outline-none resize-none transition-all ${validationErrors.reason ? 'border-red-500' : 'border-gray-300'}`}
                                 required
                             />
                             {validationErrors.reason && (

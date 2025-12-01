@@ -325,6 +325,7 @@ const LeaveRequests = () => {
                 isOpen={isModalOpen}
                 onClose={() => setIsModalOpen(false)}
                 onSuccess={handleLeaveRequestSuccess}
+                leaveBalance={leaveBalance}
             />
         </div>
     );
