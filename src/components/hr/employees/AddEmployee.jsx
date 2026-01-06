@@ -44,8 +44,22 @@ const AddEmployeeModal = ({ isOpen, onClose, onEmployeeAdded }) => {
     const [avatarFile, setAvatarFile] = useState(null);
     const [avatarPreviewUrl, setAvatarPreviewUrl] = useState(null);
 
-    const [documentFiles, setDocumentFiles] = useState([]);
-    const [documentPreviews, setDocumentPreviews] = useState([]);
+    // Individual document files and previews
+    const [documentFiles, setDocumentFiles] = useState({
+        nysc: null,
+        university: null,
+        msc: null,
+        professional: null,
+        other: null,
+    });
+
+    const [documentPreviews, setDocumentPreviews] = useState({
+        nysc: null,
+        university: null,
+        msc: null,
+        professional: null,
+        other: null,
+    });
 
     const [signatureFile, setSignatureFile] = useState(null);
     const [signaturePreviewUrl, setSignaturePreviewUrl] = useState(null);
@@ -56,10 +70,16 @@ const AddEmployeeModal = ({ isOpen, onClose, onEmployeeAdded }) => {
     const [locations, setLocations] = useState([]);
 
     const avatarInputRef = useRef(null);
-    const documentsInputRef = useRef(null);
     const signatureInputRef = useRef(null);
 
-    const modalContentRef = useRef(null);
+    // Refs for each document input to clear them on reset/remove
+    const docInputRefs = {
+        nysc: useRef(null),
+        university: useRef(null),
+        msc: useRef(null),
+        professional: useRef(null),
+        other: useRef(null),
+    };
 
     useEffect(() => {
         if (isOpen) {
@@ -80,7 +100,7 @@ const AddEmployeeModal = ({ isOpen, onClose, onEmployeeAdded }) => {
 
                 } catch (error) {
                     console.error('Error fetching lookup data:', error.message);
-                    toast.error('Failed to load positions, departments, or locations.');
+                    toast.error('Failed to load departments or locations.');
                 } finally {
                     setLoading(false);
                 }
@@ -149,10 +169,7 @@ const AddEmployeeModal = ({ isOpen, onClose, onEmployeeAdded }) => {
 
     const handleChange = (e) => {
         const { name, value } = e.target;
-        setNewEmployee(prev => ({
-            ...prev,
-            [name]: value
-        }));
+        setNewEmployee(prev => ({ ...prev, [name]: value }));
     };
 
     const handleAvatarChange = (e) => {
@@ -177,20 +194,20 @@ const AddEmployeeModal = ({ isOpen, onClose, onEmployeeAdded }) => {
         }
     };
 
-    const handleDocumentChange = (e) => {
-        const files = Array.from(e.target.files);
-        setDocumentFiles(prev => [...prev, ...files]);
-        const newPreviews = files.map(file => ({
-            name: file.name,
-            url: URL.createObjectURL(file),
-            type: file.type
-        }));
-        setDocumentPreviews(prev => [...prev, ...newPreviews]);
+    const handleDocumentChange = (type) => (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            setDocumentFiles(prev => ({ ...prev, [type]: file }));
+            setDocumentPreviews(prev => ({ ...prev, [type]: URL.createObjectURL(file) }));
+        }
     };
 
-    const removeDocument = (indexToRemove) => {
-        setDocumentFiles(prev => prev.filter((_, index) => index !== indexToRemove));
-        setDocumentPreviews(prev => prev.filter((_, index) => index !== indexToRemove));
+    const removeDocument = (type) => {
+        setDocumentFiles(prev => ({ ...prev, [type]: null }));
+        setDocumentPreviews(prev => ({ ...prev, [type]: null }));
+        if (docInputRefs[type]?.current) {
+            docInputRefs[type].current.value = '';
+        }
     };
 
     const uploadFileToSupabase = async (file, bucketName, folderPath) => {
@@ -242,7 +259,6 @@ const AddEmployeeModal = ({ isOpen, onClose, onEmployeeAdded }) => {
         setLoading(true);
 
         if (!validateAllFields()) {
-            toast.error("Please fill in all required fields correctly.");
             setLoading(false);
             return;
         }
@@ -260,8 +276,10 @@ const AddEmployeeModal = ({ isOpen, onClose, onEmployeeAdded }) => {
                 signatureUrl = await uploadFileToSupabase(signatureFile, 'signatures', 'employee_signatures');
             }
 
-            if (documentFiles.length > 0) {
-                const uploadPromises = documentFiles.map(file =>
+            // Upload only the documents that were selected
+            const selectedFiles = Object.values(documentFiles).filter(file => file !== null);
+            if (selectedFiles.length > 0) {
+                const uploadPromises = selectedFiles.map(file =>
                     uploadFileToSupabase(file, 'documents', 'employee_documents')
                 );
                 documentUrls = await Promise.all(uploadPromises);
@@ -304,9 +322,9 @@ const AddEmployeeModal = ({ isOpen, onClose, onEmployeeAdded }) => {
             };
 
             await apiService.createEmployee(employeeDataToInsert);
-            
+
             const fullName = `${newEmployee.first_name.trim()} ${newEmployee.last_name.trim()}`;
-            const departmentName = departments.find(d => d.id === Number(newEmployee.department_id))?.name || newEmployee.department_id || 'Not Assigned';
+            const departmentName = departments.find(d => d.id === Number(newEmployee.department_id))?.name || 'Not Assigned';
 
             try {
                 const welcomeResponse = await fetch('/api/send-employee-welcome', {
@@ -323,20 +341,19 @@ const AddEmployeeModal = ({ isOpen, onClose, onEmployeeAdded }) => {
                 });
 
                 if (!welcomeResponse.ok) {
-                    const err = await welcomeResponse.json();
-                    console.warn('Welcome email failed:', err);
                     toast.warning('Employee added successfully, but welcome email could not be sent.');
                 }
             } catch (emailErr) {
-                console.error('Email send error:', emailErr);
                 toast.warning('Account created! Login details email failed (will be sent manually).');
             }
 
             toast.success('Employee registered successfully!');
 
+            // Reset everything after success
             setTimeout(() => {
                 onEmployeeAdded();
                 onClose();
+
                 setNewEmployee({
                     first_name: '', last_name: '', email: '', phone_number: '', address: '', city: '', state: '', zip_code: '', country: 'Nigeria', date_of_birth: '', hire_date: '', employment_status: 'active', position: '', department_id: '', location_id: '',
                     guarantor_name: '', guarantor_phone_number: '', guarantor_name_2: '', guarantor_phone_number_2: '',
@@ -346,16 +363,19 @@ const AddEmployeeModal = ({ isOpen, onClose, onEmployeeAdded }) => {
                 setAvatarPreviewUrl(null);
                 setSignatureFile(null);
                 setSignaturePreviewUrl(null);
-                setDocumentFiles([]);
-                setDocumentPreviews([]);
+                setDocumentFiles({ nysc: null, university: null, msc: null, professional: null, other: null });
+                setDocumentPreviews({ nysc: null, university: null, msc: null, professional: null, other: null });
                 setCurrentStep(1);
+
                 if (avatarInputRef.current) avatarInputRef.current.value = '';
-                if (documentsInputRef.current) documentsInputRef.current.value = '';
                 if (signatureInputRef.current) signatureInputRef.current.value = '';
+                Object.values(docInputRefs).forEach(ref => {
+                    if (ref.current) ref.current.value = '';
+                });
             }, 2500);
 
         } catch (err) {
-            console.error('Error during employee registration or file upload:', err);
+            console.error('Error during employee registration:', err);
             toast.error(`Failed to add employee: ${err.message || 'An unexpected error occurred.'}`);
         } finally {
             setLoading(false);
@@ -730,89 +750,61 @@ const AddEmployeeModal = ({ isOpen, onClose, onEmployeeAdded }) => {
                 return (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <h3 className="md:col-span-2 text-lg font-semibold text-black mb-4">4. Salary & Documents</h3>
+
+                        {/* Salary, Role, Bank Details */}
                         <div>
                             <label htmlFor="role" className="block text-sm font-medium text-black mb-1">
                                 Role <span className="text-[#000000]">*</span>
                             </label>
-                            <select
-                                id="role"
-                                name="role"
-                                value={newEmployee.role}
-                                onChange={handleChange}
-                                className="mt-1 block w-full px-3 py-2 border border-gray-500 rounded-md focus:outline-none focus:ring-[#000000] focus:border-[#000000] sm:text-sm text-black bg-white"
-                            >
+                            <select id="role" name="role" value={newEmployee.role} onChange={handleChange}
+                                className="mt-1 block w-full px-3 py-2 border border-gray-500 rounded-md focus:outline-none focus:ring-[#000000] focus:border-[#000000] sm:text-sm text-black bg-white">
                                 <option value="">Select Role</option>
                                 <option value="user">User</option>
                                 <option value="manager">Manager</option>
                             </select>
                         </div>
+
                         <div>
                             <label htmlFor="salary" className="block text-sm font-medium text-black mb-1">
                                 Salary (NGN) <span className="text-[#000000]">*</span>
                             </label>
-                            <input
-                                type="number"
-                                id="salary"
-                                name="salary"
-                                value={newEmployee.salary}
-                                onChange={handleChange}
-                                className="mt-1 block w-full px-3 py-2 border border-gray-500 rounded-md focus:outline-none focus:ring-[#000000] focus:border-[#000000] sm:text-sm text-black bg-white"
-                                min="0"
-                            />
+                            <input type="number" id="salary" name="salary" value={newEmployee.salary} onChange={handleChange}
+                                className="mt-1 block w-full px-3 py-2 border border-gray-500 rounded-md focus:outline-none focus:ring-[#000000] focus:border-[#000000] sm:text-sm text-black bg-white" min="0" />
                         </div>
+
                         <div>
                             <label htmlFor="incentives" className="block text-sm font-medium text-black mb-1">
-                                Incentives (NGN) <span className="text-[#000000]">*</span>
+                                Incentives (NGN)
                             </label>
-                            <input
-                                type="number"
-                                id="incentives"
-                                name="incentives"
-                                value={newEmployee.incentives}
-                                onChange={handleChange}
-                                className="mt-1 block w-full px-3 py-2 border border-gray-500 rounded-md focus:outline-none focus:ring-[#000000] focus:border-[#000000] sm:text-sm text-black bg-white"
-                                min="0"
-                            />
+                            <input type="number" id="incentives" name="incentives" value={newEmployee.incentives} onChange={handleChange}
+                                className="mt-1 block w-full px-3 py-2 border border-gray-500 rounded-md focus:outline-none focus:ring-[#000000] focus:border-[#000000] sm:text-sm text-black bg-white" min="0" />
                         </div>
+
                         <div>
                             <label htmlFor="bank_account_number" className="block text-sm font-medium text-black mb-1">
                                 Bank Account Number <span className="text-[#000000]">*</span>
                             </label>
-                            <input
-                                type="text"
-                                id="bank_account_number"
-                                name="bank_account_number"
-                                value={newEmployee.bank_account_number}
-                                onChange={handleChange}
-                                className="mt-1 block w-full px-3 py-2 border border-gray-500 rounded-md focus:outline-none focus:ring-[#000000] focus:border-[#000000] sm:text-sm text-black bg-white"
-                            />
+                            <input type="text" id="bank_account_number" name="bank_account_number" value={newEmployee.bank_account_number} onChange={handleChange}
+                                className="mt-1 block w-full px-3 py-2 border border-gray-500 rounded-md focus:outline-none focus:ring-[#000000] focus:border-[#000000] sm:text-sm text-black bg-white" />
                         </div>
+
                         <div>
                             <label htmlFor="bank_name" className="block text-sm font-medium text-black mb-1">
                                 Bank Name <span className="text-[#000000]">*</span>
                             </label>
-                            <input
-                                type="text"
-                                id="bank_name"
-                                name="bank_name"
-                                value={newEmployee.bank_name}
-                                onChange={handleChange}
-                                className="mt-1 block w-full px-3 py-2 border border-gray-500 rounded-md focus:outline-none focus:ring-[#000000] focus:border-[#000000] sm:text-sm text-black bg-white"
-                            />
+                            <input type="text" id="bank_name" name="bank_name" value={newEmployee.bank_name} onChange={handleChange}
+                                className="mt-1 block w-full px-3 py-2 border border-gray-500 rounded-md focus:outline-none focus:ring-[#000000] focus:border-[#000000] sm:text-sm text-black bg-white" />
                         </div>
+
                         <div>
                             <label htmlFor="account_name" className="block text-sm font-medium text-black mb-1">
                                 Account Name <span className="text-[#000000]">*</span>
                             </label>
-                            <input
-                                type="text"
-                                id="account_name"
-                                name="account_name"
-                                value={newEmployee.account_name}
-                                onChange={handleChange}
-                                className="mt-1 block w-full px-3 py-2 border border-gray-500 rounded-md focus:outline-none focus:ring-[#000000] focus:border-[#000000] sm:text-sm text-black bg-white"
-                            />
+                            <input type="text" id="account_name" name="account_name" value={newEmployee.account_name} onChange={handleChange}
+                                className="mt-1 block w-full px-3 py-2 border border-gray-500 rounded-md focus:outline-none focus:ring-[#000000] focus:border-[#000000] sm:text-sm text-black bg-white" />
                         </div>
+
+                        {/* Signature Upload */}
                         <div className="md:col-span-2">
                             <label htmlFor="signature" className="block text-sm font-medium text-black mb-2">
                                 Scanned Copy of Signature <span className="text-[#000000]">*</span>
@@ -827,54 +819,54 @@ const AddEmployeeModal = ({ isOpen, onClose, onEmployeeAdded }) => {
                             <input
                                 type="file"
                                 id="signature"
-                                name="signature"
                                 accept="image/*"
                                 onChange={handleSignatureChange}
                                 ref={signatureInputRef}
-                                className="block w-full text-sm text-gray-500
-                                    file:mr-4 file:py-2 file:px-4
-                                    file:rounded-md file:border-0
-                                    file:text-sm file:font-semibold
-                                    file:bg-[#000000] file:text-white
-                                    hover:file:bg-[#997417] cursor-pointer"
+                                className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-[#000000] file:text-white hover:file:bg-[#997417] cursor-pointer"
                             />
                         </div>
+
+                        {/* NEW: Individual Document Fields */}
                         <div className="md:col-span-2">
-                            <label htmlFor="documents" className="block text-sm font-medium text-black mb-2">
-                                Supporting Documents
-                            </label>
-                            <input
-                                type="file"
-                                id="documents"
-                                name="documents"
-                                accept=".pdf,.doc,.docx,.jpg,.png"
-                                multiple
-                                onChange={handleDocumentChange}
-                                ref={documentsInputRef}
-                                className="block w-full text-sm text-gray-500
-                                    file:mr-4 file:py-2 file:px-4
-                                    file:rounded-md file:border-0
-                                    file:text-sm file:font-semibold
-                                    file:bg-[#000000] file:text-white
-                                    hover:file:bg-[#997417] cursor-pointer"
-                            />
-                            <div className="mt-3 space-y-2">
-                                {documentPreviews.map((doc, index) => (
-                                    <div key={index} className="flex items-center justify-between bg-gray-100 p-2 rounded-md">
-                                        <span className="text-sm text-black truncate">{doc.name}</span>
-                                        <button
-                                            type="button"
-                                            onClick={() => removeDocument(index)}
-                                            className="ml-4 text-red-600 text-sm hover:text-red-800"
-                                        >
-                                            Remove
-                                        </button>
+                            <h4 className="text-lg font-medium text-black mb-4">Employee Documents</h4>
+                            <div className="space-y-6">
+                                {[
+                                    { key: 'nysc', label: 'Filed for NYSC Certification', ref: docInputRefs.nysc },
+                                    { key: 'university', label: 'University Certification', ref: docInputRefs.university },
+                                    { key: 'msc', label: 'MSc Certification', ref: docInputRefs.msc },
+                                    { key: 'professional', label: 'Professional Certification', ref: docInputRefs.professional },
+                                    { key: 'other', label: 'Other Document', ref: docInputRefs.other },
+                                ].map(({ key, label, ref }) => (
+                                    <div key={key} className="border-t pt-5 first:border-t-0 first:pt-0">
+                                        <label className="block text-sm font-medium text-black mb-2">{label}</label>
+                                        <input
+                                            type="file"
+                                            accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                                            onChange={handleDocumentChange(key)}
+                                            ref={ref}
+                                            className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-[#000000] file:text-white hover:file:bg-[#997417] cursor-pointer"
+                                        />
+                                        {documentPreviews[key] && (
+                                            <div className="mt-3 flex items-center justify-between bg-gray-100 p-3 rounded-md">
+                                                <span className="text-sm text-black truncate max-w-xs">
+                                                    {documentFiles[key]?.name}
+                                                </span>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => removeDocument(key)}
+                                                    className="ml-4 text-red-600 text-sm hover:text-red-800"
+                                                >
+                                                    Remove
+                                                </button>
+                                            </div>
+                                        )}
                                     </div>
                                 ))}
                             </div>
                         </div>
                     </div>
                 );
+
             default:
                 return null;
         }
@@ -882,7 +874,7 @@ const AddEmployeeModal = ({ isOpen, onClose, onEmployeeAdded }) => {
 
     return (
         <div className={`fixed inset-0 bg-[#000000aa] bg-opacity-75 overflow-y-auto z-50 flex justify-center items-center ${isOpen ? '' : 'hidden'}`}>
-            <div ref={modalContentRef} className="bg-white rounded-lg shadow-xl p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto mx-5">
+            <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto mx-5">
                 <div className="flex justify-between items-center border-b pb-3 mb-4">
                     <h2 className="text-2xl font-bold text-black">Add New Employee</h2>
                     <button onClick={onClose} className="text-gray-500 hover:text-gray-700 text-3xl leading-none">&times;</button>
@@ -895,18 +887,14 @@ const AddEmployeeModal = ({ isOpen, onClose, onEmployeeAdded }) => {
                             {[1, 2, 3, 4].map((step) => (
                                 <div
                                     key={step}
-                                    className={`w-6 h-2 rounded-full cursor-pointer transition-all duration-300 ${currentStep === step ? 'bg-[#000000] w-8' : 'bg-gray-300'
-                                        }`}
+                                    className={`w-6 h-2 rounded-full cursor-pointer transition-all duration-300 ${currentStep === step ? 'bg-[#000000] w-8' : 'bg-gray-300'}`}
                                     onClick={() => handleStepClick(step)}
                                 />
                             ))}
                         </div>
                     </div>
                     <div className="w-full bg-gray-200 rounded-full h-2">
-                        <div
-                            className="bg-[#000000] h-2 rounded-full transition-all duration-300"
-                            style={{ width: `${(currentStep / totalSteps) * 100}%` }}
-                        ></div>
+                        <div className="bg-[#000000] h-2 rounded-full transition-all duration-300" style={{ width: `${(currentStep / totalSteps) * 100}%` }}></div>
                     </div>
                 </div>
 
@@ -915,29 +903,20 @@ const AddEmployeeModal = ({ isOpen, onClose, onEmployeeAdded }) => {
 
                     <div className="flex justify-between mt-6 pt-4 border-t">
                         {currentStep > 1 && (
-                            <button
-                                type="button"
-                                onClick={() => setCurrentStep(prev => prev - 1)}
-                                className="px-6 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#000000]"
-                            >
+                            <button type="button" onClick={() => setCurrentStep(prev => prev - 1)}
+                                className="px-6 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#000000]">
                                 Previous
                             </button>
                         )}
                         {currentStep < totalSteps && (
-                            <button
-                                type="button"
-                                onClick={() => setCurrentStep(prev => prev + 1)}
-                                className="ml-auto px-6 py-2 border border-transparent rounded-md text-white bg-[#000000] hover:bg-[#997417] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#000000]"
-                            >
+                            <button type="button" onClick={() => setCurrentStep(prev => prev + 1)}
+                                className="ml-auto px-6 py-2 border border-transparent rounded-md text-white bg-[#000000] hover:bg-[#997417] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#000000]">
                                 Next
                             </button>
                         )}
                         {currentStep === totalSteps && (
-                            <button
-                                type="submit"
-                                className="ml-auto px-6 py-2 border border-transparent rounded-md text-white bg-[#000000] hover:bg-[#997417] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#000000]"
-                                disabled={loading}
-                            >
+                            <button type="submit" disabled={loading}
+                                className="ml-auto px-6 py-2 border border-transparent rounded-md text-white bg-[#000000] hover:bg-[#997417] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#000000]">
                                 {loading ? 'Adding Employee...' : 'Add Employee'}
                             </button>
                         )}
