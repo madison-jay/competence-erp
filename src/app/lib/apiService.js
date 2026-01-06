@@ -2,7 +2,7 @@
 import { createClient } from "./supabase/client";
 
 const supabase = createClient();
-const BASE_URL = "https://madisonjay-backend-8e7912547948.herokuapp.com/api/v1";
+const BASE_URL = "https://competence-backend-c2b27a72974e.herokuapp.com/api/v1";
 
 const CACHE_PREFIX = "api_cache_";
 const CACHE_EXPIRY = 1000 * 60 * 5;
@@ -44,6 +44,8 @@ const getAuthToken = async (router = null) => {
         data: { session },
         error,
     } = await supabase.auth.getSession();
+
+    console.log(session)
 
     if (error) {
         console.error("Error getting Supabase session:", error.message);

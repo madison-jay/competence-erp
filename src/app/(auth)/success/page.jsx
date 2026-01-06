@@ -17,7 +17,7 @@ export default function PasswordChangedSuccessPage() {
                         <FontAwesomeIcon icon={faCheckCircle} className="text-green-500 text-6xl mb-6" />
                         <h2 className="text-2xl font-medium">Your password has been successfully reset</h2>
                         <p className='text-[#A09D9D] text-lg mt-2'>You can now log in using your new credentials</p>
-                        <Link href="/login" className="bg-[#b88b1b] hover:bg-[#ad841a] text-white rounded-xl px-8 py-3 transition duration-300 w-full mt-12">
+                        <Link href="/login" className="bg-[#000000] scale-105 transition-all duration-300 text-white rounded-xl px-8 py-3 transition duration-300 w-full mt-12">
                             Return to Login
                         </Link>
                     </div>
@@ -26,7 +26,7 @@ export default function PasswordChangedSuccessPage() {
                         <div className='w-[12px] h-[12px] bg-[#ddd9d9] rounded-full'></div>
                         <div className='w-[12px] h-[12px] bg-[#ddd9d9] rounded-full'></div>
                         <div className='w-[12px] h-[12px] bg-[#ddd9d9] rounded-full'></div>
-                        <div className='w-[12px] h-[12px] bg-[#b88b1b] rounded-full'></div>
+                        <div className='w-[12px] h-[12px] bg-[#000000] rounded-full'></div>
                     </div>
                 </div>
             </div>

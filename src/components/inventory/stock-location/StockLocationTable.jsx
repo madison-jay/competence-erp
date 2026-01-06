@@ -5,7 +5,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faEdit, faTrash, faAngleLeft, faAngleRight, faBox, faPuzzlePiece } from '@fortawesome/free-solid-svg-icons';
 
 const ITEMS_PER_PAGE = 8;
-const goldColor = '#b88b1b';
+const goldColor = '#000000';
 
 export const StockLocationTable = ({ products = [], components = [] }) => {
     const [searchTerm, setSearchTerm] = useState('');

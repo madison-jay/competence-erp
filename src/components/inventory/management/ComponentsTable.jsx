@@ -9,7 +9,7 @@ import ComponentModal from './ComponentModal';
 import ComponentDeleteModal from './ComponentDeleteModal';
 
 const ITEMS_PER_PAGE = 8;
-const goldColor = '#b88b1b';
+const goldColor = '#000000';
 
 // Skeleton Row Component
 const SkeletonRow = () => (

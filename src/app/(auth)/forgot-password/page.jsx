@@ -47,7 +47,7 @@ export default function ForgotPasswordPage() {
                 <div className="w-1/2 login-div h-[480px]">
                     <div className='flex flex-col justify-between h-full'>
                         <div>
-                            <h4 className="text-xl font-medium text-[#cd9e27]">Madison Jay</h4>
+                            <h4 className="text-xl font-medium text-[#cd9e27]">Competence</h4>
                             <div className="my-4">
                                 <h2 className="text-2xl font-bold">Forgot Password?</h2>
                                 <p className="text-[16px] text-[#878484]">
@@ -71,19 +71,19 @@ export default function ForgotPasswordPage() {
                                             if (isEmailInvalid) setIsEmailInvalid(false);
                                         }}
                                         className={`border border-solid ${isEmailInvalid ? 'border-red-500' : 'border-[#DDD9D9]'
-                                            } p-2 text-sm rounded-lg w-full mt-2 mb-4 pr-10 focus:outline-none focus:ring focus:ring-[#b88b1b] focus:border-[#b88b1b]`}
+                                            } p-2 text-sm rounded-lg w-full mt-2 mb-4 pr-10 focus:outline-none focus:ring focus:ring-[#000000] focus:border-[#000000]`}
                                     />
 
                                     <button
                                         type="submit"
-                                        className={`${loading ? "bg-[#b88b1b99] cursor-not-allowed" : "bg-[#b88b1b] cursor-pointer hover:bg-[#ad841a]"} rounded-xl px-4 py-3 w-full mt-8 text-white`}
+                                        className={`${loading ? "bg-[#00000099] cursor-not-allowed" : "bg-[#000000] cursor-pointer scale-105 transition-all duration-300"} rounded-xl px-4 py-3 w-full mt-8 text-white`}
                                         disabled={loading}
                                     >
                                         {loading ? 'Sending...' : 'Send Reset Code'}
                                     </button>
                                 </form>
 
-                                <p className="mt-4 text-center flex justify-center gap-2 items-center text-sm text-[#b88b1b] hover:opacity-80">
+                                <p className="mt-4 text-center flex justify-center gap-2 items-center text-sm text-[#000000] hover:opacity-80">
                                     <FontAwesomeIcon icon={faArrowLeft} />
                                     <Link href="/" className="font-medium">
                                         Back to log in
@@ -92,7 +92,7 @@ export default function ForgotPasswordPage() {
                             </div>
                         </div>
                         <div className='pagination flex gap-3 justify-center items-center mt-8'>
-                            <div className='w-[12px] h-[12px] bg-[#b88b1b] rounded-full'></div>
+                            <div className='w-[12px] h-[12px] bg-[#000000] rounded-full'></div>
                             <div className='w-[12px] h-[12px] bg-[#ddd9d9] rounded-full'></div>
                             <div className='w-[12px] h-[12px] bg-[#ddd9d9] rounded-full'></div>
                             <div className='w-[12px] h-[12px] bg-[#ddd9d9] rounded-full'></div>

@@ -157,7 +157,7 @@ export default function EnterCodeFormContent() {
                 <div className="w-1/2 login-div h-[480px]">
                     <div className='flex flex-col justify-between h-full'>
                         <div>
-                            <h4 className="text-xl font-medium text-[#cd9e27]">Madison Jay</h4>
+                            <h4 className="text-xl font-medium text-[#cd9e27]">Competence</h4>
                             <div className="my-4">
                                 <h2 className="text-2xl font-bold">Verify Code</h2>
                                 <p className="text-[16px] text-[#878484]">
@@ -176,7 +176,7 @@ export default function EnterCodeFormContent() {
                                                 value={digit}
                                                 onChange={(e) => handleOtpChange(e, index)}
                                                 onKeyDown={(e) => handleOtpKeyDown(e, index)}
-                                                className="w-12 h-12 text-center text-2xl font-bold border border-solid border-[#DDD9D9] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#b88b1b] focus:border-[#b88b1b]"
+                                                className="w-12 h-12 text-center text-2xl font-bold border border-solid border-[#DDD9D9] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#000000] focus:border-[#000000]"
                                                 inputMode="numeric"
                                                 pattern="[0-9]*"
                                                 disabled={loading}
@@ -186,7 +186,7 @@ export default function EnterCodeFormContent() {
 
                                     <button
                                         type="button"
-                                        className={`${loading ? "bg-[#b88b1b99] cursor-not-allowed" : "bg-[#b88b1b] cursor-pointer hover:bg-[#ad841a]"} rounded-xl px-4 py-3 w-full mt-8 text-white`}
+                                        className={`${loading ? "bg-[#00000099] cursor-not-allowed" : "bg-[#000000] cursor-pointer scale-105 transition-all duration-300"} rounded-xl px-4 py-3 w-full mt-8 text-white`}
                                         onClick={() => {
                                             if (!loading && otpDigits.join('').length === 6) {
                                                 setAutoVerifyAttempted(false);
@@ -204,12 +204,12 @@ export default function EnterCodeFormContent() {
                                 <p className="mt-4 text-center flex justify-center gap-2 items-center text-sm">
                                     <span className='text-gray-400'>Didn't receive the code?</span>
                                     {resendTimer > 0 ? (
-                                        <span className="font-medium text-[#b88b1b] opacity-80">
+                                        <span className="font-medium text-[#000000] opacity-80">
                                             Resend in {formatTime(resendTimer)}
                                         </span>
                                     ) : (
                                         <span
-                                            className={`${resendLoading ? 'cursor-not-allowed text-gray-400' : 'cursor-pointer text-[#b88b1b] hover:opacity-80'}`}
+                                            className={`${resendLoading ? 'cursor-not-allowed text-gray-400' : 'cursor-pointer text-[#000000] hover:opacity-80'}`}
                                             onClick={handleResendCode}
                                             disabled={resendLoading}
                                         >
@@ -218,7 +218,7 @@ export default function EnterCodeFormContent() {
                                     )}
                                 </p>
 
-                                <p className="mt-4 text-center flex justify-center gap-2 items-center text-sm text-[#b88b1b] hover:opacity-80">
+                                <p className="mt-4 text-center flex justify-center gap-2 items-center text-sm text-[#000000] hover:opacity-80">
                                     <FontAwesomeIcon icon={faArrowLeft} />
                                     <Link href="/forgot-password" className="font-medium">
                                         Back to enter email
@@ -229,7 +229,7 @@ export default function EnterCodeFormContent() {
                         {/* Pagination dots */}
                         <div className='pagination flex gap-3 justify-center items-center mt-8'>
                             <div className='w-[12px] h-[12px] bg-[#ddd9d9] rounded-full'></div>
-                            <div className='w-[12px] h-[12px] bg-[#b88b1b] rounded-full'></div>
+                            <div className='w-[12px] h-[12px] bg-[#000000] rounded-full'></div>
                             <div className='w-[12px] h-[12px] bg-[#ddd9d9] rounded-full'></div>
                             <div className='w-[12px] h-[12px] bg-[#ddd9d9] rounded-full'></div>
                         </div>

@@ -1,4 +1,4 @@
-/madison-jay-erp
+/competence-erp
 ├── /app
 │ ├── /api
 │ │ ├── /auth

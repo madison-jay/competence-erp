@@ -125,7 +125,7 @@ export default function UpdatePasswordFormContent() {
                 <div className="w-1/2 login-div h-full">
                     <div className='flex flex-col justify-between h-full'>
                         <div>
-                            <h4 className="text-xl font-medium text-[#cd9e27]">Madison Jay</h4>
+                            <h4 className="text-xl font-medium text-[#cd9e27]">Competence</h4>
                             <div className="my-4">
                                 <h2 className="text-2xl font-bold">Set New Password</h2>
                                 <p className="text-[16px] text-[#878484]">
@@ -147,7 +147,7 @@ export default function UpdatePasswordFormContent() {
                                                 setNewPassword(e.target.value);
                                                 setPasswordError('');
                                             }}
-                                            className="border border-solid border-[#DDD9D9] p-2 text-sm rounded-lg w-full mt-2 mb-4 pr-10 focus:outline-none focus:ring-2 focus:ring-[#b88b1b] focus:border-[#b88b1b]"
+                                            className="border border-solid border-[#DDD9D9] p-2 text-sm rounded-lg w-full mt-2 mb-4 pr-10 focus:outline-none focus:ring-2 focus:ring-[#000000] focus:border-[#000000]"
                                         />
                                         <span
                                             onClick={toggleNewPasswordVisibility}
@@ -178,7 +178,7 @@ export default function UpdatePasswordFormContent() {
                                                 setConfirmNewPassword(e.target.value);
                                                 setPasswordError('');
                                             }}
-                                            className="border border-solid border-[#DDD9D9] p-2 text-sm rounded-lg w-full mt-2 mb-4 pr-10 focus:outline-none focus:ring-2 focus:ring-[#b88b1b] focus:border-[#b88b1b]"
+                                            className="border border-solid border-[#DDD9D9] p-2 text-sm rounded-lg w-full mt-2 mb-4 pr-10 focus:outline-none focus:ring-2 focus:ring-[#000000] focus:border-[#000000]"
                                         />
                                         <span
                                             onClick={toggleConfirmNewPasswordVisibility}
@@ -194,14 +194,14 @@ export default function UpdatePasswordFormContent() {
 
                                     <button
                                         type="submit"
-                                        className={`${isButtonDisabled ? "bg-[#b88b1b99] cursor-not-allowed" : "bg-[#b88b1b] cursor-pointer hover:bg-[#ad841a]"} rounded-xl px-4 py-3 w-full mt-8 text-white`}
+                                        className={`${isButtonDisabled ? "bg-[#00000099] cursor-not-allowed" : "bg-[#000000] cursor-pointer scale-105 transition-all duration-300"} rounded-xl px-4 py-3 w-full mt-8 text-white`}
                                         disabled={isButtonDisabled}
                                     >
                                         {loading ? 'Updating Password...' : 'Set New Password'}
                                     </button>
                                 </form>
 
-                                <p className="mt-4 text-center flex justify-center gap-2 items-center text-sm text-[#b88b1b] hover:opacity-80">
+                                <p className="mt-4 text-center flex justify-center gap-2 items-center text-sm text-[#000000] hover:opacity-80">
                                     <FontAwesomeIcon icon={faArrowLeft} />
                                     <Link href="/login" className="font-medium">
                                         Back to log in
@@ -212,7 +212,7 @@ export default function UpdatePasswordFormContent() {
                         <div className='pagination flex gap-3 justify-center items-center mt-8'>
                             <div className='w-[12px] h-[12px] bg-[#ddd9d9] rounded-full'></div>
                             <div className='w-[12px] h-[12px] bg-[#ddd9d9] rounded-full'></div>
-                            <div className='w-[12px] h-[12px] bg-[#b88b1b] rounded-full'></div>
+                            <div className='w-[12px] h-[12px] bg-[#000000] rounded-full'></div>
                             <div className='w-[12px] h-[12px] bg-[#ddd9d9] rounded-full'></div>
                         </div>
                     </div>
