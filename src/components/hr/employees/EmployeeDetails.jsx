@@ -512,7 +512,7 @@ const EmployeeDetailModal = ({ isOpen, onClose, employee: rawEmployee, router })
 
                   {/* BACK */}
                   <div className="h-[85mm] w-[50mm] bg-cover bg-center relative" style={{ backgroundImage: 'url("/id-card-02.svg")' }}>
-                    <Image src='/competenceng_logo.png' width={100} height={100} alt="id card front page" className="w-24 absolute top-[54px] -left-[13px] translate-x-1/2" />
+                    <Image src='/competence-logo.webp' width={100} height={100} alt="id card front page" className="w-24 absolute top-[54px] -left-[13px] translate-x-1/2" />
                     <div className="absolute mx-2 top-[94px] w-[96%]">
                       <p className="text-[10.4px] text-gray-700">This is property of <strong>Competence</strong>. If found, kindly return to the address below or contact:</p>
                       <p className="text-[11px] text-gray-700 mt-2"><strong> <FontAwesomeIcon icon={faPhone} /> </strong> 0816-254-7995</p>

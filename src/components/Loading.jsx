@@ -8,7 +8,7 @@ export default function Loading() {
     return (
         <div className='flex justify-center items-center h-screen'>
             <Image
-                src="/competenceng_logo.png"
+                src="/competence-logo.webp"
                 width={250}
                 height={250}
                 alt='competence logo'

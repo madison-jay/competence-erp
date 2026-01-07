@@ -159,7 +159,7 @@ const CreateOrderModal = ({ isOpen, onClose, onSubmit }) => {
         return `
         <div style="font-family: Arial, sans-serif; padding: 30px; background: white; color: #333; max-width: 100%;">
             <div style="display: flex; justify-content: center; margin-bottom: 30px; border-bottom: 3px solid #000000; padding-bottom: 20px;">
-                <img src="/competenceng_logo.png" alt="Company Logo" style="max-height: 60px; width: auto;" />
+                <img src="/competence-logo.webp" alt="Company Logo" style="max-height: 60px; width: auto;" />
             </div>
             <div style="text-align: center; margin-bottom: 30px;">
                 <h2 style="color: #000000; font-size: 28px; margin: 0; border: 2px solid #000000; display: inline-block; padding: 10px 30px; border-radius: 5px;">
