@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import TaskCard from "@/components/employee/TaskCard";
 import UpcomingHolidaysSection from "@/components/employee/UpcomingHolidays";
-import ShiftPage from "@/components/employee/shift/ShiftCard";
+// import ShiftPage from "@/components/employee/shift/ShiftCard";
 import { faTasks, faCheckCircle, faSpinner, faCalendarCheck } from '@fortawesome/free-solid-svg-icons';
 import { createClient } from "@/app/lib/supabase/client";
 import toast from "react-hot-toast";
@@ -217,9 +217,9 @@ export default function EmployeeDashboard() {
                 <div className="w-full">
                     <UpcomingHolidaysSection />
                 </div>
-                <div className="w-full">
+                {/* <div className="w-full">
                     <ShiftPage />
-                </div>
+                </div> */}
             </div>
         </div>
     );

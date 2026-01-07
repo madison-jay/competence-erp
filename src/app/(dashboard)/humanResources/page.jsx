@@ -2,8 +2,8 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import DashboardCard from '@/components/hr/DashboardCard';
-import Attendance from '@/components/hr/AttendanceTable';
-import ShiftManagement from '@/components/hr/ShiftsTable';
+import TaskOverview from '@/components/hr/TasksOverview';
+import KSSOverview from '@/components/hr/KSSOverview';
 import apiService from '@/app/lib/apiService';
 import { useRouter } from 'next/navigation';
 
@@ -27,20 +27,6 @@ export default function HRManagerDashboardPage() {
   const [totalTasks, setTotalTasks] = useState(0);
   const [pendingTasks, setPendingTasks] = useState(0);
   const [loadingTasks, setLoadingTasks] = useState(true);
-
-  // Shifts
-  const [assignedShiftsDashboard, setAssignedShiftsDashboard] = useState([]);
-  const [loadingShiftsDashboard, setLoadingShiftsDashboard] = useState(true);
-  const [errorShiftsDashboard, setErrorShiftsDashboard] = useState(null);
-
-  // Memoized counts
-  const totalUnassignedShifts = useMemo(() => {
-    return assignedShiftsDashboard.filter(s => !s.shiftTypeId).length;
-  }, [assignedShiftsDashboard]);
-
-  const totalAssignedShifts = useMemo(() => {
-    return totalEmployees - totalUnassignedShifts;
-  }, [totalEmployees, totalUnassignedShifts]);
 
   // Live Clock
   useEffect(() => {
@@ -113,49 +99,6 @@ export default function HRManagerDashboardPage() {
       } finally {
         setLoadingTasks(false);
       }
-
-      setLoadingShiftsDashboard(true);
-      setErrorShiftsDashboard(null);
-      try {
-        const schedules = await apiService.getCurrentShiftSchedules(router);
-        const shiftTypes = await apiService.getShifts(router)
-
-        const shiftTypeMap = {};
-        shiftTypes.forEach(st => {
-          shiftTypeMap[st.id] = st;
-        });
-
-        const todayShifts = schedules.filter(s => {
-          return s.start_date <= todayISO && s.end_date >= todayISO;
-        });
-
-        const transformed = todayShifts.map(s => {
-          const shiftType = shiftTypeMap[s.shift_type_id] || {};
-          const fullName = `${s.employee.first_name || ''} ${s.employee.last_name || ''}`.trim();
-
-          return {
-            id: s.id,
-            employee: {
-              name: fullName || '—',
-              email: s.employee.email || 'N/A',
-              avatar: s.employee.avatar_url || '/default-profile.png',
-            },
-            department: 'N/A',
-            shiftType: shiftType.name || 'Unassigned',
-            shiftTypeId: s.shift_type_id || null,
-            date: todayISO,
-            startTime: shiftType.start_time ? shiftType.start_time.substring(0, 5) : 'N/A',
-            endTime: shiftType.end_time ? shiftType.end_time.substring(0, 5) : 'N/A',
-          };
-        });
-
-        setAssignedShiftsDashboard(transformed);
-      } catch (err) {
-        console.error('Shifts error:', err);
-        setErrorShiftsDashboard(err.message || 'Failed to load shifts');
-      } finally {
-        setLoadingShiftsDashboard(false);
-      }
     };
 
     fetchData();
@@ -210,32 +153,15 @@ export default function HRManagerDashboardPage() {
           link="/humanResources/leave"
           changedetails={loadingLeaves ? '...' : `Total Leaves Requested: ${allLeaves}`}
         />
-
-        <DashboardCard
-          title="Unassigned Shifts"
-          value={loadingShiftsDashboard ? '-' : totalUnassignedShifts}
-          change={loadingShiftsDashboard ? '...' : ''}
-          changeType="none"
-          link="/humanResources/shifts"
-          changedetails={
-            loadingShiftsDashboard
-              ? '...'
-              : `Total Number of Assigned Shifts: ${totalAssignedShifts}`
-          }
-        />
       </div>
 
       {/* Tables */}
       <div className="flex flex-wrap lg:flex-nowrap gap-6 w-full">
         <div className="w-full lg:w-3/5">
-          <Attendance />
+          <TaskOverview />
         </div>
         <div className="w-full lg:w-2/5">
-          <ShiftManagement
-            shifts={assignedShiftsDashboard}
-            loading={loadingShiftsDashboard}
-            error={errorShiftsDashboard}
-          />
+          <KSSOverview />
         </div>
       </div>
     </div>
