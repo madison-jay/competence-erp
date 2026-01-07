@@ -109,61 +109,75 @@ const AddEmployeeModal = ({ isOpen, onClose, onEmployeeAdded }) => {
         }
     }, [isOpen]);
 
+
     const validateAllFields = useCallback(() => {
-        const requiredFields = {
-            1: ['first_name', 'last_name', 'email', 'date_of_birth', 'marital_status', 'gender'],
-            2: ['phone_number', 'address', 'city', 'state', 'country'],
-            3: ['hire_date', 'guarantor_name', 'guarantor_phone_number', 'guarantor_name_2', 'guarantor_phone_number_2'],
-            4: ['salary', 'bank_account_number', 'bank_name', 'account_name'],
-        };
+    const requiredFields = {
+        1: ['first_name', 'last_name', 'email', 'date_of_birth', 'marital_status', 'gender'],
+        2: ['phone_number', 'address', 'city', 'state', 'country'],
+        3: ['hire_date', 'guarantor_name', 'guarantor_phone_number', 'guarantor_name_2', 'guarantor_phone_number_2'],
+        4: ['salary', 'bank_account_number', 'bank_name', 'account_name', 'role'],
+    };
 
-        let isValid = true;
-        let missingFields = [];
+    let isValid = true;
+    let missingFields = [];
 
-        for (const step in requiredFields) {
-            requiredFields[step].forEach(field => {
-                if (!newEmployee[field]) {
-                    missingFields.push(field.replace(/_/g, ' '));
-                    isValid = false;
-                }
-            });
-        }
-
-        if (!isValid) {
-            toast.error(`Please fill all required fields: ${missingFields.join(', ')}`);
-            return false;
-        }
-
-        if (!/\S+@\S+\.\S+/.test(newEmployee.email)) {
-            toast.error('Please enter a valid email address.');
-            return false;
-        }
-
-        const numericFields = ['salary', 'incentives'];
-        for (const field of numericFields) {
-            if (newEmployee[field] && (isNaN(parseFloat(newEmployee[field])) || parseFloat(newEmployee[field]) < 0)) {
-                toast.error(`${field.replace(/_/g, ' ')} must be a non-negative number.`);
-                return false;
+    // Check text/input required fields
+    for (const step in requiredFields) {
+        requiredFields[step].forEach(field => {
+            if (!newEmployee[field]) {
+                missingFields.push(field.replace(/_/g, ' '));
+                isValid = false;
             }
-        }
+        });
+    }
 
-        if (parseFloat(newEmployee.salary) <= 0) {
-            toast.error('Salary must be a positive number.');
-            return false;
-        }
+    // Check required file uploads
+    if (!avatarFile) {
+        missingFields.push('Employee Photo');
+        isValid = false;
+    }
 
-        if (!avatarFile) {
-            toast.error('Please upload an employee photo.');
-            return false;
-        }
+    if (!signatureFile) {
+        missingFields.push('Scanned Signature');
+        isValid = false;
+    }
 
-        if (!signatureFile) {
-            toast.error('Please upload a scanned copy of the signature.');
-            return false;
-        }
+    // NEW: Make NYSC and University documents compulsory
+    if (!documentFiles.nysc) {
+        missingFields.push('NYSC Certification');
+        isValid = false;
+    }
 
-        return true;
-    }, [newEmployee, avatarFile, signatureFile]);
+    if (!documentFiles.university) {
+        missingFields.push('University Certification');
+        isValid = false;
+    }
+
+    if (!isValid) {
+        toast.error(`Please complete all required fields: ${missingFields.join(', ')}`);
+        return false;
+    }
+
+    // Email validation
+    if (!/\S+@\S+\.\S+/.test(newEmployee.email)) {
+        toast.error('Please enter a valid email address.');
+        return false;
+    }
+
+    // Salary validation
+    if (!newEmployee.salary || parseFloat(newEmployee.salary) <= 0) {
+        toast.error('Salary must be a positive number.');
+        return false;
+    }
+
+    // Incentives (optional but must be non-negative if provided)
+    if (newEmployee.incentives && (isNaN(parseFloat(newEmployee.incentives)) || parseFloat(newEmployee.incentives) < 0)) {
+        toast.error('Incentives must be a non-negative number.');
+        return false;
+    }
+
+    return true;
+}, [newEmployee, avatarFile, signatureFile, documentFiles]);
 
     if (!isOpen) return null;
 
@@ -831,8 +845,8 @@ const AddEmployeeModal = ({ isOpen, onClose, onEmployeeAdded }) => {
                             <h4 className="text-lg font-medium text-black mb-4">Employee Documents</h4>
                             <div className="space-y-6">
                                 {[
-                                    { key: 'nysc', label: 'Filed for NYSC Certification', ref: docInputRefs.nysc },
-                                    { key: 'university', label: 'University Certification', ref: docInputRefs.university },
+                                    { key: 'nysc', label: 'Filed for NYSC Certification*', ref: docInputRefs.nysc },
+                                    { key: 'university', label: 'University Certification *', ref: docInputRefs.university },
                                     { key: 'msc', label: 'MSc Certification', ref: docInputRefs.msc },
                                     { key: 'professional', label: 'Professional Certification', ref: docInputRefs.professional },
                                     { key: 'other', label: 'Other Document', ref: docInputRefs.other },

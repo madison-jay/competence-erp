@@ -1,3 +1,4 @@
+// components/hr/employees/TerminateEmployeeModal.jsx
 import React, { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
 import apiService from "@/app/lib/apiService";
@@ -29,7 +30,7 @@ const TerminateEmployeeModal = ({ isOpen, onClose, employee, onEmployeeDeleted, 
   const [isLoading, setIsLoading] = useState(false);
   const [currentStage, setCurrentStage] = useState(0);
 
-  // Stage 1: Resignation Notice
+  // Stage 1: Resignation Notice (single)
   const [resignationFile, setResignationFile] = useState(null);
   const [resignationUrl, setResignationUrl] = useState('');
   const [resignationSaved, setResignationSaved] = useState(false);
@@ -37,7 +38,7 @@ const TerminateEmployeeModal = ({ isOpen, onClose, employee, onEmployeeDeleted, 
   // Stage 2: Last Working Day
   const [lastWorkingDay, setLastWorkingDay] = useState('');
 
-  // Stage 3: Exit Interview
+  // Stage 3: Exit Interview (single)
   const [exitInterviewFile, setExitInterviewFile] = useState(null);
   const [exitInterviewUrl, setExitInterviewUrl] = useState('');
   const [exitInterviewSaved, setExitInterviewSaved] = useState(false);
@@ -48,11 +49,11 @@ const TerminateEmployeeModal = ({ isOpen, onClose, employee, onEmployeeDeleted, 
   );
   const [newItemName, setNewItemName] = useState('');
 
-  // Stage 5: Final Pay Details
-  const [finalPayFile, setFinalPayFile] = useState(null);
-  const [finalPayUrl, setFinalPayUrl] = useState('');
-  const [finalPaySaved, setFinalPaySaved] = useState(false);
+  // Stage 5: Final Pay Details (multiple files)
+  const [finalPayFiles, setFinalPayFiles] = useState([]); // array of { file, url, name }
+  const [currentFinalPayFile, setCurrentFinalPayFile] = useState(null);
 
+  // Load from localStorage
   useEffect(() => {
     if (!employee?.id) return;
 
@@ -65,22 +66,26 @@ const TerminateEmployeeModal = ({ isOpen, onClose, employee, onEmployeeDeleted, 
       setLastWorkingDay(data.lastWorkingDay || '');
       setExitInterviewUrl(data.exitInterviewUrl || '');
       setExitInterviewSaved(!!data.exitInterviewUrl);
-      setFinalPayUrl(data.finalPayUrl || '');
-      setFinalPaySaved(!!data.finalPayUrl);
+      if (data.finalPayUrls) {
+        setFinalPayFiles(data.finalPayUrls.map(url => ({
+          url,
+          name: url.split('/').pop().split('-').slice(1).join('-') // extract original filename
+        })));
+      }
       if (data.propertyItems) setPropertyItems(data.propertyItems);
 
-      // Restore furthest legitimate stage
+      // Restore furthest stage
       let stage = 0;
       if (data.resignationUrl) stage = 1;
       if (data.lastWorkingDay) stage = 2;
       if (data.exitInterviewUrl) stage = 3;
       if (stage >= 3) stage = 4;
-      if (data.finalPayUrl) stage = 5;
+      if (data.finalPayUrls && data.finalPayUrls.length > 0) stage = 5;
       setCurrentStage(Math.min(stage, 5));
     }
   }, [employee?.id]);
 
-  // Save to localStorage on changes
+  // Save to localStorage
   useEffect(() => {
     if (!employee?.id) return;
 
@@ -89,11 +94,11 @@ const TerminateEmployeeModal = ({ isOpen, onClose, employee, onEmployeeDeleted, 
       resignationUrl,
       lastWorkingDay,
       exitInterviewUrl,
-      finalPayUrl,
+      finalPayUrls: finalPayFiles.map(f => f.url),
       propertyItems
     };
     localStorage.setItem(key, JSON.stringify(dataToSave));
-  }, [resignationUrl, lastWorkingDay, exitInterviewUrl, finalPayUrl, propertyItems, employee?.id]);
+  }, [resignationUrl, lastWorkingDay, exitInterviewUrl, finalPayFiles, propertyItems, employee?.id]);
 
   const uploadFileToSupabase = async (file) => {
     const fileName = `${Date.now()}-${file.name}`;
@@ -125,6 +130,33 @@ const TerminateEmployeeModal = ({ isOpen, onClose, employee, onEmployeeDeleted, 
     }
   };
 
+  const handleUploadFinalPayFile = async () => {
+    if (!currentFinalPayFile) return toast.error("No file selected.");
+
+    try {
+      setIsLoading(true);
+      const url = await uploadFileToSupabase(currentFinalPayFile);
+      const newFileEntry = {
+        url,
+        name: currentFinalPayFile.name
+      };
+      setFinalPayFiles(prev => [...prev, newFileEntry]);
+      setCurrentFinalPayFile(null); // clear input
+      toast.success("Final pay document uploaded");
+      // Clear file input visually
+      document.getElementById('final-pay-input').value = '';
+    } catch (err) {
+      toast.error(`Upload failed: ${err.message}`);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const removeFinalPayFile = (index) => {
+    setFinalPayFiles(prev => prev.filter((_, i) => i !== index));
+    toast.info("Document removed");
+  };
+
   const togglePropertyReturned = (index) => {
     setPropertyItems(prev =>
       prev.map((item, i) =>
@@ -144,7 +176,7 @@ const TerminateEmployeeModal = ({ isOpen, onClose, employee, onEmployeeDeleted, 
     if (!resignationSaved) return toast.error("Resignation notice is required");
     if (!lastWorkingDay) return toast.error("Last working day is required");
     if (!exitInterviewSaved) return toast.error("Exit interview document required");
-    if (!finalPaySaved) return toast.error("Final pay document required");
+    if (finalPayFiles.length === 0) return toast.error("At least one final pay document is required");
 
     setIsLoading(true);
     try {
@@ -177,8 +209,8 @@ const TerminateEmployeeModal = ({ isOpen, onClose, employee, onEmployeeDeleted, 
       case 0: return resignationSaved;
       case 1: return !!lastWorkingDay;
       case 2: return exitInterviewSaved;
-      case 3: return true; // property return has no strict requirement
-      case 4: return finalPaySaved;
+      case 3: return true;
+      case 4: return finalPayFiles.length > 0;
       default: return true;
     }
   };
@@ -246,7 +278,7 @@ const TerminateEmployeeModal = ({ isOpen, onClose, employee, onEmployeeDeleted, 
                 {resignationUrl && (
                   <p className="text-sm">
                     <a href={resignationUrl} target="_blank" rel="noopener noreferrer" className="text-black underline">
-                      View current file
+                      View uploaded file
                     </a>
                   </p>
                 )}
@@ -294,7 +326,7 @@ const TerminateEmployeeModal = ({ isOpen, onClose, employee, onEmployeeDeleted, 
                 {exitInterviewUrl && (
                   <p className="text-sm">
                     <a href={exitInterviewUrl} target="_blank" rel="noopener noreferrer" className="text-black underline">
-                      View current file
+                      View uploaded file
                     </a>
                   </p>
                 )}
@@ -343,35 +375,67 @@ const TerminateEmployeeModal = ({ isOpen, onClose, employee, onEmployeeDeleted, 
             </section>
           )}
 
-          {/* Stage 4: Final Pay Details */}
+          {/* Stage 4: Final Pay Details - Multiple Uploads */}
           {currentStage === 4 && (
             <section className="flex-1">
               <h3 className="text-xl font-semibold text-black mb-6">
                 5. Information of Final Pay, Benefits, Pensions etc. <span className="text-red-600">*</span>
               </h3>
-              <p className="text-sm text-gray-600 mb-4">
-                Include salary, bonus, leave encashment, benefits, pensions, etc.
+              <p className="text-sm text-gray-600 mb-6">
+                Upload all relevant documents: final payslip, bonus letter, leave encashment, pension statement, tax forms, etc.
               </p>
-              <div className="space-y-4 max-w-lg">
-                <input
-                  type="file"
-                  accept=".pdf,.doc,.docx,.xlsx"
-                  onChange={(e) => setFinalPayFile(e.target.files[0] || null)}
-                  className="w-full text-sm text-gray-600 file:mr-4 file:py-2.5 file:px-4 file:rounded-lg file:border file:border-gray-300 file:bg-white file:text-black file:font-medium"
-                />
-                <button
-                  onClick={() => handleSaveDocument(finalPayFile, setFinalPayUrl, setFinalPaySaved, "Final Pay Details")}
-                  disabled={isLoading || !finalPayFile}
-                  className="px-6 py-3 bg-black text-white rounded-lg hover:bg-gray-800 disabled:bg-gray-400 disabled:cursor-not-allowed"
-                >
-                  {finalPaySaved ? 'Re-upload / Replace' : 'Upload & Save'}
-                </button>
-                {finalPayUrl && (
-                  <p className="text-sm">
-                    <a href={finalPayUrl} target="_blank" rel="noopener noreferrer" className="text-black underline">
-                      View current file
-                    </a>
-                  </p>
+
+              <div className="space-y-6 max-w-2xl">
+                {/* Upload Section */}
+                <div className="space-y-4 p-5 border-2 border-dashed border-gray-300 rounded-lg bg-gray-50">
+                  <input
+                    id="final-pay-input"
+                    type="file"
+                    accept=".pdf,.doc,.docx,.xlsx"
+                    onChange={(e) => setCurrentFinalPayFile(e.target.files[0] || null)}
+                    className="w-full text-sm text-gray-600 file:mr-4 file:py-2.5 file:px-4 file:rounded-lg file:border file:border-gray-300 file:bg-white file:text-black file:font-medium"
+                  />
+                  <button
+                    onClick={handleUploadFinalPayFile}
+                    disabled={isLoading || !currentFinalPayFile}
+                    className="px-6 py-3 bg-black text-white rounded-lg hover:bg-gray-800 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                  >
+                    Upload Document
+                  </button>
+                </div>
+
+                {/* Uploaded Files List */}
+                {finalPayFiles.length > 0 && (
+                  <div>
+                    <h4 className="font-medium text-black mb-3">Uploaded Documents ({finalPayFiles.length})</h4>
+                    <div className="space-y-3">
+                      {finalPayFiles.map((file, index) => (
+                        <div key={index} className="flex items-center justify-between p-4 bg-gray-100 rounded-lg">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-black truncate">{file.name}</p>
+                            <a
+                              href={file.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-xs text-blue-600 underline hover:text-blue-800"
+                            >
+                              View file
+                            </a>
+                          </div>
+                          <button
+                            onClick={() => removeFinalPayFile(index)}
+                            className="ml-4 text-red-600 hover:text-red-800 text-sm font-medium"
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {finalPayFiles.length === 0 && (
+                  <p className="text-sm text-gray-500 italic">No documents uploaded yet. At least one is required.</p>
                 )}
               </div>
             </section>
