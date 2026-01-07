@@ -6,7 +6,7 @@ import AddEmployeeModal from '@/components/hr/employees/AddEmployee';
 import EmployeeDetailModal from '@/components/hr/employees/EmployeeDetails';
 import EditEmployeeModal from '@/components/hr/employees/EditEmployee';
 import EmployeeRow from '@/components/hr/employees/EmployeeListTable';
-import DeleteEmployeeModal from '@/components/hr/employees/DeleteEmployeeModal';
+import TerminateEmployeeModal from '@/components/hr/employees/DeleteEmployeeModal';
 import { toast } from 'react-hot-toast';
 import { useRouter } from 'next/navigation';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
@@ -436,7 +436,7 @@ const EmployeeListTable = () => {
                 router={router}
             />
 
-            <DeleteEmployeeModal
+            <TerminateEmployeeModal
                 isOpen={isDeleteEmployeeModalOpen}
                 onClose={() => setIsDeleteEmployeeModalOpen(false)}
                 employee={selectedEmployeeForDelete}
