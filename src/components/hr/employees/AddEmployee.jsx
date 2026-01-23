@@ -7,6 +7,73 @@ import apiService from '@/app/lib/apiService';
 
 const supabase = createClient();
 
+    const CredentialsModal = ({ isOpen, onClose, employee }) => {
+        if (!isOpen || !employee) return null;
+
+        const fullName = `${employee.first_name} ${employee.last_name}`;
+
+        const copyToClipboard = () => {
+            navigator.clipboard.writeText(employee.temporaryPassword);
+            toast.success('Password copied to clipboard!');
+        };
+
+        return (
+            <div className="fixed inset-0 bg-[#000000aa] flex items-center justify-center z-50">
+                <div className="bg-white rounded-lg p-8 max-w-md w-full mx-4 shadow-2xl">
+                    <h3 className="text-2xl font-bold text-black mb-6 text-center">
+                        Employee Created Successfully
+                    </h3>
+
+                    <div className="space-y-5 mb-8">
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700">Full Name</label>
+                            <p className="mt-1 text-lg font-medium text-black">{fullName}</p>
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700">Email</label>
+                            <p className="mt-1 text-lg font-medium text-black break-all">{employee.email}</p>
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700">Temporary Password</label>
+                            <div className="mt-1 flex items-center gap-3">
+                                <code className="bg-gray-100 px-3 py-2 rounded font-mono text-lg flex-1">
+                                    {employee.temporaryPassword}
+                                </code>
+                                <button
+                                    onClick={copyToClipboard}
+                                    className="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded text-sm font-medium"
+                                    title="Copy password"
+                                >
+                                    Copy
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-6">
+                        <p className="text-sm text-yellow-800">
+                            <strong>Important security notice:</strong><br />
+                            Please provide this temporary password to the employee securely.<br />
+                            They should <strong>immediately</strong> change it using the
+                            <strong> "Forgot Password"</strong> link on the login page.
+                        </p>
+                    </div>
+
+                    <div className="flex justify-end">
+                        <button
+                            onClick={onClose}
+                            className="px-8 py-3 bg-black text-white rounded-lg hover:bg-gray-800 font-medium"
+                        >
+                            Close
+                        </button>
+                    </div>
+                </div>
+            </div>
+        );
+    };
+
 const AddEmployeeModal = ({ isOpen, onClose, onEmployeeAdded }) => {
     const [currentStep, setCurrentStep] = useState(1);
     const totalSteps = 4;
@@ -66,6 +133,9 @@ const AddEmployeeModal = ({ isOpen, onClose, onEmployeeAdded }) => {
 
     const [loading, setLoading] = useState(false);
 
+    const [showCredentialsModal, setShowCredentialsModal] = useState(false);
+    const [createdEmployeeInfo, setCreatedEmployeeInfo] = useState(null);
+
     const [departments, setDepartments] = useState([]);
     const [locations, setLocations] = useState([]);
 
@@ -111,73 +181,73 @@ const AddEmployeeModal = ({ isOpen, onClose, onEmployeeAdded }) => {
 
 
     const validateAllFields = useCallback(() => {
-    const requiredFields = {
-        1: ['first_name', 'last_name', 'email', 'date_of_birth', 'marital_status', 'gender'],
-        2: ['phone_number', 'address', 'city', 'state', 'country'],
-        3: ['hire_date', 'guarantor_name', 'guarantor_phone_number', 'guarantor_name_2', 'guarantor_phone_number_2'],
-        4: ['salary', 'bank_account_number', 'bank_name', 'account_name', 'role'],
-    };
+        const requiredFields = {
+            1: ['first_name', 'last_name', 'email', 'date_of_birth', 'marital_status', 'gender'],
+            2: ['phone_number', 'address', 'city', 'state', 'country'],
+            3: ['hire_date', 'guarantor_name', 'guarantor_phone_number', 'guarantor_name_2', 'guarantor_phone_number_2'],
+            4: ['salary', 'bank_account_number', 'bank_name', 'account_name', 'role'],
+        };
 
-    let isValid = true;
-    let missingFields = [];
+        let isValid = true;
+        let missingFields = [];
 
-    // Check text/input required fields
-    for (const step in requiredFields) {
-        requiredFields[step].forEach(field => {
-            if (!newEmployee[field]) {
-                missingFields.push(field.replace(/_/g, ' '));
-                isValid = false;
-            }
-        });
-    }
+        // Check text/input required fields
+        for (const step in requiredFields) {
+            requiredFields[step].forEach(field => {
+                if (!newEmployee[field]) {
+                    missingFields.push(field.replace(/_/g, ' '));
+                    isValid = false;
+                }
+            });
+        }
 
-    // Check required file uploads
-    if (!avatarFile) {
-        missingFields.push('Employee Photo');
-        isValid = false;
-    }
+        // Check required file uploads
+        if (!avatarFile) {
+            missingFields.push('Employee Photo');
+            isValid = false;
+        }
 
-    if (!signatureFile) {
-        missingFields.push('Scanned Signature');
-        isValid = false;
-    }
+        if (!signatureFile) {
+            missingFields.push('Scanned Signature');
+            isValid = false;
+        }
 
-    // NEW: Make NYSC and University documents compulsory
-    if (!documentFiles.nysc) {
-        missingFields.push('NYSC Certification');
-        isValid = false;
-    }
+        // NEW: Make NYSC and University documents compulsory
+        if (!documentFiles.nysc) {
+            missingFields.push('NYSC Certification');
+            isValid = false;
+        }
 
-    if (!documentFiles.university) {
-        missingFields.push('University Certification');
-        isValid = false;
-    }
+        if (!documentFiles.university) {
+            missingFields.push('University Certification');
+            isValid = false;
+        }
 
-    if (!isValid) {
-        toast.error(`Please complete all required fields: ${missingFields.join(', ')}`);
-        return false;
-    }
+        if (!isValid) {
+            toast.error(`Please complete all required fields: ${missingFields.join(', ')}`);
+            return false;
+        }
 
-    // Email validation
-    if (!/\S+@\S+\.\S+/.test(newEmployee.email)) {
-        toast.error('Please enter a valid email address.');
-        return false;
-    }
+        // Email validation
+        if (!/\S+@\S+\.\S+/.test(newEmployee.email)) {
+            toast.error('Please enter a valid email address.');
+            return false;
+        }
 
-    // Salary validation
-    if (!newEmployee.salary || parseFloat(newEmployee.salary) <= 0) {
-        toast.error('Salary must be a positive number.');
-        return false;
-    }
+        // Salary validation
+        if (!newEmployee.salary || parseFloat(newEmployee.salary) <= 0) {
+            toast.error('Salary must be a positive number.');
+            return false;
+        }
 
-    // Incentives (optional but must be non-negative if provided)
-    if (newEmployee.incentives && (isNaN(parseFloat(newEmployee.incentives)) || parseFloat(newEmployee.incentives) < 0)) {
-        toast.error('Incentives must be a non-negative number.');
-        return false;
-    }
+        // Incentives (optional but must be non-negative if provided)
+        if (newEmployee.incentives && (isNaN(parseFloat(newEmployee.incentives)) || parseFloat(newEmployee.incentives) < 0)) {
+            toast.error('Incentives must be a non-negative number.');
+            return false;
+        }
 
-    return true;
-}, [newEmployee, avatarFile, signatureFile, documentFiles]);
+        return true;
+    }, [newEmployee, avatarFile, signatureFile, documentFiles]);
 
     if (!isOpen) return null;
 
@@ -337,56 +407,40 @@ const AddEmployeeModal = ({ isOpen, onClose, onEmployeeAdded }) => {
 
             await apiService.createEmployee(employeeDataToInsert);
 
-            const fullName = `${newEmployee.first_name.trim()} ${newEmployee.last_name.trim()}`;
-            const departmentName = departments.find(d => d.id === Number(newEmployee.department_id))?.name || 'Not Assigned';
-
-            try {
-                const welcomeResponse = await fetch('/api/send-employee-welcome', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        email: newEmployee.email,
-                        fullName,
-                        temporaryPassword,
-                        role: newEmployee.role,
-                        position: newEmployee.position || 'Employee',
-                        department: departmentName,
-                    }),
-                });
-
-                if (!welcomeResponse.ok) {
-                    toast.warning('Employee added successfully, but welcome email could not be sent.');
-                }
-            } catch (emailErr) {
-                toast.warning('Account created! Login details email failed (will be sent manually).');
-            }
-
             toast.success('Employee registered successfully!');
 
+            setCreatedEmployeeInfo({
+                first_name: newEmployee.first_name,
+                last_name: newEmployee.last_name,
+                email: newEmployee.email,
+                temporaryPassword,
+            });
+            setShowCredentialsModal(true);
+
             // Reset everything after success
-            setTimeout(() => {
-                onEmployeeAdded();
-                onClose();
+            // setTimeout(() => {
+            //     onEmployeeAdded();
+            //     onClose();
 
-                setNewEmployee({
-                    first_name: '', last_name: '', email: '', phone_number: '', address: '', city: '', state: '', zip_code: '', country: 'Nigeria', date_of_birth: '', hire_date: '', employment_status: 'active', position: '', department_id: '', location_id: '',
-                    guarantor_name: '', guarantor_phone_number: '', guarantor_name_2: '', guarantor_phone_number_2: '',
-                    salary: '', incentives: '', marital_status: '', bank_account_number: '', bank_name: '', account_name: '', gender: '', role: ''
-                });
-                setAvatarFile(null);
-                setAvatarPreviewUrl(null);
-                setSignatureFile(null);
-                setSignaturePreviewUrl(null);
-                setDocumentFiles({ nysc: null, university: null, msc: null, professional: null, other: null });
-                setDocumentPreviews({ nysc: null, university: null, msc: null, professional: null, other: null });
-                setCurrentStep(1);
+            //     setNewEmployee({
+            //         first_name: '', last_name: '', email: '', phone_number: '', address: '', city: '', state: '', zip_code: '', country: 'Nigeria', date_of_birth: '', hire_date: '', employment_status: 'active', position: '', department_id: '', location_id: '',
+            //         guarantor_name: '', guarantor_phone_number: '', guarantor_name_2: '', guarantor_phone_number_2: '',
+            //         salary: '', incentives: '', marital_status: '', bank_account_number: '', bank_name: '', account_name: '', gender: '', role: ''
+            //     });
+            //     setAvatarFile(null);
+            //     setAvatarPreviewUrl(null);
+            //     setSignatureFile(null);
+            //     setSignaturePreviewUrl(null);
+            //     setDocumentFiles({ nysc: null, university: null, msc: null, professional: null, other: null });
+            //     setDocumentPreviews({ nysc: null, university: null, msc: null, professional: null, other: null });
+            //     setCurrentStep(1);
 
-                if (avatarInputRef.current) avatarInputRef.current.value = '';
-                if (signatureInputRef.current) signatureInputRef.current.value = '';
-                Object.values(docInputRefs).forEach(ref => {
-                    if (ref.current) ref.current.value = '';
-                });
-            }, 2500);
+            //     if (avatarInputRef.current) avatarInputRef.current.value = '';
+            //     if (signatureInputRef.current) signatureInputRef.current.value = '';
+            //     Object.values(docInputRefs).forEach(ref => {
+            //         if (ref.current) ref.current.value = '';
+            //     });
+            // }, 2500);
 
         } catch (err) {
             console.error('Error during employee registration:', err);
@@ -394,6 +448,35 @@ const AddEmployeeModal = ({ isOpen, onClose, onEmployeeAdded }) => {
         } finally {
             setLoading(false);
         }
+    };
+
+    const handleCredentialsModalClose = () => {
+        setShowCredentialsModal(false);
+        setCreatedEmployeeInfo(null);
+
+        // Now it's safe to close & reset the add employee modal
+        onEmployeeAdded();
+        onClose();
+
+        setNewEmployee({
+                    first_name: '', last_name: '', email: '', phone_number: '', address: '', city: '', state: '', zip_code: '', country: 'Nigeria', date_of_birth: '', hire_date: '', employment_status: 'active', position: '', department_id: '', location_id: '',
+                    guarantor_name: '', guarantor_phone_number: '', guarantor_name_2: '', guarantor_phone_number_2: '',
+                    salary: '', incentives: '', marital_status: '', bank_account_number: '', bank_name: '', account_name: '', gender: '', role: ''
+                });
+        setAvatarFile(null);
+        setAvatarPreviewUrl(null);
+        setSignatureFile(null);
+        setSignaturePreviewUrl(null);
+        setDocumentFiles({ nysc: null, university: null, msc: null, professional: null, other: null });
+        setDocumentPreviews({ nysc: null, university: null, msc: null, professional: null, other: null });
+        setCurrentStep(1);
+
+        // Clear file inputs
+        if (avatarInputRef.current) avatarInputRef.current.value = '';
+        if (signatureInputRef.current) signatureInputRef.current.value = '';
+        Object.values(docInputRefs).forEach(ref => {
+            if (ref.current) ref.current.value = '';
+        });
     };
 
     const renderStepContent = () => {
@@ -937,6 +1020,11 @@ const AddEmployeeModal = ({ isOpen, onClose, onEmployeeAdded }) => {
                     </div>
                 </form>
             </div>
+            <CredentialsModal
+                isOpen={showCredentialsModal}
+                onClose={handleCredentialsModalClose}
+                employee={createdEmployeeInfo}
+            />
         </div>
     );
 };
