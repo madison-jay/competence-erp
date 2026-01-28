@@ -2,7 +2,7 @@
 import { createClient } from "./supabase/client";
 
 const supabase = createClient();
-const BASE_URL = "http://localhost:5000/api/v1";
+const BASE_URL = "https://competence-backend-c2b27a72974e.herokuapp.com/api/v1";
 
 const CACHE_PREFIX = "api_cache_";
 const CACHE_EXPIRY = 1000 * 60 * 5;
