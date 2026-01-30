@@ -42,9 +42,43 @@ export default function PayslipTemplate({ employee, payment }) {
             maximumFractionDigits: 0,
         });
 
-    const amountInWords = net === 0
-        ? "Nigerian Naira Zero Only"
-        : `Two Million Naira Only`;
+    // Helper: Convert number to words (English, international style)
+    function numberToWords(num) {
+        if (num === 0) return "Zero";
+
+        const ones = [
+            "", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine",
+            "Ten", "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen",
+            "Seventeen", "Eighteen", "Nineteen"
+        ];
+        const tens = [
+            "", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety"
+        ];
+        const thousands = ["", "Thousand", "Million", "Billion"];
+
+        function helper(n) {
+            if (n < 20) return ones[n];
+            if (n < 100) {
+                return tens[Math.floor(n / 10)] + (n % 10 ? " " + ones[n % 10] : "");
+            }
+            if (n < 1000) {
+                return ones[Math.floor(n / 100)] + " Hundred" + (n % 100 ? " " + helper(n % 100) : "");
+            }
+
+            for (let i = 3; i >= 1; i--) {
+                const divisor = 1000 ** i;
+                if (n >= divisor) {
+                    return helper(Math.floor(n / divisor)) + " " + thousands[i] + (n % divisor ? " " + helper(n % divisor) : "");
+                }
+            }
+            return "";
+        }
+
+        const words = helper(Math.floor(num));
+        return words.trim() + " Naira Only";
+    }
+
+    const amountInWords = numberToWords(net);
 
     return (
         <div
@@ -55,7 +89,7 @@ export default function PayslipTemplate({ employee, payment }) {
             {/* Header */}
             <div className="flex justify-between items-start mb-12">
                 <img
-                    src="/madisonjayng_logo.png"
+                    src="/competence-logo.webp"
                     alt="Company Logo"
                     className="w-32 h-auto object-contain"
                     width={100}
@@ -71,13 +105,14 @@ export default function PayslipTemplate({ employee, payment }) {
             {/* Company Info */}
             <div className="mb-12 space-y-2">
                 <h2 className="text-base font-semibold">
-                    MadisonJay Nigeria Limited
+                    Competence
                 </h2>
                 <div className="text-gray-700 text-sm leading-relaxed">
-                    <p>13, Alhaji Kanike Close,
-                        <br />Off Awolowo Road,
-                        <br />Ikoyi - Lagos,
-                        <br /> Nigeria</p>
+                    <p>
+                        222A Freedom Way, <br />
+                        Lekki Phase 1, <br />
+                        Lagos 106104, Lagos
+                    </p>
                 </div>
             </div>
 
