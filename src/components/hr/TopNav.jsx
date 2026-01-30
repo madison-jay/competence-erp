@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faBars, faSignOutAlt, faUserCircle, faBell, faCaretDown } from '@fortawesome/free-solid-svg-icons';
+import { faBars, faSignOutAlt, faUserCircle, faBell, faCaretDown, faMoneyBill1 } from '@fortawesome/free-solid-svg-icons';
 import Image from "next/image";
 import { createClient } from '@/app/lib/supabase/client';
 import { useRouter } from 'next/navigation';
@@ -117,19 +117,20 @@ export default function TopNavBar({ onMobileMenuToggle, profile }) {
 
                     {isDropdownOpen && (
                         <div className="absolute right-0 top-full mt-2 w-48 bg-white border border-gray-200 rounded-md shadow-lg py-1 z-50">
-                            {/* <button
-                                onClick={() => handleDropdownClick('/humanResources/notifications')}
-                                className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                            >
-                                <FontAwesomeIcon icon={faBell} className="mr-2 text-gray-500" />
-                                Notifications
-                            </button> */}
                             <button
                                 onClick={() => handleDropdownClick('/humanResources/my-profile')}
                                 className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                             >
                                 <FontAwesomeIcon icon={faUserCircle} className="mr-2 text-gray-500" />
                                 My Profile
+                            </button>
+                            <div className="border-t border-gray-100 my-1"></div>
+                             <button
+                                onClick={() => handleDropdownClick('/humanResources/transaction-history')}
+                                className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                            >
+                                <FontAwesomeIcon icon={faMoneyBill1} className="mr-2 text-gray-500" />
+                                Transaction History
                             </button>
                             <div className="border-t border-gray-100 my-1"></div>
                             <button

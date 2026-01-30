@@ -5,6 +5,9 @@ import apiService from "@/app/lib/apiService";
 import { useRouter } from "next/navigation";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faEye, faTimes } from "@fortawesome/free-solid-svg-icons";
+import html2canvas from "html2canvas-pro";
+import jsPDF from "jspdf";
+import PayslipTemplate from "@/components/PayslipTemplate";
 
 export default function PaymentPage() {
     const router = useRouter();
@@ -20,6 +23,26 @@ export default function PaymentPage() {
     const [greeting, setGreeting] = useState('');
 
     const first_name = typeof window !== 'undefined' ? localStorage.getItem('first_name') : '';
+
+    const downloadPayslip = async (payment) => {
+        setSelectedPayment(payment);
+
+        setTimeout(async () => {
+            const element = document.getElementById("payslip");
+
+            const canvas = await html2canvas(element, { scale: 2 });
+            const imgData = canvas.toDataURL("image/png");
+
+            const pdf = new jsPDF("p", "mm", "a4");
+
+            const width = pdf.internal.pageSize.getWidth();
+            const height = (canvas.height * width) / canvas.width;
+
+            pdf.addImage(imgData, "PNG", 0, 0, width, height);
+
+            pdf.save(`Payslip-${payment.month_year}.pdf`);
+        }, 300);
+    };
 
 
     useEffect(() => {
@@ -433,15 +456,22 @@ export default function PaymentPage() {
                                                     {payment.status ? payment.status.charAt(0).toUpperCase() + payment.status.slice(1) : 'Unknown'}
                                                 </span>
                                             </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium flex flex-nowrap space-x-4 items-center justify-center mt-2">
                                                 <button
                                                     onClick={() => handleViewDetails(payment)}
                                                     className="text-blue-600 hover:text-blue-900 flex items-center gap-1"
                                                     title="View payment details"
                                                 >
                                                     <FontAwesomeIcon icon={faEye} />
-                                                    <span>View</span>
                                                 </button>
+
+                                                <button
+                                                    onClick={() => downloadPayslip(payment)}
+                                                    className="text-green-600 hover:text-green-900 flex items-center gap-1"
+                                                >
+                                                    <FontAwesomeIcon icon={faDownload} />
+                                                </button>
+
                                             </td>
                                         </tr>
                                     ))}
@@ -493,6 +523,14 @@ export default function PaymentPage() {
                     loading={detailsLoading}
                 />
             )}
+
+            <div className="fixed left-[-9999px] top-0">
+                <PayslipTemplate
+                    employee={employeeData}
+                    payment={selectedPayment}
+                />
+            </div>
+
         </div>
     );
 }
