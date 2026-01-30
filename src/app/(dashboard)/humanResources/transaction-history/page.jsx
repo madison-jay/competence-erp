@@ -7,7 +7,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faEye, faTimes, faDownload } from "@fortawesome/free-solid-svg-icons";
 import html2canvas from "html2canvas-pro";
 import jsPDF from "jspdf";
-import PayslipTemplate from "@/components/PayslipTemplate";
+import PayslipTemplate from "@/components/Paysliptemplate";
 
 
 export default function PaymentPage() {
